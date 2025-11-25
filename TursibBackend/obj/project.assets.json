@@ -47,6 +47,19 @@
           }
         }
       },
+      "CsvHelper/33.1.0": {
+        "type": "package",
+        "compile": {
+          "lib/net9.0/CsvHelper.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net9.0/CsvHelper.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "Humanizer.Core/2.14.1": {
         "type": "package",
         "compile": {
@@ -1071,6 +1084,41 @@
           "buildTransitive/Mono.TextTemplating.targets": {}
         }
       },
+      "runtime.native.System.Data.SqlClient.sni/4.4.0": {
+        "type": "package",
+        "dependencies": {
+          "runtime.win-arm64.runtime.native.System.Data.SqlClient.sni": "4.4.0",
+          "runtime.win-x64.runtime.native.System.Data.SqlClient.sni": "4.4.0",
+          "runtime.win-x86.runtime.native.System.Data.SqlClient.sni": "4.4.0"
+        }
+      },
+      "runtime.win-arm64.runtime.native.System.Data.SqlClient.sni/4.4.0": {
+        "type": "package",
+        "runtimeTargets": {
+          "runtimes/win-arm64/native/sni.dll": {
+            "assetType": "native",
+            "rid": "win-arm64"
+          }
+        }
+      },
+      "runtime.win-x64.runtime.native.System.Data.SqlClient.sni/4.4.0": {
+        "type": "package",
+        "runtimeTargets": {
+          "runtimes/win-x64/native/sni.dll": {
+            "assetType": "native",
+            "rid": "win-x64"
+          }
+        }
+      },
+      "runtime.win-x86.runtime.native.System.Data.SqlClient.sni/4.4.0": {
+        "type": "package",
+        "runtimeTargets": {
+          "runtimes/win-x86/native/sni.dll": {
+            "assetType": "native",
+            "rid": "win-x86"
+          }
+        }
+      },
       "SQLitePCLRaw.bundle_e_sqlite3/2.1.10": {
         "type": "package",
         "dependencies": {
@@ -1383,6 +1431,35 @@
         },
         "build": {
           "buildTransitive/netcoreapp3.1/_._": {}
+        }
+      },
+      "System.Data.SqlClient/4.9.0": {
+        "type": "package",
+        "dependencies": {
+          "runtime.native.System.Data.SqlClient.sni": "4.4.0"
+        },
+        "compile": {
+          "lib/net8.0/System.Data.SqlClient.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/System.Data.SqlClient.dll": {
+            "related": ".xml"
+          }
+        },
+        "build": {
+          "buildTransitive/net6.0/_._": {}
+        },
+        "runtimeTargets": {
+          "runtimes/unix/lib/net8.0/System.Data.SqlClient.dll": {
+            "assetType": "runtime",
+            "rid": "unix"
+          },
+          "runtimes/win/lib/net8.0/System.Data.SqlClient.dll": {
+            "assetType": "runtime",
+            "rid": "win"
+          }
         }
       },
       "System.Diagnostics.DiagnosticSource/6.0.1": {
@@ -1863,6 +1940,32 @@
         "azureicon.png",
         "lib/netstandard2.0/Azure.Identity.dll",
         "lib/netstandard2.0/Azure.Identity.xml"
+      ]
+    },
+    "CsvHelper/33.1.0": {
+      "sha512": "kqfTOZGrn7NarNeXgjh86JcpTHUoeQDMB8t9NVa/ZtlSYiV1rxfRnQ49WaJsob4AiGrbK0XDzpyKkBwai4F8eg==",
+      "type": "package",
+      "path": "csvhelper/33.1.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "csvhelper.33.1.0.nupkg.sha512",
+        "csvhelper.nuspec",
+        "lib/net462/CsvHelper.dll",
+        "lib/net462/CsvHelper.xml",
+        "lib/net47/CsvHelper.dll",
+        "lib/net47/CsvHelper.xml",
+        "lib/net48/CsvHelper.dll",
+        "lib/net48/CsvHelper.xml",
+        "lib/net8.0/CsvHelper.dll",
+        "lib/net8.0/CsvHelper.xml",
+        "lib/net9.0/CsvHelper.dll",
+        "lib/net9.0/CsvHelper.xml",
+        "lib/netstandard2.0/CsvHelper.dll",
+        "lib/netstandard2.0/CsvHelper.xml",
+        "lib/netstandard2.1/CsvHelper.dll",
+        "lib/netstandard2.1/CsvHelper.xml"
       ]
     },
     "Humanizer.Core/2.14.1": {
@@ -3820,6 +3923,69 @@
         "readme.md"
       ]
     },
+    "runtime.native.System.Data.SqlClient.sni/4.4.0": {
+      "sha512": "A8v6PGmk+UGbfWo5Ixup0lPM4swuSwOiayJExZwKIOjTlFFQIsu3QnDXECosBEyrWSPryxBVrdqtJyhK3BaupQ==",
+      "type": "package",
+      "path": "runtime.native.system.data.sqlclient.sni/4.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE.TXT",
+        "THIRD-PARTY-NOTICES.TXT",
+        "runtime.native.system.data.sqlclient.sni.4.4.0.nupkg.sha512",
+        "runtime.native.system.data.sqlclient.sni.nuspec",
+        "useSharedDesignerContext.txt",
+        "version.txt"
+      ]
+    },
+    "runtime.win-arm64.runtime.native.System.Data.SqlClient.sni/4.4.0": {
+      "sha512": "LbrynESTp3bm5O/+jGL8v0Qg5SJlTV08lpIpFesXjF6uGNMWqFnUQbYBJwZTeua6E/Y7FIM1C54Ey1btLWupdg==",
+      "type": "package",
+      "path": "runtime.win-arm64.runtime.native.system.data.sqlclient.sni/4.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "ThirdPartyNotices.txt",
+        "dotnet_library_license.txt",
+        "runtime.win-arm64.runtime.native.system.data.sqlclient.sni.4.4.0.nupkg.sha512",
+        "runtime.win-arm64.runtime.native.system.data.sqlclient.sni.nuspec",
+        "runtimes/win-arm64/native/sni.dll",
+        "useSharedDesignerContext.txt",
+        "version.txt"
+      ]
+    },
+    "runtime.win-x64.runtime.native.System.Data.SqlClient.sni/4.4.0": {
+      "sha512": "38ugOfkYJqJoX9g6EYRlZB5U2ZJH51UP8ptxZgdpS07FgOEToV+lS11ouNK2PM12Pr6X/PpT5jK82G3DwH/SxQ==",
+      "type": "package",
+      "path": "runtime.win-x64.runtime.native.system.data.sqlclient.sni/4.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "ThirdPartyNotices.txt",
+        "dotnet_library_license.txt",
+        "runtime.win-x64.runtime.native.system.data.sqlclient.sni.4.4.0.nupkg.sha512",
+        "runtime.win-x64.runtime.native.system.data.sqlclient.sni.nuspec",
+        "runtimes/win-x64/native/sni.dll",
+        "useSharedDesignerContext.txt",
+        "version.txt"
+      ]
+    },
+    "runtime.win-x86.runtime.native.System.Data.SqlClient.sni/4.4.0": {
+      "sha512": "YhEdSQUsTx+C8m8Bw7ar5/VesXvCFMItyZF7G1AUY+OM0VPZUOeAVpJ4Wl6fydBGUYZxojTDR3I6Bj/+BPkJNA==",
+      "type": "package",
+      "path": "runtime.win-x86.runtime.native.system.data.sqlclient.sni/4.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "ThirdPartyNotices.txt",
+        "dotnet_library_license.txt",
+        "runtime.win-x86.runtime.native.system.data.sqlclient.sni.4.4.0.nupkg.sha512",
+        "runtime.win-x86.runtime.native.system.data.sqlclient.sni.nuspec",
+        "runtimes/win-x86/native/sni.dll",
+        "useSharedDesignerContext.txt",
+        "version.txt"
+      ]
+    },
     "SQLitePCLRaw.bundle_e_sqlite3/2.1.10": {
       "sha512": "UxWuisvZ3uVcVOLJQv7urM/JiQH+v3TmaJc1BLKl5Dxfm/nTzTUrqswCqg/INiYLi61AXnHo1M1JPmPqqLnAdg==",
       "type": "package",
@@ -4161,6 +4327,39 @@
         "system.configuration.configurationmanager.6.0.1.nupkg.sha512",
         "system.configuration.configurationmanager.nuspec",
         "useSharedDesignerContext.txt"
+      ]
+    },
+    "System.Data.SqlClient/4.9.0": {
+      "sha512": "j4KJO+vC62NyUtNHz854njEqXbT8OmAa5jb1nrGfYWBOcggyYUQE0w/snXeaCjdvkSKWuUD+hfvlbN8pTrJTXg==",
+      "type": "package",
+      "path": "system.data.sqlclient/4.9.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "Icon.png",
+        "PACKAGE.md",
+        "buildTransitive/net461/System.Data.SqlClient.targets",
+        "buildTransitive/net462/_._",
+        "buildTransitive/net6.0/_._",
+        "buildTransitive/netcoreapp2.0/System.Data.SqlClient.targets",
+        "lib/net462/System.Data.SqlClient.dll",
+        "lib/net462/System.Data.SqlClient.xml",
+        "lib/net6.0/System.Data.SqlClient.dll",
+        "lib/net6.0/System.Data.SqlClient.xml",
+        "lib/net8.0/System.Data.SqlClient.dll",
+        "lib/net8.0/System.Data.SqlClient.xml",
+        "lib/netstandard2.0/System.Data.SqlClient.dll",
+        "lib/netstandard2.0/System.Data.SqlClient.xml",
+        "runtimes/unix/lib/net6.0/System.Data.SqlClient.dll",
+        "runtimes/unix/lib/net6.0/System.Data.SqlClient.xml",
+        "runtimes/unix/lib/net8.0/System.Data.SqlClient.dll",
+        "runtimes/unix/lib/net8.0/System.Data.SqlClient.xml",
+        "runtimes/win/lib/net6.0/System.Data.SqlClient.dll",
+        "runtimes/win/lib/net6.0/System.Data.SqlClient.xml",
+        "runtimes/win/lib/net8.0/System.Data.SqlClient.dll",
+        "runtimes/win/lib/net8.0/System.Data.SqlClient.xml",
+        "system.data.sqlclient.4.9.0.nupkg.sha512",
+        "system.data.sqlclient.nuspec"
       ]
     },
     "System.Diagnostics.DiagnosticSource/6.0.1": {
@@ -5101,11 +5300,13 @@
   },
   "projectFileDependencyGroups": {
     "net9.0": [
+      "CsvHelper >= 33.1.0",
       "Microsoft.AspNetCore.OpenApi >= 9.0.10",
       "Microsoft.EntityFrameworkCore >= 9.0.10",
       "Microsoft.EntityFrameworkCore.SqlServer >= 9.0.10",
       "Microsoft.EntityFrameworkCore.Sqlite >= 9.0.10",
-      "Microsoft.EntityFrameworkCore.Tools >= 9.0.10"
+      "Microsoft.EntityFrameworkCore.Tools >= 9.0.10",
+      "System.Data.SqlClient >= 4.9.0"
     ]
   },
   "packageFolders": {
@@ -5159,6 +5360,10 @@
       "net9.0": {
         "targetAlias": "net9.0",
         "dependencies": {
+          "CsvHelper": {
+            "target": "Package",
+            "version": "[33.1.0, )"
+          },
           "Microsoft.AspNetCore.OpenApi": {
             "target": "Package",
             "version": "[9.0.10, )"
@@ -5180,6 +5385,10 @@
             "suppressParent": "All",
             "target": "Package",
             "version": "[9.0.10, )"
+          },
+          "System.Data.SqlClient": {
+            "target": "Package",
+            "version": "[4.9.0, )"
           }
         },
         "imports": [

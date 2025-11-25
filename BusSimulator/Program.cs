@@ -24,21 +24,50 @@ namespace BusSimulator
             var firebaseClient = new FirebaseClient(FirebaseUrl);
             var httpClient = new HttpClient();
             
-            // Simulăm 3 autobuze
-            var bus1 = new BusSimulator(1, 1, firebaseClient, httpClient); // Bus ID 1, Route 1
-            var bus2 = new BusSimulator(2, 2, firebaseClient, httpClient); // Bus ID 2, Route 2 (Linia 11)
-            var bus3 = new BusSimulator(3, 3, firebaseClient, httpClient); // Bus ID 3, Route 3 (Linia 2)
+            // Încarcă toate traseele din API
+            var routes = await LoadAllRoutes(httpClient);
             
-            Console.WriteLine("✅ Simulator initialized!");
-            Console.WriteLine("📡 Sending location updates every 3 seconds...");
+            if (routes.Count == 0)
+            {
+                Console.WriteLine("❌ No routes found!");
+                return;
+            }
+            
+            Console.WriteLine($"📍 Found {routes.Count} routes in GTFS");
+            
+            // Creează simulatoare pentru toate traseele
+            var simulators = new List<Task>();
+            var busId = 1;
+            
+            foreach (var route in routes)
+            {
+                var simulator = new BusSimulator(busId++, route.Id, firebaseClient, httpClient);
+                simulators.Add(simulator.StartSimulation());
+                
+                // Delay mic între porniri pentru a nu supraîncărca API-ul
+                await Task.Delay(200);
+            }
+            
+            Console.WriteLine($"✅ {simulators.Count} simulators initialized!");
+            Console.WriteLine("📡 Sending location updates...");
             Console.WriteLine("Press Ctrl+C to stop.\n");
             
             // Rulează toate simulatoarele în paralel
-            var task1 = bus1.StartSimulation();
-            var task2 = bus2.StartSimulation();
-            var task3 = bus3.StartSimulation();
-            
-            await Task.WhenAll(task1, task2, task3);
+            await Task.WhenAll(simulators);
+        }
+        
+        static async Task<List<RouteInfo>> LoadAllRoutes(HttpClient httpClient)
+        {
+            try
+            {
+                var response = await httpClient.GetStringAsync($"{ApiUrl}/routes");
+                return JsonConvert.DeserializeObject<List<RouteInfo>>(response) ?? new List<RouteInfo>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Failed to load routes: {ex.Message}");
+                return new List<RouteInfo>();
+            }
         }
     }
     
@@ -73,7 +102,7 @@ namespace BusSimulator
             
             Console.WriteLine($"✅ Bus {busId} (Route {routeId}): Loaded {stations.Count} stations");
             
-            // Calculează traseul pe străzi folosind OSRM
+            // Calculează traseul folosind GTFS shapes (cu fallback la OSRM)
             await CalculateRoutePoints();
             
             if (routePoints.Count == 0)
@@ -137,17 +166,38 @@ namespace BusSimulator
         {
             try
             {
-                // Construiește URL pentru OSRM API cu opțiuni avansate
-                var coordinates = string.Join(";", stations.Select(s => $"{s.Longitude},{s.Latitude}"));
+                // Încearcă să folosești GTFS shapes mai întâi
+                Console.WriteLine($"🗺️  Bus {busId}: Loading GTFS shape for route {routeId}...");
                 
-                // Parametri avansați:
-                // - steps=true: returnează instrucțiuni detaliate
-                // - geometries=geojson: format coordonate
-                // - overview=full: traseu complet
-                // - continue_straight=false: evită U-turn-uri aiurea
-                // - annotations=true: adaugă informații despre segmente
+                var shapeResponse = await httpClient.GetStringAsync($"{Program.ApiUrl}/shapes/route/{routeId}");
+                var shapeData = JsonConvert.DeserializeObject<dynamic>(shapeResponse);
+                
+                if (shapeData?.points != null && shapeData.points.Count > 0)
+                {
+                    // Folosește punctele din GTFS shapes
+                    foreach (var point in shapeData.points)
+                    {
+                        double lat = point.latitude;
+                        double lon = point.longitude;
+                        routePoints.Add((lat, lon));
+                    }
+                    
+                    Console.WriteLine($"   ✅ Loaded {routePoints.Count} GTFS shape points");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ Bus {busId}: GTFS shapes not available ({ex.Message}), trying OSRM...");
+            }
+            
+            // Fallback: folosește OSRM
+            try
+            {
+                // Construiește URL pentru OSRM API
+                var coordinates = string.Join(";", stations.Select(s => $"{s.Longitude},{s.Latitude}"));
                 var url = $"https://router.project-osrm.org/route/v1/driving/{coordinates}" +
-                          $"?overview=full&geometries=geojson&steps=true&continue_straight=false&annotations=true";
+                          $"?overview=full&geometries=geojson";
                 
                 var response = await httpClient.GetStringAsync(url);
                 var data = JsonConvert.DeserializeObject<dynamic>(response);
@@ -165,22 +215,19 @@ namespace BusSimulator
                         routePoints.Add((lat, lon));
                     }
                     
-                    // Afișează informații despre traseu
-                    var distance = (double)data.routes[0].distance / 1000.0; // km
-                    var duration = (double)data.routes[0].duration / 60.0; // minute
-                    Console.WriteLine($"   📏 Distance: {distance:F2} km, Duration: {duration:F1} min");
+                    Console.WriteLine($"   ✅ Loaded {routePoints.Count} OSRM route points");
                 }
                 else
                 {
                     Console.WriteLine($"⚠️ Bus {busId}: OSRM failed, using straight lines");
-                    // Fallback: folosim direct stațiile
+                    // Fallback final: folosim direct stațiile
                     routePoints = stations.Select(s => (s.Latitude, s.Longitude)).ToList();
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ Bus {busId}: Route calculation error: {ex.Message}");
-                // Fallback: folosim direct stațiile
+                Console.WriteLine($"⚠️ Bus {busId}: OSRM error: {ex.Message}");
+                // Fallback final: folosim direct stațiile
                 routePoints = stations.Select(s => (s.Latitude, s.Longitude)).ToList();
             }
         }
@@ -227,5 +274,20 @@ namespace BusSimulator
         
         [JsonProperty("longitude")]
         public double Longitude { get; set; }
+    }
+    
+    class RouteInfo
+    {
+        [JsonProperty("id")]
+        public int Id { get; set; }
+        
+        [JsonProperty("routeNumber")]
+        public string RouteNumber { get; set; } = string.Empty;
+        
+        [JsonProperty("name")]
+        public string Name { get; set; } = string.Empty;
+        
+        [JsonProperty("color")]
+        public string Color { get; set; } = string.Empty;
     }
 }
