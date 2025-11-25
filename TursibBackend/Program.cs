@@ -43,6 +43,104 @@ app.UseCors("AllowVueApp");
 // Mapează controllerele
 app.MapControllers();
 
+// Endpoint pentru import GTFS
+app.MapPost("/api/import-gtfs", () =>
+{
+    try
+    {
+        TursibBackend.RunGTFSImport.ExecuteImport();
+        return Results.Ok(new { message = "GTFS import completed successfully" });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Import failed: {ex.Message}");
+    }
+})
+.WithName("ImportGTFS");
+
+// Endpoint DEBUG pentru RouteStations
+app.MapGet("/api/debug/routestations", () =>
+{
+    using var conn = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=TursibDb.db");
+    conn.Open();
+    
+    var cmd = conn.CreateCommand();
+    cmd.CommandText = "SELECT COUNT(*) FROM RouteStations";
+    var count = cmd.ExecuteScalar();
+    
+    cmd.CommandText = "SELECT RouteId, COUNT(*) as StationCount FROM RouteStations GROUP BY RouteId LIMIT 10";
+    var results = new List<object>();
+    using (var reader = cmd.ExecuteReader())
+    {
+        while (reader.Read())
+        {
+            results.Add(new { routeId = reader.GetInt32(0), stationCount = reader.GetInt32(1) });
+        }
+    }
+    
+    return Results.Ok(new { totalRouteStations = count, byRoute = results });
+})
+.WithName("DebugRouteStations");
+
+// Endpoint DEBUG pentru Trips și StopTimes
+app.MapGet("/api/debug/gtfs", () =>
+{
+    using var conn = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=TursibDb.db");
+    conn.Open();
+    
+    var info = new Dictionary<string, object>();
+    
+    var cmd = conn.CreateCommand();
+    cmd.CommandText = "SELECT COUNT(*) FROM Routes";
+    info["routes"] = cmd.ExecuteScalar();
+    
+    cmd.CommandText = "SELECT COUNT(*) FROM Stations";
+    info["stations"] = cmd.ExecuteScalar();
+    
+    cmd.CommandText = "SELECT COUNT(*) FROM Trips";
+    info["trips"] = cmd.ExecuteScalar();
+    
+    cmd.CommandText = "SELECT COUNT(*) FROM StopTimes";
+    info["stopTimes"] = cmd.ExecuteScalar();
+    
+    cmd.CommandText = "SELECT COUNT(*) FROM Shapes";
+    info["shapes"] = cmd.ExecuteScalar();
+    
+    // Sample trip for route 1
+    cmd.CommandText = "SELECT TripId FROM Trips WHERE RouteId = 1 LIMIT 1";
+    var tripId = cmd.ExecuteScalar()?.ToString();
+    info["sampleTripRoute1"] = tripId;
+    
+    if (!string.IsNullOrEmpty(tripId))
+    {
+        cmd.CommandText = $"SELECT COUNT(*) FROM StopTimes WHERE TripId = '{tripId}'";
+        info["stopsInSampleTrip"] = cmd.ExecuteScalar();
+        
+        // Get first stop details
+        cmd.CommandText = $"SELECT StopId, StopSequence FROM StopTimes WHERE TripId = '{tripId}' ORDER BY StopSequence LIMIT 3";
+        var stops = new List<object>();
+        using (var reader = cmd.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                var stopId = reader.GetInt32(0);
+                var seq = reader.GetInt32(1);
+                
+                // Check if this StopId exists in Stations
+                var checkCmd = conn.CreateCommand();
+                checkCmd.CommandText = $"SELECT COUNT(*) FROM Stations WHERE Id = {stopId}";
+                var exists = Convert.ToInt32(checkCmd.ExecuteScalar()) > 0;
+                
+                stops.Add(new { stopId, sequence = seq, existsInStations = exists });
+            }
+        }
+        info["sampleStops"] = stops;
+    }
+    
+    return Results.Ok(info);
+})
+.WithName("DebugGTFS");
+
 var summaries = new[]
 {
     "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"

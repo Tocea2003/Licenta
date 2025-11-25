@@ -1,0 +1,2 @@
+service_id,date,exception_type
+E2025,20251201,2

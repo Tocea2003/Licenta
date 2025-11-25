@@ -14,6 +14,18 @@
     <!-- Buton pentru locație -->
     <LocationButton @location-found="handleLocationFound" />
     
+    <!-- Toggle pentru afișarea stațiilor -->
+    <div class="stations-toggle">
+      <label class="toggle-label">
+        <input 
+          type="checkbox" 
+          v-model="showAllStations" 
+          class="toggle-checkbox"
+        />
+        <span class="toggle-text">Arată toate stațiile</span>
+      </label>
+    </div>
+    
     <!-- Panoul multimodal (mers pe jos + autobuz + mers pe jos) -->
     <MultimodalDirections
       v-if="showMultimodal"
@@ -184,9 +196,11 @@
 
       </l-marker>
       
-      <!-- Markere pentru TOATE stațiile (când nu e selectat traseu) -->
+      <!-- Markere pentru TOATE stațiile (când nu e selectat traseu și toggle e activ) -->
 
       <l-marker
+
+        v-if="showAllStations"
 
         v-for="station in displayAllStations"
 
@@ -396,6 +410,9 @@ const secondWalkingPath = ref<[number, number][]>([])
 // State pentru segmentul de traseu multimodal (doar între stațiile de urcare și coborâre)
 const multimodalBusPath = ref<[number, number][]>([])
 
+// State pentru afișarea tuturor stațiilor
+const showAllStations = ref(false)
+
 // State pentru panoul multimodal
 const showMultimodal = ref(false)
 const multimodalData = ref({
@@ -428,9 +445,11 @@ const database = getDatabase()
 const busLocationsRef = dbRef(database, 'bus_locations')
 const busLocationsData = useDatabaseObject(busLocationsRef)
 
-// Computed pentru a transforma datele Firebase în array
+// Computed pentru a transforma datele Firebase în array și filtra cele mai apropiate 10
 const liveBuses = computed(() => {
-  if (!busLocationsData.value) return []
+  if (!busLocationsData.value) {
+    return []
+  }
   
   const buses: BusLocation[] = []
   Object.entries(busLocationsData.value).forEach(([id, data]: [string, any]) => {
@@ -446,10 +465,43 @@ const liveBuses = computed(() => {
       })
     }
   })
-  return buses
+  
+  // Dacă nu avem locația utilizatorului, afișăm toate autobuzele
+  if (!userLocation.value?.lat || !userLocation.value?.lon) {
+    return buses
+  }
+  
+  // Calculăm distanța pentru fiecare autobuz
+  const busesWithDistance = buses.map(bus => {
+    const distance = calculateDistance(
+      userLocation.value!.lat,
+      userLocation.value!.lon,
+      bus.latitude,
+      bus.longitude
+    )
+    return { ...bus, distance }
+  })
+  
+  // Sortăm după distanță și luăm primele 10
+  const nearest = busesWithDistance
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 10)
+  
+  return nearest
 })
 
-
+// Funcție pentru calcularea distanței dintre două puncte GPS (Haversine formula)
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371 // Raza Pământului în km
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c // Distanța în km
+}
 
 // Centrul hărții: Sibiu (Piața Mare)
 
@@ -457,16 +509,39 @@ const center = ref<[number, number]>([45.7970, 24.1523])
 
 const zoom = ref(13)
 
-// Mapare culori pentru fiecare traseu
-const routeColors: Record<number, string> = {
-  1: '#FF0000',  // Linia 1 - Roșu
-  2: '#0000FF',  // Linia 11 - Albastru
-  3: '#00AA00'   // Linia 2 - Verde
-}
+// Mapare culori pentru fiecare traseu (încărcat dinamic din API)
+const routeColors = ref<Record<number, string>>({})
+
+// Încarcă culorile traseelor la montare
+onMounted(async () => {
+  delete (L.Icon.Default.prototype as any)._getIconUrl
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  })
+  
+  // Încarcă culorile traseelor din API
+  try {
+    const routes = await apiService.getRoutes()
+    routes.forEach(route => {
+      if (route.id && (route as any).color) {
+        routeColors.value[route.id] = (route as any).color
+      }
+    })
+    console.log('✅ Loaded colors for', Object.keys(routeColors.value).length, 'routes')
+  } catch (error) {
+    console.error('❌ Failed to load route colors:', error)
+  }
+  
+  setTimeout(() => {
+    isReady.value = true
+  }, 100)
+})
 
 // Funcție pentru a obține culoarea unui autobuz în funcție de routeId
 const getBusColor = (routeId: number): string => {
-  return routeColors[routeId] || '#2563eb'
+  return routeColors.value[routeId] || '#2563eb'
 }
 
 
@@ -485,122 +560,69 @@ const attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">Op
 
 
 
-// Fix pentru iconițele Leaflet (problema cunoscută cu Vite/Webpack)
-
-onMounted(() => {
-
-  delete (L.Icon.Default.prototype as any)._getIconUrl
-
-  L.Icon.Default.mergeOptions({
-
-    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-
-    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-
-    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-
-  })
-
-  
-
-  // Setăm că harta este gata după un mic delay pentru a asigura că DOM-ul este complet încărcat
-
-  setTimeout(() => {
-
-    isReady.value = true
-
-  }, 100)
-
-})
-
-
-
-// Funcție pentru a calcula traseul pe străzi folosind OSRM API
-
+// Funcție pentru a calcula traseul pe străzi folosind GTFS shapes
 const calculateStreetRoute = async (stations: Station[]) => {
-
   if (stations.length < 2) {
-
     routePath.value = []
-
     return
-
   }
-
-
 
   isLoadingRoute.value = true
-
   
-
   try {
-
-    // Construiește URL-ul pentru OSRM API cu parametri avansați
-
-    // Format: lon,lat;lon,lat;lon,lat...
-
-    const coordinates = stations
-
-      .map(s => `${s.longitude},${s.latitude}`)
-
-      .join(';')
-
+    // Obține primul station pentru a determina route ID-ul
+    const firstStation = stations[0]
     
-
-    // Parametri avansați pentru traseu mai precis:
-    // - overview=full: traseu complet detaliat
-    // - geometries=geojson: format coordonate
-    // - steps=true: instrucțiuni pas cu pas
-    // - continue_straight=false: evită U-turn-uri nelogice
-    // - annotations=true: informații suplimentare despre segmente
-    const url = `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=true&continue_straight=false&annotations=true`
-
+    // Găsește route ID-ul curent (din props sau din context)
+    const currentRouteId = props.stations[0]?.id ? await findRouteIdForStations(stations) : null
     
-
-    const response = await fetch(url)
-
-    const data = await response.json()
-
-    
-
-    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-
-      // Extrage coordonatele din GeoJSON (format: [lon, lat])
-
-      const geometry = data.routes[0].geometry.coordinates
-
-      // Convertește [lon, lat] în [lat, lon] pentru Leaflet
-
-      routePath.value = geometry.map((coord: number[]) => [coord[1], coord[0]] as [number, number])
-
+    if (currentRouteId) {
+      // Folosește GTFS shapes pentru traseu exact
+      const shapeData = await apiService.getRouteShape(currentRouteId)
       
-
-      console.log('✅ Traseu pe străzi calculat:', routePath.value.length, 'puncte')
-
-    } else {
-
-      console.error('❌ OSRM API error:', data)
-
-      // Fallback: linie dreaptă între stații
-
-      routePath.value = stations.map(s => [s.latitude, s.longitude] as [number, number])
-
+      if (shapeData && shapeData.points && shapeData.points.length > 0) {
+        routePath.value = shapeData.points.map(point => 
+          [point.latitude, point.longitude] as [number, number]
+        )
+        console.log('✅ Traseu GTFS încărcat:', routePath.value.length, 'puncte')
+        isLoadingRoute.value = false
+        return
+      }
     }
-
+    
+    // Fallback: OSRM API
+    console.log('⚠️ Nu s-a găsit GTFS shape, folosim OSRM fallback')
+    const coordinates = stations
+      .map(s => `${s.longitude},${s.latitude}`)
+      .join(';')
+    
+    const url = `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`
+    
+    const response = await fetch(url)
+    const data = await response.json()
+    
+    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+      const geometry = data.routes[0].geometry.coordinates
+      routePath.value = geometry.map((coord: number[]) => [coord[1], coord[0]] as [number, number])
+      console.log('✅ Traseu OSRM calculat:', routePath.value.length, 'puncte')
+    } else {
+      console.error('❌ OSRM API error:', data)
+      routePath.value = stations.map(s => [s.latitude, s.longitude] as [number, number])
+    }
   } catch (error) {
-
     console.error('❌ Eroare la calcularea traseului:', error)
-
-    // Fallback: linie dreaptă între stații
-
     routePath.value = stations.map(s => [s.latitude, s.longitude] as [number, number])
-
   } finally {
-
     isLoadingRoute.value = false
-
   }
+}
 
+// Helper function pentru a găsi route ID
+const findRouteIdForStations = async (stations: Station[]): Promise<number | null> => {
+  // Această funcție ar trebui să caute în toate traseele pentru a găsi care conține aceste stații
+  // Pentru simplitate, returnăm null și lăsăm fallback-ul OSRM
+  // Într-o implementare completă, ar trebui să verifici fiecare traseu
+  return null
 }
 
 
@@ -785,98 +807,37 @@ const handleSnappedCoordinates = (
   console.log('📌 Coordonate snapped primite:', { start, end })
 }
 
-// Handler pentru traseu multimodal (mers pe jos + autobuz + mers pe jos)
-const handleMultimodalRouteRequested = async (
-  userLoc: { lat: number; lon: number },
-  destination: { lat: number; lon: number; name: string }
-) => {
-  console.log('🚀 Calculez traseu multimodal...')
-  console.log('📍 De la:', userLoc)
-  console.log('📍 La:', destination)
+// Calculează distanța Haversine
+const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371 // km
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
+// Găsește cea mai apropiată stație de un punct
+const findNearestStation = (lat: number, lon: number, stations: typeof props.allStations): typeof props.allStations[0] | null => {
+  if (!stations || stations.length === 0) return null
   
-  // 1. Găsește stația cea mai apropiată de utilizator
-  const startStation = findNearestStation(userLoc.lat, userLoc.lon, props.allStations)
-  if (!startStation) {
-    console.error('❌ Nu s-a găsit stație apropiată de locația ta')
-    return
-  }
+  let nearest = stations[0]
+  if (!nearest) return null
   
-  // 2. Găsește stația cea mai apropiată de destinație
-  const endStation = findNearestStation(destination.lat, destination.lon, props.allStations)
-  if (!endStation) {
-    console.error('❌ Nu s-a găsit stație apropiată de destinație')
-    return
-  }
+  let minDistance = getDistance(lat, lon, nearest.latitude, nearest.longitude)
   
-  console.log(`🚏 Stație start: ${startStation.name}`)
-  console.log(`🚏 Stație destinație: ${endStation.name}`)
-  
-  // 3. Găsește traseul de autobuz care conectează cele două stații
-  const busRoute = await findConnectingRoute(startStation, endStation)
-  
-  if (busRoute) {
-    console.log(`🚌 Traseu găsit: Linia ${busRoute.routeNumber}`)
-    
-    // 4. Obține stațiile traseului și emite eveniment pentru a le afișa
-    const routeStations = await apiService.getRouteStations(busRoute.id)
-    console.log(`📍 Afișez traseul cu ${routeStations.length} stații`)
-    
-    // Emite eveniment către App.vue să selecteze traseul
-    emit('routeSelected', busRoute.id, routeStations)
-    
-    // 5. Calculează ambele trasee folosind API de routing
-    const routingData = await calculateBothWalkingRoutes(userLoc, startStation, endStation, destination)
-    
-    if (routingData) {
-      // Calculează numărul de stații între boarding și alighting
-      const startIndex = routeStations.findIndex(s => s.id === startStation.id)
-      const endIndex = routeStations.findIndex(s => s.id === endStation.id)
-      const stationsBetween = Math.abs(endIndex - startIndex)
-      
-      // Extrage doar stațiile între boarding și alighting
-      const relevantStations = startIndex < endIndex 
-        ? routeStations.slice(startIndex, endIndex + 1)
-        : routeStations.slice(endIndex, startIndex + 1).reverse()
-      
-      // Calculează traseul pe străzi DOAR pentru segmentul dintre stațiile relevante
-      await calculateStreetRoute(relevantStations)
-      multimodalBusPath.value = routePath.value
-      
-      // 6. Pregătește datele pentru panoul multimodal
-      multimodalData.value = {
-        startLocation: 'Locația ta',
-        endLocation: destination.name,
-        boardingStation: startStation.name,
-        alightingStation: endStation.name,
-        busLine: busRoute.routeNumber,
-        busColor: routeColors[busRoute.id] || '#3b82f6',
-        busStationsList: relevantStations.map(s => s.name),
-        firstWalkDistance: routingData.firstDistance,
-        firstWalkTime: routingData.firstTime,
-        secondWalkDistance: routingData.secondDistance,
-        secondWalkTime: routingData.secondTime,
-        busTime: Math.max(stationsBetween * 2, 2) // 2 min per stație, minim 2 min
-      }
-      
-      // Afișează panoul multimodal în loc de walking directions
-      showMultimodal.value = true
-      showDirections.value = false
+  for (const station of stations) {
+    const distance = getDistance(lat, lon, station.latitude, station.longitude)
+    if (distance < minDistance) {
+      minDistance = distance
+      nearest = station
     }
-    
-    // Centrează harta să includă locația, stația de start și destinația
-    const bounds = L.latLngBounds(
-      [userLoc.lat, userLoc.lon],
-      [startStation.latitude, startStation.longitude]
-    )
-    bounds.extend([endStation.latitude, endStation.longitude])
-    bounds.extend([destination.lat, destination.lon])
-    
-    if (map.value?.leafletObject) {
-      map.value.leafletObject.fitBounds(bounds, { padding: [100, 100] })
-    }
-  } else {
-    console.error('❌ Nu s-a găsit traseu de autobuz între stații')
   }
+  
+  return nearest
 }
 
 // Calculează ambele trasee de mers pe jos (la stația de urcare și de la stația de coborâre)
@@ -935,62 +896,218 @@ const calculateBothWalkingRoutes = async (
   }
 }
 
-// Găsește cea mai apropiată stație de un punct
-const findNearestStation = (lat: number, lon: number, stations: typeof props.allStations): typeof props.allStations[0] | null => {
-  if (!stations || stations.length === 0) return null
-  
-  let nearest = stations[0]
-  if (!nearest) return null
-  
-  let minDistance = getDistance(lat, lon, nearest.latitude, nearest.longitude)
-  
-  for (const station of stations) {
-    const distance = getDistance(lat, lon, station.latitude, station.longitude)
-    if (distance < minDistance) {
-      minDistance = distance
-      nearest = station
-    }
-  }
-  
-  return nearest
-}
-
-// Calculează distanța Haversine
-const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const R = 6371 // km
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLon = (lon2 - lon1) * Math.PI / 180
-  const a = 
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c
-}
-
 // Găsește un traseu de autobuz care conectează două stații
 const findConnectingRoute = async (startStation: typeof props.allStations[0], endStation: typeof props.allStations[0]) => {
   try {
     // Obține toate traseele
     const routes = await apiService.getRoutes()
     
-    // Pentru fiecare traseu, verifică dacă conține ambele stații
+    console.log(`🔍 Caut printre ${routes.length} rute...`)
+    console.log(`📌 Stație start: "${startStation.name}" (ID: ${startStation.id})`)
+    console.log(`📌 Stație end: "${endStation.name}" (ID: ${endStation.id})`)
+    
+    // Cache pentru stațiile fiecărei rute
+    const routeStationsCache: Map<number, any[]> = new Map()
+    
+    // 1. DIRECT ROUTE: verifică dacă există rută directă
     for (const route of routes) {
       const stations = await apiService.getRouteStations(route.id)
+      routeStationsCache.set(route.id, stations)
       
       const startIndex = stations.findIndex(s => s.id === startStation.id)
       const endIndex = stations.findIndex(s => s.id === endStation.id)
       
-      // Dacă ambele stații există și end vine după start
-      if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
-        return route
+      if (startIndex !== -1 && endIndex !== -1 && startIndex !== endIndex) {
+        console.log(`✅ Rută directă: ${route.routeNumber} (stație ${startIndex} → ${endIndex})`)
+        return { type: 'direct', route1: route, stations1: stations }
       }
     }
     
+    console.log('⚠️ Nicio rută directă, caut cu transfer...')
+    
+    // 2. TRANSFER ROUTE: găsim rute cu transfer
+    const routesWithStart = routes.filter(r => {
+      const stations = routeStationsCache.get(r.id) || []
+      return stations.some(s => s.id === startStation.id)
+    })
+    
+    const routesWithEnd = routes.filter(r => {
+      const stations = routeStationsCache.get(r.id) || []
+      return stations.some(s => s.id === endStation.id)
+    })
+    
+    console.log(`🚏 ${routesWithStart.length} rute cu start: ${routesWithStart.map(r => r.routeNumber).join(', ')}`)
+    console.log(`🚏 ${routesWithEnd.length} rute cu end: ${routesWithEnd.map(r => r.routeNumber).join(', ')}`)
+    
+    // Căutăm stații comune (transfer points)
+    for (const route1 of routesWithStart) {
+      const stations1 = routeStationsCache.get(route1.id) || []
+      
+      for (const route2 of routesWithEnd) {
+        if (route1.id === route2.id) continue
+        
+        const stations2 = routeStationsCache.get(route2.id) || []
+        
+        // Găsim stații comune
+        const commonStations = stations1.filter(s1 => 
+          stations2.some(s2 => s2.id === s1.id)
+        )
+        
+        if (commonStations.length > 0) {
+          const transferStation = commonStations[0]
+          console.log(`✅ Transfer: ${route1.routeNumber} → ${transferStation.name} → ${route2.routeNumber}`)
+          
+          return {
+            type: 'transfer',
+            route1: route1,
+            route2: route2,
+            transferStation: transferStation,
+            stations1: stations1,
+            stations2: stations2
+          }
+        }
+      }
+    }
+    
+    console.log('❌ Nicio rută (nici cu transfer) nu conectează aceste stații')
     return null
   } catch (error) {
     console.error('❌ Eroare la găsirea traseului:', error)
     return null
+  }
+}
+
+// Handler pentru traseu multimodal (mers pe jos + autobuz + mers pe jos)
+const handleMultimodalRouteRequested = async (
+  userLoc: { lat: number; lon: number },
+  destination: { lat: number; lon: number; name: string }
+) => {
+  console.log('🚀 Calculez traseu multimodal...')
+  console.log('📍 De la:', userLoc)
+  console.log('📍 La:', destination)
+  
+  // 1. Găsește stația cea mai apropiată de utilizator
+  const startStation = findNearestStation(userLoc.lat, userLoc.lon, props.allStations)
+  if (!startStation) {
+    console.error('❌ Nu s-a găsit stație apropiată de locația ta')
+    return
+  }
+  
+  // 2. Găsește stația cea mai apropiată de destinație
+  const endStation = findNearestStation(destination.lat, destination.lon, props.allStations)
+  if (!endStation) {
+    console.error('❌ Nu s-a găsit stație apropiată de destinație')
+    return
+  }
+  
+  console.log(`🚏 Stație start: ${startStation.name}`)
+  console.log(`🚏 Stație destinație: ${endStation.name}`)
+  
+  // 3. Găsește traseul de autobuz care conectează cele două stații
+  const busRoute = await findConnectingRoute(startStation, endStation)
+  
+  if (busRoute) {
+    console.log(`🚌 Traseu găsit: ${busRoute.type === 'direct' ? 'Direct' : 'Cu transfer'}`)
+    
+    if (busRoute.type === 'direct') {
+      // DIRECT ROUTE
+      const route = busRoute.route1
+      const routeStations = busRoute.stations1
+      
+      console.log(`🚌 Linia ${route.routeNumber} (ID: ${route.id})`)
+      console.log(`📍 Traseu ${route.routeNumber} are ${routeStations.length} stații`)
+      
+      const startIndex = routeStations.findIndex(s => s.id === startStation.id)
+      const endIndex = routeStations.findIndex(s => s.id === endStation.id)
+      console.log(`📊 Start index: ${startIndex}, End index: ${endIndex}`)
+      
+      emit('routeSelected', route.id, routeStations)
+      
+      const routingData = await calculateBothWalkingRoutes(userLoc, startStation, endStation, destination)
+      
+      if (routingData) {
+        const stationsBetween = Math.abs(endIndex - startIndex)
+        const relevantStations = startIndex < endIndex 
+          ? routeStations.slice(startIndex, endIndex + 1)
+          : routeStations.slice(endIndex, startIndex + 1).reverse()
+        
+        try {
+          const shapeData = await apiService.getRouteSegment(route.id, startStation.id, endStation.id)
+          if (shapeData && shapeData.points && shapeData.points.length > 0) {
+            multimodalBusPath.value = shapeData.points.map(point => 
+              [point.latitude, point.longitude] as [number, number]
+            )
+            console.log('✅ GTFS segment încărcat:', multimodalBusPath.value.length, 'puncte')
+          } else {
+            await calculateStreetRoute(relevantStations)
+            multimodalBusPath.value = routePath.value
+          }
+        } catch (error) {
+          console.error('❌ Eroare GTFS, folosim OSRM:', error)
+          await calculateStreetRoute(relevantStations)
+          multimodalBusPath.value = routePath.value
+        }
+        
+        multimodalData.value = {
+          startLocation: 'Locația ta',
+          endLocation: destination.name,
+          boardingStation: startStation.name,
+          alightingStation: endStation.name,
+          busLine: route.routeNumber,
+          busColor: routeColors.value[route.id] || '#3b82f6',
+          busStationsList: relevantStations.map(s => s.name),
+          firstWalkDistance: routingData.firstDistance,
+          firstWalkTime: routingData.firstTime,
+          secondWalkDistance: routingData.secondDistance,
+          secondWalkTime: routingData.secondTime,
+          busTime: Math.max(stationsBetween * 2, 2)
+        }
+        
+        showMultimodal.value = true
+        showDirections.value = false
+      }
+    } else if (busRoute.type === 'transfer') {
+      // TRANSFER ROUTE
+      const route1 = busRoute.route1
+      const route2 = busRoute.route2
+      const transferStation = busRoute.transferStation
+      const stations1 = busRoute.stations1
+      const stations2 = busRoute.stations2
+      
+      if (!route2 || !transferStation || !stations2) {
+        console.error('❌ Date incomplete pentru traseu cu transfer')
+        return
+      }
+      
+      console.log(`🔄 Transfer: ${route1.routeNumber} → ${transferStation.name} → ${route2.routeNumber}`)
+      
+      // TODO: Implementează UI pentru trasee cu transfer
+      // Deocamdată afișăm prima rută
+      emit('routeSelected', route1.id, stations1)
+      
+      const routingData = await calculateBothWalkingRoutes(userLoc, startStation, transferStation, destination)
+      
+      if (routingData) {
+        alert(`Traseu cu transfer găsit:\n\n` +
+              `1️⃣ ${route1.routeNumber}: ${startStation.name} → ${transferStation.name}\n` +
+              `2️⃣ ${route2.routeNumber}: ${transferStation.name} → ${endStation.name}\n\n` +
+              `UI pentru transferuri în dezvoltare!`)
+      }
+    }
+    
+    // Centrează harta
+    const bounds = L.latLngBounds(
+      [userLoc.lat, userLoc.lon],
+      [startStation.latitude, startStation.longitude]
+    )
+    bounds.extend([endStation.latitude, endStation.longitude])
+    bounds.extend([destination.lat, destination.lon])
+    
+    if (map.value?.leafletObject) {
+      map.value.leafletObject.fitBounds(bounds, { padding: [100, 100] })
+    }
+  } else {
+    console.error('❌ Nu s-a găsit traseu de autobuz între stații')
   }
 }
 
@@ -1151,5 +1268,43 @@ defineExpose({
 
 .snapped-marker.end {
   filter: drop-shadow(0 3px 8px rgba(239, 68, 68, 0.7));
+}
+
+/* Stiluri pentru toggle-ul stațiilor */
+.stations-toggle {
+  position: absolute;
+  top: 80px;
+  right: 16px;
+  z-index: 1000;
+  background: white;
+  padding: 12px 16px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.toggle-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.toggle-label:hover .toggle-text {
+  color: #3b82f6;
 }
 </style>
