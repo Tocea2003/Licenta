@@ -1,0 +1,45 @@
+agency_id,route_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color,route_sort_order
+28,1,1,Calea Dumbravii - Hornbach,,3,https://tursib.ro/traseu/1,FF0000,FFFFFF,1
+28,2,2,Zona Industriala Est - Piata Cibin,,3,https://tursib.ro/traseu/2,00FF40,FFFFFF,2
+28,3,3,Linia Verde,,3,https://tursib.ro/traseu/3,00b700,ffffff,3
+28,5,5,Valea Aurie - Gara,,3,https://tursib.ro/traseu/5,0000FF,FFFFFF,5
+28,8,8,Zavoi - Sembraz,,3,https://tursib.ro/traseu/8,5B865C,FFFFFF,8
+28,10,10,Turnisor - Gusterita,,3,https://tursib.ro/traseu/10,88FF11,060606,10
+28,11,11,Kaufland Hipodrom - S.C. Continental,,3,https://tursib.ro/traseu/11,ba71cc,ffffff,11
+28,12,12,Piata Rahova - Sembraz,,3,https://tursib.ro/traseu/12,FB5200,200000,12
+28,13,13,Gară - Muzeul Astra,,3,https://tursib.ro/traseu/13,FF97FF,000000,13
+28,14,14,Valea Aurie- Cartier Resita,,3,https://tursib.ro/traseu/14,EBC630,000000,14
+28,15,15,Valea Aurie - Shopping City - Gara,,3,https://tursib.ro/traseu/15,9C4E4E,FFFFFF,15
+28,16,16,Valea Aurie - Cartierul Tineretului,,3,https://tursib.ro/traseu/16,5BA6E3,FFFFFF,16
+28,17,17,Strand II - Cartier Resita,,3,https://tursib.ro/traseu/17,188363,FFFFFF,17
+28,18,18,Gară - Țiglari - Cartierul Tineretului,,3,https://tursib.ro/traseu/18,8000FF,FFFFFF,18
+28,19,19,Gară - Cartier Magnolia - Marquardt,,3,https://tursib.ro/traseu/19,3e3eff,ffffff,19
+28,20,20,Tractorului - A. Șaguna,,3,https://tursib.ro/traseu/20,ff8040,000000,20
+28,21,21,Aeroport - Gara,,3,https://tursib.ro/traseu/21,008000,FFFFFF,21
+28,71,E1,Magnolia - Sc. Regina Maria - Col. O. Goga,,3,https://tursib.ro/traseu/E1,fff586,255494,71
+28,72,E2,Viile Sibiului - Sc. Regina Maria - Col. O. Goga,,3,https://tursib.ro/traseu/E2,9fdbff,255393,72
+28,73,E3,Cartierul Tineretului  - Col. O. Goga - Sc. Regina Maria - Piata Rahova,,3,https://tursib.ro/traseu/E3,ef0073,ffffff,73
+28,74,E4,Gusterita - Col. O. Goga - Sc. Regina Maria,,3,https://tursib.ro/traseu/E4,8d85b7,fcfcfc,74
+28,75,E5,Broscarie - Col. O. Goga - Sc. Regina Maria,,3,https://tursib.ro/traseu/E5,b1ccb9,255494,75
+28,76,E6,Ciresica - Sc. Regina Maria - Col. O. Goga,,3,https://tursib.ro/traseu/E6,b1cc00,ffffff,76
+28,77,E7,Kaufland Arhitecților - Col. O. Goga - Șc. Regina Maria,,3,https://tursib.ro/traseu/E7,008be3,ffffff,77
+28,78,E8,Transcom - Zavoi - Sc. Regina Maria - Col. O. Goga,,3,https://tursib.ro/traseu/E8,128343,ffffff,78
+28,111,111,Calea Dumbravii - Europa Unita,,3,https://tursib.ro/traseu/111,808080,ffffff,111
+28,112,112,Irmes - Sc. Continental,,3,https://tursib.ro/traseu/112,000000,FFFFFF,112
+28,113,113,Valea Aurie - Europa Unita,,3,https://tursib.ro/traseu/113,808080,FFFFFF,113
+28,114,114,Irmes - Europa Unita,,3,https://tursib.ro/traseu/114,000000,FFFFFF,114
+28,115,115,Lazaret - Europa Unita,,3,https://tursib.ro/traseu/115,808080,FFFFFF,115
+28,116,116,Valea Aurie - Sc Continental,,3,https://tursib.ro/traseu/116,000000,FFFFFF,116
+28,117,117,Obor - Cartierul Tineretului - SC Continental,,3,https://tursib.ro/traseu/117,808080,ffffff,117
+28,118,118,Gusterita - Sc Continental,,3,https://tursib.ro/traseu/118,000000,FFFFFF,118
+28,211,211,Calea Dumbrăvii - Europa Unită,,3,https://tursib.ro/traseu/211,C0C0C0,FFFFFF,211
+28,213,213,Valea Aurie - Europa Unită,,3,https://tursib.ro/traseu/213,808080,FFFFFF,213
+28,214,214,Irmes - Europa Unită,,3,https://tursib.ro/traseu/214,C0C0C0,FFFFFF,214
+28,215,215,Lazaret - Europa Unită,,3,https://tursib.ro/traseu/215,808080,FFFFFF,215
+28,217,217,Hornbach - Magnolia  - SC Continental,,3,https://tursib.ro/traseu/217,000000,ffffff,217
+28,22,22,Sibiu - Paltinis,,3,https://tursib.ro/traseu/22,008040,FFFFFF,222
+28,500,500,Poplaca - Valea Aurie,,3,https://tursib.ro/traseu/500,000000,FFFFFF,500
+28,510,510,Cristian - Aeroport,,3,https://tursib.ro/traseu/510,0080FF,FFFFFF,510
+28,520,520,Rosia - Irmes,,3,https://tursib.ro/traseu/520,8080FF,FFFFFF,520
+28,521,521,Rosia - Irmes,,3,https://tursib.ro/traseu/521,408080,ffffff,521
+28,525,525,Cornatel - Irmes,,3,https://tursib.ro/traseu/525,FF8040,FFFFFF,525

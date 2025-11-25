@@ -17,6 +17,7 @@ export interface Route {
   id: number
   routeNumber: string
   name: string
+  color?: string
 }
 
 export interface Station {
@@ -32,6 +33,19 @@ export interface Bus {
   internalName: string
   currentRouteId?: number
   currentRoute?: Route
+}
+
+export interface ShapePoint {
+  latitude: number
+  longitude: number
+  sequence: number
+}
+
+export interface RouteShape {
+  routeId: number
+  shapeId: string
+  directionId: number
+  points: ShapePoint[]
 }
 
 // Serviciu API cu toate metodele pentru comunicare cu backend-ul
@@ -81,6 +95,22 @@ export default {
   // GET /api/buses/{id} - Returnează un autobuz specific
   async getBus(id: number): Promise<Bus> {
     const response = await apiClient.get<Bus>(`/buses/${id}`)
+    return response.data
+  },
+
+  // ========== SHAPES (GTFS) ==========
+  
+  // GET /api/shapes/route/{routeId} - Returnează shape-ul (traseul exact pe străzi) pentru un traseu
+  async getRouteShape(routeId: number): Promise<RouteShape> {
+    const response = await apiClient.get<RouteShape>(`/shapes/route/${routeId}`)
+    return response.data
+  },
+
+  // GET /api/shapes/route/{routeId}/segment - Returnează segmentul de traseu între două stații
+  async getRouteSegment(routeId: number, fromStationId: number, toStationId: number): Promise<RouteShape> {
+    const response = await apiClient.get<RouteShape>(
+      `/shapes/route/${routeId}/segment?fromStationId=${fromStationId}&toStationId=${toStationId}`
+    )
     return response.data
   }
 }
