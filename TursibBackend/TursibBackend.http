@@ -1,0 +1,6 @@
+@TursibBackend_HostAddress = http://localhost:5022
+
+GET {{TursibBackend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
