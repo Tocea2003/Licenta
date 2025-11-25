@@ -80,12 +80,14 @@
         :lat-lng="[userLocation.lat, userLocation.lon]"
       >
         <l-icon
-          :icon-size="[24, 24]"
-          :icon-anchor="[12, 12]"
+          :icon-size="[40, 40]"
+          :icon-anchor="[20, 40]"
         >
-          <div class="user-marker">
-            📍
-          </div>
+          <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="20" cy="20" r="18" fill="#3B82F6" stroke="white" stroke-width="3"/>
+            <circle cx="20" cy="20" r="8" fill="white"/>
+            <circle cx="20" cy="20" r="4" fill="#3B82F6"/>
+          </svg>
         </l-icon>
         <l-popup>
           <strong>Tu ești aici</strong>
@@ -98,12 +100,13 @@
         :lat-lng="[selectedAddress.lat, selectedAddress.lon]"
       >
         <l-icon
-          :icon-size="[32, 32]"
-          :icon-anchor="[16, 16]"
+          :icon-size="[36, 46]"
+          :icon-anchor="[18, 46]"
         >
-          <div class="address-marker">
-            📌
-          </div>
+          <svg width="36" height="46" viewBox="0 0 36 46" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 28 18 28s18-14.5 18-28c0-9.94-8.06-18-18-18z" fill="#EF4444" stroke="white" stroke-width="2"/>
+            <circle cx="18" cy="18" r="8" fill="white"/>
+          </svg>
         </l-icon>
         <l-popup>
           <strong>{{ selectedAddress.name }}</strong>
@@ -158,6 +161,16 @@
         :lat-lng="[station.latitude, station.longitude]"
 
       >
+        <l-icon
+          :icon-size="[32, 32]"
+          :icon-anchor="[16, 16]"
+        >
+          <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+            <rect x="8" y="6" width="16" height="20" rx="2" fill="#10B981" stroke="white" stroke-width="2"/>
+            <circle cx="16" cy="13" r="3" fill="white"/>
+            <rect x="13" y="18" width="6" height="4" rx="1" fill="white"/>
+          </svg>
+        </l-icon>
 
         <l-popup>
 
@@ -183,12 +196,14 @@
 
       >
         <l-icon
-          :icon-size="[20, 20]"
-          :icon-anchor="[10, 10]"
+          :icon-size="[26, 26]"
+          :icon-anchor="[13, 13]"
         >
-          <div class="all-station-marker">
-            🚏
-          </div>
+          <svg width="26" height="26" viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg">
+            <rect x="6" y="4" width="14" height="18" rx="2" fill="#6B7280" stroke="white" stroke-width="2"/>
+            <circle cx="13" cy="11" r="2.5" fill="white"/>
+            <rect x="10" y="16" width="6" height="3" rx="1" fill="white"/>
+          </svg>
         </l-icon>
 
         <l-popup>
@@ -251,12 +266,17 @@
         :lat-lng="[bus.latitude, bus.longitude]"
       >
         <l-icon
-          :icon-size="[32, 32]"
-          :icon-anchor="[16, 16]"
+          :icon-size="[44, 44]"
+          :icon-anchor="[22, 22]"
         >
-          <div class="bus-marker" :style="{ color: getBusColor(bus.routeId) }">
-            🚌
-          </div>
+          <svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+            <rect x="8" y="10" width="28" height="24" rx="4" :fill="getBusColor(bus.routeId)" stroke="white" stroke-width="3"/>
+            <rect x="11" y="14" width="10" height="8" rx="1" fill="white" opacity="0.9"/>
+            <rect x="23" y="14" width="10" height="8" rx="1" fill="white" opacity="0.9"/>
+            <circle cx="15" cy="31" r="3" fill="#1F2937" stroke="white" stroke-width="1.5"/>
+            <circle cx="29" cy="31" r="3" fill="#1F2937" stroke="white" stroke-width="1.5"/>
+            <rect x="18" y="25" width="8" height="3" rx="1" fill="white"/>
+          </svg>
         </l-icon>
         <l-popup>
           <div class="bus-popup">

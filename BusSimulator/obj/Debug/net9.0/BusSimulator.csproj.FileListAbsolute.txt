@@ -18,3 +18,4 @@ D:\Licenta\BusSimulator\obj\Debug\net9.0\refint\BusSimulator.dll
 D:\Licenta\BusSimulator\obj\Debug\net9.0\BusSimulator.pdb
 D:\Licenta\BusSimulator\obj\Debug\net9.0\BusSimulator.genruntimeconfig.cache
 D:\Licenta\BusSimulator\obj\Debug\net9.0\ref\BusSimulator.dll
+D:\Licenta\BusSimulator\obj\Debug\net9.0\BusSimulator.sourcelink.json
