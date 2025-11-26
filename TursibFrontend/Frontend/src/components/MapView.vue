@@ -1,8 +1,21 @@
 <template>
 
   <div class="map-container">
+    <!-- Buton pentru ascunderea/afișarea sidebar-ului -->
+    <button 
+      @click="showSidebar = !showSidebar" 
+      class="sidebar-toggle-btn"
+      :title="showSidebar ? 'Ascunde sidebar' : 'Arată sidebar'"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path v-if="showSidebar" d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path v-else d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    
     <!-- Enhanced Search pentru stații și adrese -->
     <EnhancedSearch 
+      v-if="showSidebar"
       :stations="allStations"
       :user-location="userLocation"
       @station-selected="handleStationSelected"
@@ -94,13 +107,8 @@
         <l-icon
           :icon-size="[40, 40]"
           :icon-anchor="[20, 40]"
-        >
-          <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="20" cy="20" r="18" fill="#3B82F6" stroke="white" stroke-width="3"/>
-            <circle cx="20" cy="20" r="8" fill="white"/>
-            <circle cx="20" cy="20" r="4" fill="#3B82F6"/>
-          </svg>
-        </l-icon>
+          icon-url="/location-pin.png"
+        />
         <l-popup>
           <strong>Tu ești aici</strong>
         </l-popup>
@@ -112,14 +120,10 @@
         :lat-lng="[selectedAddress.lat, selectedAddress.lon]"
       >
         <l-icon
-          :icon-size="[36, 46]"
-          :icon-anchor="[18, 46]"
-        >
-          <svg width="36" height="46" viewBox="0 0 36 46" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 28 18 28s18-14.5 18-28c0-9.94-8.06-18-18-18z" fill="#EF4444" stroke="white" stroke-width="2"/>
-            <circle cx="18" cy="18" r="8" fill="white"/>
-          </svg>
-        </l-icon>
+          :icon-size="[40, 40]"
+          :icon-anchor="[20, 40]"
+          icon-url="/placeholder.png"
+        />
         <l-popup>
           <strong>{{ selectedAddress.name }}</strong>
         </l-popup>
@@ -175,14 +179,9 @@
       >
         <l-icon
           :icon-size="[32, 32]"
-          :icon-anchor="[16, 16]"
-        >
-          <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-            <rect x="8" y="6" width="16" height="20" rx="2" fill="#10B981" stroke="white" stroke-width="2"/>
-            <circle cx="16" cy="13" r="3" fill="white"/>
-            <rect x="13" y="18" width="6" height="4" rx="1" fill="white"/>
-          </svg>
-        </l-icon>
+          :icon-anchor="[16, 32]"
+          icon-url="/bus-station.png"
+        />
 
         <l-popup>
 
@@ -211,14 +210,9 @@
       >
         <l-icon
           :icon-size="[26, 26]"
-          :icon-anchor="[13, 13]"
-        >
-          <svg width="26" height="26" viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg">
-            <rect x="6" y="4" width="14" height="18" rx="2" fill="#6B7280" stroke="white" stroke-width="2"/>
-            <circle cx="13" cy="11" r="2.5" fill="white"/>
-            <rect x="10" y="16" width="6" height="3" rx="1" fill="white"/>
-          </svg>
-        </l-icon>
+          :icon-anchor="[13, 26]"
+          icon-url="/bus-station.png"
+        />
 
         <l-popup>
 
@@ -280,18 +274,10 @@
         :lat-lng="[bus.latitude, bus.longitude]"
       >
         <l-icon
-          :icon-size="[44, 44]"
-          :icon-anchor="[22, 22]"
-        >
-          <svg width="44" height="44" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-            <rect x="8" y="10" width="28" height="24" rx="4" :fill="getBusColor(bus.routeId)" stroke="white" stroke-width="3"/>
-            <rect x="11" y="14" width="10" height="8" rx="1" fill="white" opacity="0.9"/>
-            <rect x="23" y="14" width="10" height="8" rx="1" fill="white" opacity="0.9"/>
-            <circle cx="15" cy="31" r="3" fill="#1F2937" stroke="white" stroke-width="1.5"/>
-            <circle cx="29" cy="31" r="3" fill="#1F2937" stroke="white" stroke-width="1.5"/>
-            <rect x="18" y="25" width="8" height="3" rx="1" fill="white"/>
-          </svg>
-        </l-icon>
+          :icon-size="[20, 20]"
+          :icon-anchor="[10, 10]"
+          icon-url="/front-of-bus.png"
+        />
         <l-popup>
           <div class="bus-popup">
             <strong :style="{ color: getBusColor(bus.routeId) }">Autobuz {{ bus.id }}</strong><br>
@@ -412,6 +398,9 @@ const multimodalBusPath = ref<[number, number][]>([])
 
 // State pentru afișarea tuturor stațiilor
 const showAllStations = ref(false)
+
+// State pentru afișarea/ascunderea sidebar-ului
+const showSidebar = ref(true)
 
 // State pentru panoul multimodal
 const showMultimodal = ref(false)
@@ -1108,6 +1097,7 @@ const handleMultimodalRouteRequested = async (
     }
   } else {
     console.error('❌ Nu s-a găsit traseu de autobuz între stații')
+    alert('❌ Nu există niciun autobuz care să ducă la această destinație.\n\nÎncearcă să selectezi o destinație mai apropiată de rețeaua de transport public.')
   }
 }
 
@@ -1281,6 +1271,34 @@ defineExpose({
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(10px);
+}
+
+/* Stiluri pentru butonul de toggle sidebar */
+.sidebar-toggle-btn {
+  position: absolute;
+  top: 16px;
+  left: 420px;
+  z-index: 1001;
+  background: white;
+  border: none;
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s;
+}
+
+.sidebar-toggle-btn:hover {
+  background: #f3f4f6;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-toggle-btn svg {
+  color: #374151;
 }
 
 .toggle-label {

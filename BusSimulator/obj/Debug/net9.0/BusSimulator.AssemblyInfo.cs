@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BusSimulator")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b7c9117be0a36243ccac01121963907afbd3e7d9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+af969aa74aa95fcf97be9d5e9a3d8b82e0c5f7cd")]
 [assembly: System.Reflection.AssemblyProductAttribute("BusSimulator")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BusSimulator")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
