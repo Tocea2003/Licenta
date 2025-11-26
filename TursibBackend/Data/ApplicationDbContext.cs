@@ -15,6 +15,7 @@ namespace TursibBackend.Data
         public DbSet<Station> Stations { get; set; }
         public DbSet<Bus> Buses { get; set; }
         public DbSet<RouteStation> RouteStations { get; set; }
+        public DbSet<User> Users { get; set; }
 
         // Aici configurăm relațiile (deși EF Core le-ar putea deduce singur,
         // e bine să fim expliciți pentru relația Many-to-Many)
