@@ -118,7 +118,7 @@ onMounted(() => {
 
 <style scoped>
 .sidebar {
-  width: 350px;
+  width: 100%;
   height: 100vh;
   background: #1f2937;
   color: white;

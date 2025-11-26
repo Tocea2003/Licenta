@@ -195,3 +195,5 @@ D:\Licenta\TursibBackend\bin\Debug\net9.0\runtimes\win-x64\native\sni.dll
 D:\Licenta\TursibBackend\bin\Debug\net9.0\runtimes\win-x86\native\sni.dll
 D:\Licenta\TursibBackend\bin\Debug\net9.0\runtimes\unix\lib\net8.0\System.Data.SqlClient.dll
 D:\Licenta\TursibBackend\bin\Debug\net9.0\runtimes\win\lib\net8.0\System.Data.SqlClient.dll
+D:\Licenta\TursibBackend\bin\Debug\net9.0\BCrypt.Net-Next.dll
+D:\Licenta\TursibBackend\bin\Debug\net9.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll

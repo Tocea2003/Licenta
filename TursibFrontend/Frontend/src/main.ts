@@ -11,8 +11,9 @@ import App from './App.vue'
 import router from './router'
 
 // Firebase configuration
+// Configurație minimală pentru Realtime Database în mod test
 const firebaseConfig = {
-  databaseURL: 'https://licenta-ulbs-default-rtdb.europe-west1.firebasedatabase.app/'
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || 'https://licenta-ulbs-default-rtdb.europe-west1.firebasedatabase.app'
 }
 
 // Initialize Firebase
