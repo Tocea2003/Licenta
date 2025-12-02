@@ -1,5 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using TursibBackend.Data;
+using TursibBackend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +15,28 @@ builder.Services.AddOpenApi();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Register JWT Service
+builder.Services.AddScoped<JwtService>();
+
+// Configure JWT Authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured")))
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 // Configurare CORS pentru a permite cereri de la frontend (Vue.js)
 builder.Services.AddCors(options =>
 {
@@ -18,7 +44,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                   "http://localhost:8080", 
-                  "http://localhost:5173")
+                  "http://localhost:5173",
+                  "http://localhost:5174") // Pentru AdminApp
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -39,6 +66,10 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowVueApp");
 
 // app.UseHttpsRedirection(); // Dezactivat pentru development - HTTP only
+
+// Enable Authentication & Authorization
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Mapează controllerele
 app.MapControllers();

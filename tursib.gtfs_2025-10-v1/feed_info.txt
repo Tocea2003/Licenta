@@ -1,2 +1,2 @@
-feed_publisher_name,feed_publisher_url,feed_lang
-Tursib,https://tursib.ro,ro
+feed_publisher_name,feed_publisher_url,feed_lang,feed_version
+Tursib,https://tursib.ro,ro,v4.1
