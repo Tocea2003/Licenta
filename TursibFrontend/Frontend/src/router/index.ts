@@ -40,7 +40,7 @@ const router = createRouter({
         {
           path: 'stations',
           name: 'admin-stations',
-          component: () => import('../views/AdminRoutes.vue'), // Temporary - folosim AdminRoutes deocamdată
+          component: () => import('../views/AdminStations.vue'),
         },
       ]
     },
