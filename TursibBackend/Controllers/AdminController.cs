@@ -225,6 +225,72 @@ namespace TursibBackend.Controllers
 
             return NoContent();
         }
+
+        // ========== STATION MANAGEMENT ==========
+
+        // POST: api/admin/stations
+        [HttpPost("stations")]
+        public async Task<ActionResult<Station>> CreateStation([FromBody] Station station)
+        {
+            _context.Stations.Add(station);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction("GetStation", "Stations", new { id = station.Id }, station);
+        }
+
+        // PUT: api/admin/stations/5
+        [HttpPut("stations/{id}")]
+        public async Task<IActionResult> UpdateStation(int id, [FromBody] Station station)
+        {
+            if (id != station.Id)
+            {
+                return BadRequest("Station ID mismatch");
+            }
+
+            var existingStation = await _context.Stations.FindAsync(id);
+            if (existingStation == null)
+            {
+                return NotFound();
+            }
+
+            existingStation.Name = station.Name;
+            existingStation.Latitude = station.Latitude;
+            existingStation.Longitude = station.Longitude;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return StatusCode(500, "Error updating station");
+            }
+
+            return NoContent();
+        }
+
+        // DELETE: api/admin/stations/5
+        [HttpDelete("stations/{id}")]
+        public async Task<IActionResult> DeleteStation(int id)
+        {
+            var station = await _context.Stations.FindAsync(id);
+            if (station == null)
+            {
+                return NotFound();
+            }
+
+            // Verifică dacă stația este folosită în vreun traseu
+            var isUsed = await _context.RouteStations.AnyAsync(rs => rs.StationId == id);
+            if (isUsed)
+            {
+                return BadRequest(new { message = "Cannot delete station that is used in routes" });
+            }
+
+            _context.Stations.Remove(station);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
     }
 
     // Request models
