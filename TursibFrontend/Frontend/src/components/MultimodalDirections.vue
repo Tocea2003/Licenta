@@ -181,17 +181,19 @@ const getStepIcon = (type: string) => {
 .multimodal-panel {
   position: absolute;
   top: 90px;
-  left: 320px;
-  width: 400px;
+  left: 370px;
+  width: 380px;
   max-height: calc(100vh - 120px);
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  z-index: 1000;
+  z-index: 450;
   font-family: 'Inter', system-ui, sans-serif;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .panel-header {

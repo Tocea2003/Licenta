@@ -463,17 +463,19 @@ const retry = () => {
 .directions-panel {
   position: absolute;
   top: 90px;
-  left: 320px;
+  left: 370px;
   width: 380px;
   max-width: calc(100vw - 340px);
   max-height: calc(100vh - 120px);
   background: white;
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  z-index: 999;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+  z-index: 550;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* Mobile responsive */
