@@ -3,7 +3,7 @@
   <div class="map-container">
     <!-- Buton pentru ascunderea/afișarea sidebar-ului -->
     <button 
-      @click="showSidebar = !showSidebar" 
+      @click="showSidebar = !showSidebar; emit('sidebarToggle', showSidebar)" 
       class="sidebar-toggle-btn"
       :title="showSidebar ? 'Ascunde sidebar' : 'Arată sidebar'"
     >
@@ -18,10 +18,12 @@
       v-if="showSidebar"
       :stations="allStations"
       :user-location="userLocation"
+      :trip-mode="tripMode"
       @station-selected="handleStationSelected"
       @address-selected="handleAddressSelected"
       @walking-directions-requested="handleWalkingDirectionsRequested"
       @multimodal-route-requested="handleMultimodalRouteRequested"
+      @route-search-requested="handleRouteSearchRequested"
     />
     
     <!-- Buton pentru locație -->
@@ -41,7 +43,7 @@
     
     <!-- Panoul multimodal (mers pe jos + autobuz + mers pe jos) -->
     <MultimodalDirections
-      v-if="showMultimodal"
+      v-if="showMultimodal && !showTransfer"
       :visible="showMultimodal"
       :start-location="multimodalData.startLocation"
       :end-location="multimodalData.endLocation"
@@ -58,9 +60,33 @@
       @close="closeMultimodal"
     />
     
+    <!-- Panoul pentru trasee cu transfer -->
+    <TransferRoute
+      v-if="showTransfer"
+      :visible="showTransfer"
+      :start-name="transferData.startName"
+      :end-name="transferData.endName"
+      :boarding-station="transferData.boardingStation"
+      :transfer-station="transferData.transferStation"
+      :alighting-station="transferData.alightingStation"
+      :route1-number="transferData.route1Number"
+      :route1-color="transferData.route1Color"
+      :route1-stations-count="transferData.route1StationsCount"
+      :route2-number="transferData.route2Number"
+      :route2-color="transferData.route2Color"
+      :route2-stations-count="transferData.route2StationsCount"
+      :first-walk-distance="transferData.firstWalkDistance"
+      :first-walk-time="transferData.firstWalkTime"
+      :bus-time1="transferData.busTime1"
+      :bus-time2="transferData.busTime2"
+      :second-walk-distance="transferData.secondWalkDistance"
+      :second-walk-time="transferData.secondWalkTime"
+      @close="closeTransfer"
+    />
+    
     <!-- Panoul de direcții de mers pe jos (pentru căutări simple) -->
     <WalkingDirections
-      v-if="!showMultimodal"
+      v-if="!showMultimodal && !showTransfer"
       :visible="showDirections"
       :start-lat="walkingStart?.lat"
       :start-lon="walkingStart?.lon"
@@ -267,8 +293,9 @@
         dashArray="10, 10"
       />
 
-      <!-- Markere pentru autobuze LIVE -->
+      <!-- Markere pentru autobuze LIVE - ascunse când e afișată o rută -->
       <l-marker
+        v-if="!showMultimodal && !showTransfer"
         v-for="bus in liveBuses"
         :key="bus.id"
         :lat-lng="[bus.latitude, bus.longitude]"
@@ -311,6 +338,7 @@ import LocationButton from './LocationButton.vue'
 import EnhancedSearch from './EnhancedSearch.vue'
 import WalkingDirections from './WalkingDirections.vue'
 import MultimodalDirections from './MultimodalDirections.vue'
+import TransferRoute from './TransferRoute.vue'
 import apiService, { type Station } from '@/services/apiService'
 
 // Am scos 'leaflet/dist/leaflet.css' de aici, deoarece este deja în main.ts
@@ -355,6 +383,7 @@ const props = withDefaults(defineProps<Props>(), {
 // Emit events
 const emit = defineEmits<{
   routeSelected: [routeId: number, stations: Station[]]
+  sidebarToggle: [visible: boolean]
 }>()
 
 // State pentru a verifica dacă componenta este gata
@@ -401,6 +430,7 @@ const showAllStations = ref(false)
 
 // State pentru afișarea/ascunderea sidebar-ului
 const showSidebar = ref(true)
+const tripMode = ref(false)
 
 // State pentru panoul multimodal
 const showMultimodal = ref(false)
@@ -417,6 +447,28 @@ const multimodalData = ref({
   secondWalkDistance: 0,
   secondWalkTime: 0,
   busTime: 0
+})
+
+// State pentru panoul de traseu cu transfer
+const showTransfer = ref(false)
+const transferData = ref({
+  startName: '',
+  endName: '',
+  boardingStation: null as Station | null,
+  transferStation: null as Station | null,
+  alightingStation: null as Station | null,
+  route1Number: '',
+  route1Color: '#3b82f6',
+  route1StationsCount: 0,
+  route2Number: '',
+  route2Color: '#3b82f6',
+  route2StationsCount: 0,
+  firstWalkDistance: 0,
+  firstWalkTime: 0,
+  busTime1: 0,
+  busTime2: 0,
+  secondWalkDistance: 0,
+  secondWalkTime: 0
 })
 
 // Computed pentru a afișa toate stațiile când nu e selectat un traseu
@@ -455,9 +507,9 @@ const liveBuses = computed(() => {
     }
   })
   
-  // Dacă nu avem locația utilizatorului, afișăm toate autobuzele
+  // Dacă nu avem locația utilizatorului, afișăm primele 10 autobuze
   if (!userLocation.value?.lat || !userLocation.value?.lon) {
-    return buses
+    return buses.slice(0, 10)
   }
   
   // Calculăm distanța pentru fiecare autobuz
@@ -968,7 +1020,7 @@ const findConnectingRoute = async (startStation: typeof props.allStations[0], en
 
 // Handler pentru traseu multimodal (mers pe jos + autobuz + mers pe jos)
 const handleMultimodalRouteRequested = async (
-  userLoc: { lat: number; lon: number },
+  userLoc: { lat: number; lon: number; name?: string },
   destination: { lat: number; lon: number; name: string }
 ) => {
   console.log('🚀 Calculez traseu multimodal...')
@@ -1070,17 +1122,36 @@ const handleMultimodalRouteRequested = async (
       
       console.log(`🔄 Transfer: ${route1.routeNumber} → ${transferStation.name} → ${route2.routeNumber}`)
       
-      // TODO: Implementează UI pentru trasee cu transfer
-      // Deocamdată afișăm prima rută
-      emit('routeSelected', route1.id, stations1)
-      
+      // Calculăm rutele de mers pe jos
       const routingData = await calculateBothWalkingRoutes(userLoc, startStation, transferStation, destination)
       
       if (routingData) {
-        alert(`Traseu cu transfer găsit:\n\n` +
-              `1️⃣ ${route1.routeNumber}: ${startStation.name} → ${transferStation.name}\n` +
-              `2️⃣ ${route2.routeNumber}: ${transferStation.name} → ${endStation.name}\n\n` +
-              `UI pentru transferuri în dezvoltare!`)
+        // Populăm datele pentru panoul de transfer
+        transferData.value = {
+          startName: userLoc.name || 'Locația ta',
+          endName: destination.name || 'Destinația',
+          boardingStation: startStation,
+          transferStation: transferStation,
+          alightingStation: endStation,
+          route1Number: route1.routeNumber,
+          route1Color: routeColors.value[route1.id] || '#3b82f6',
+          route1StationsCount: stations1.length,
+          route2Number: route2.routeNumber,
+          route2Color: routeColors.value[route2.id] || '#10b981',
+          route2StationsCount: stations2.length,
+          firstWalkDistance: routingData.firstDistance,
+          firstWalkTime: routingData.firstTime,
+          busTime1: calculateBusTime(stations1.length),
+          busTime2: calculateBusTime(stations2.length),
+          secondWalkDistance: routingData.secondDistance,
+          secondWalkTime: routingData.secondTime
+        }
+        
+        // Afișăm panoul
+        showTransfer.value = true
+        
+        // Afișăm primul traseu de autobuz pe hartă
+        emit('routeSelected', route1.id, stations1)
       }
     }
     
@@ -1107,6 +1178,10 @@ const closeDirections = () => {
   walkingPath.value = []
   snappedStart.value = null
   snappedEnd.value = null
+  walkingStart.value = null
+  walkingEnd.value = null
+  selectedAddress.value = null
+  console.log('✅ Direcții închise - totul resetat')
 }
 
 // Închide panoul multimodal
@@ -1114,11 +1189,96 @@ const closeMultimodal = () => {
   showMultimodal.value = false
   walkingPath.value = []
   secondWalkingPath.value = []
+  multimodalBusPath.value = []
+  walkingStart.value = null
+  walkingEnd.value = null
+  secondWalkingStart.value = null
+  secondWalkingEnd.value = null
+  snappedStart.value = null
+  snappedEnd.value = null
+  selectedAddress.value = null
+  // Reset multimodal data
+  multimodalData.value = {
+    startLocation: '',
+    endLocation: '',
+    boardingStation: '',
+    alightingStation: '',
+    busLine: '',
+    busColor: '#3b82f6',
+    busStationsList: [],
+    firstWalkDistance: 0,
+    firstWalkTime: 0,
+    secondWalkDistance: 0,
+    secondWalkTime: 0,
+    busTime: 0
+  }
+  console.log('✅ Rută multimodală închisă - totul resetat')
+}
+
+// Închide panoul de transfer
+const closeTransfer = () => {
+  showTransfer.value = false
+  walkingPath.value = []
+  secondWalkingPath.value = []
+  multimodalBusPath.value = []
+  walkingStart.value = null
+  walkingEnd.value = null
+  secondWalkingStart.value = null
+  secondWalkingEnd.value = null
+  snappedStart.value = null
+  snappedEnd.value = null
+  selectedAddress.value = null
+  // Reset transfer data
+  transferData.value = {
+    startName: '',
+    endName: '',
+    boardingStation: null,
+    transferStation: null,
+    alightingStation: null,
+    route1Number: '',
+    route1Color: '#3b82f6',
+    route1StationsCount: 0,
+    route2Number: '',
+    route2Color: '#3b82f6',
+    route2StationsCount: 0,
+    firstWalkDistance: 0,
+    firstWalkTime: 0,
+    busTime1: 0,
+    busTime2: 0,
+    secondWalkDistance: 0,
+    secondWalkTime: 0
+  }
+  console.log('✅ Rută cu transfer închisă - totul resetat')
+}
+
+// Helper pentru a calcula timpul estimat de autobuz (2 minute per stație)
+const calculateBusTime = (stationsCount: number): number => {
+  return stationsCount * 2 // 2 minute per stație
+}
+
+// Set trip mode
+const setTripMode = (enabled: boolean) => {
+  tripMode.value = enabled
+}
+
+// Handle route search request from EnhancedSearch
+const handleRouteSearchRequested = async (
+  origin: { lat: number; lon: number; name: string },
+  destination: { lat: number; lon: number; name: string }
+) => {
+  console.log('🚀 Căutare traseu între:', origin.name, '→', destination.name)
+  
+  // Use multimodal route handler
+  await handleMultimodalRouteRequested(
+    { lat: origin.lat, lon: origin.lon },
+    destination
+  )
 }
 
 // Expunem metoda pentru a putea fi apelată din componenta părinte
 defineExpose({
-  centerMap
+  centerMap,
+  setTripMode
 })
 </script>
 
@@ -1278,7 +1438,7 @@ defineExpose({
   position: absolute;
   top: 16px;
   left: 420px;
-  z-index: 1001;
+  z-index: 600;
   background: white;
   border: none;
   border-radius: 8px;
