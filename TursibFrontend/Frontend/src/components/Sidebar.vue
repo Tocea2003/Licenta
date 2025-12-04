@@ -6,6 +6,11 @@
     </div>
 
     <div class="sidebar-content">
+      <!-- Trip Planner Button -->
+      <button @click="toggleTripMode" class="trip-planner-btn" :class="{ active: tripMode }">
+        🗓️ Planifică Călătorie
+      </button>
+
       <!-- Loading State -->
       <div v-if="loading" class="loading">
         <div class="spinner"></div>
@@ -64,6 +69,7 @@ import apiService, { type Route, type Station } from '@/services/apiService'
 // Emits pentru comunicare cu componenta părinte
 const emit = defineEmits<{
   routeSelected: [routeId: number, stations: Station[]]
+  tripModeChanged: [enabled: boolean]
 }>()
 
 // State
@@ -73,6 +79,19 @@ const error = ref<string | null>(null)
 const selectedRouteId = ref<number | null>(null)
 const currentStations = ref<Station[]>([])
 const loadingStations = ref(false)
+const tripMode = ref(false)
+
+// Toggle trip planning mode
+const toggleTripMode = () => {
+  tripMode.value = !tripMode.value
+  emit('tripModeChanged', tripMode.value)
+  
+  // Reset selection when switching modes
+  if (tripMode.value) {
+    selectedRouteId.value = null
+    currentStations.value = []
+  }
+}
 
 // Încarcă toate traseele la montarea componentei
 const loadRoutes = async () => {
@@ -149,6 +168,36 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: 1.5rem;
+}
+
+/* Trip Planner Button */
+.trip-planner-btn {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-decoration: none;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 15px;
+  text-align: center;
+  margin-bottom: 20px;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  cursor: pointer;
+}
+
+.trip-planner-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.trip-planner-btn.active {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: #34d399;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
 /* Loading State */
