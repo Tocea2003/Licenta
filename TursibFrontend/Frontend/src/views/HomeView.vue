@@ -8,6 +8,8 @@ import apiService, { type Station } from '../services/apiService'
 const selectedStations = ref<Station[]>([])
 const selectedRouteId = ref<number | null>(null)
 const allStations = ref<Station[]>([]) // Toate stațiile pentru search
+const tripMode = ref(false) // Trip planning mode
+const sidebarVisible = ref(true) // Sidebar visibility
 // Folosim `any` pentru ref-ul componentei ca să evităm erori de tipare legate de InstanceType
 const mapRef = ref<any>(null)
 
@@ -28,6 +30,17 @@ const loadAllStations = async () => {
   }
 }
 
+// Handler pentru trip mode toggle
+const handleTripModeChanged = (enabled: boolean) => {
+  tripMode.value = enabled
+  console.log(`🗓️ Trip mode: ${enabled ? 'ACTIVAT' : 'DEZACTIVAT'}`)
+  
+  // Pass trip mode to MapView
+  if (mapRef.value && typeof mapRef.value.setTripMode === 'function') {
+    mapRef.value.setTripMode(enabled)
+  }
+}
+
 // Handler când un traseu este selectat din Sidebar
 const handleRouteSelected = (routeId: number, stations: Station[]) => {
   console.log(`🚌 Traseu selectat: ${routeId}`)
@@ -42,6 +55,11 @@ const handleRouteSelected = (routeId: number, stations: Station[]) => {
   }
 }
 
+// Handler pentru toggle sidebar
+const handleSidebarToggle = (visible: boolean) => {
+  sidebarVisible.value = visible
+}
+
 onMounted(() => {
   loadAllStations()
 })
@@ -51,8 +69,10 @@ onMounted(() => {
   <div class="app-container">
     <!-- Sidebar cu trasee și stații - mereu vizibil -->
     <Sidebar 
-      class="sidebar" 
-      @route-selected="handleRouteSelected" 
+      class="sidebar"
+      :class="{ 'sidebar-hidden': !sidebarVisible }"
+      @route-selected="handleRouteSelected"
+      @trip-mode-changed="handleTripModeChanged"
     />
     
     <!-- Harta ocupă restul ecranului -->
@@ -63,6 +83,7 @@ onMounted(() => {
         :all-stations="allStations"
         :route-color="selectedRouteId ? routeColors[selectedRouteId] : '#2563eb'"
         @route-selected="handleRouteSelected"
+        @sidebar-toggle="handleSidebarToggle"
       />
     </div>
   </div>
@@ -85,6 +106,11 @@ onMounted(() => {
   width: 350px;
   height: 100vh;
   z-index: 100;
+  transition: transform 0.3s ease-in-out;
+}
+
+.sidebar.sidebar-hidden {
+  transform: translateX(-100%);
 }
 
 /* Map Wrapper */
