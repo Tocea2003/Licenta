@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Notificări Tursib</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 5px;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+    button:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+    }
+    .success {
+      color: #16a34a;
+    }
+    .error {
+      color: #dc2626;
+    }
+    .warning {
+      color: #ea580c;
+    }
+    .info {
+      background: #eff6ff;
+      border-left: 4px solid #2563eb;
+      padding: 15px;
+      margin: 10px 0;
+    }
+    #status {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f8fafc;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔔 Test Sistem Notificări Tursib</h1>
+    <p>Acest tool te ajută să verifici dacă notificările funcționează corect.</p>
+  </div>
+
+  <div class="card">
+    <h2>1️⃣ Verificare Suport</h2>
+    <button onclick="checkSupport()">🔍 Verifică Suport Browser</button>
+    <div id="supportStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>2️⃣ Cerere Permisiuni</h2>
+    <button onclick="requestPermission()">🔓 Cere Permisiune Notificări</button>
+    <div id="permissionStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>3️⃣ Test Notificare</h2>
+    <button onclick="sendTestNotification()">🚌 Trimite Notificare Test</button>
+    <button onclick="sendBusNotification()">🔔 Simulează Notificare Autobuz</button>
+    <div class="info">
+      <strong>💡 Sfat:</strong> Dacă notificările nu apar, verifică setările browserului pentru localhost în Settings → Notifications
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>4️⃣ Service Worker</h2>
+    <button onclick="checkServiceWorker()">⚙️ Verifică Service Worker</button>
+    <button onclick="unregisterSW()">🗑️ Dezactivează Service Worker</button>
+    <div id="swStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>📊 Status</h2>
+    <div id="status">Apasă butoanele de mai sus pentru a testa...</div>
+  </div>
+
+  <script>
+    function log(message, type = 'info') {
+      const status = document.getElementById('status');
+      const timestamp = new Date().toLocaleTimeString();
+      const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+      status.innerHTML += `[${timestamp}] ${icon} ${message}\n`;
+      status.scrollTop = status.scrollHeight;
+    }
+
+    async function checkSupport() {
+      const div = document.getElementById('supportStatus');
+      div.innerHTML = '<p>Verificare în curs...</p>';
+      
+      const checks = [];
+      
+      // Notification API
+      const notificationSupported = 'Notification' in window;
+      checks.push(`Notification API: <span class="${notificationSupported ? 'success' : 'error'}">${notificationSupported ? '✅ Suportat' : '❌ Nu este suportat'}</span>`);
+      log(`Notification API: ${notificationSupported ? 'Suportat' : 'NU este suportat'}`, notificationSupported ? 'success' : 'error');
+      
+      // Service Worker
+      const swSupported = 'serviceWorker' in navigator;
+      checks.push(`Service Worker: <span class="${swSupported ? 'success' : 'error'}">${swSupported ? '✅ Suportat' : '❌ Nu este suportat'}</span>`);
+      log(`Service Worker: ${swSupported ? 'Suportat' : 'NU este suportat'}`, swSupported ? 'success' : 'error');
+      
+      // Secure Context
+      const isSecure = window.isSecureContext;
+      checks.push(`Context Securizat (HTTPS/localhost): <span class="${isSecure ? 'success' : 'error'}">${isSecure ? '✅ Da' : '❌ Nu'}</span>`);
+      log(`Context securizat: ${isSecure ? 'Da' : 'NU'}`, isSecure ? 'success' : 'error');
+      
+      // Permission
+      if (notificationSupported) {
+        const permission = Notification.permission;
+        const permissionOk = permission === 'granted';
+        checks.push(`Permisiune: <span class="${permissionOk ? 'success' : 'warning'}">${permission === 'granted' ? '✅ Acordată' : permission === 'denied' ? '❌ Refuzată' : '⚠️ Nu a fost cerută'}</span>`);
+        log(`Permisiune notificări: ${permission}`, permissionOk ? 'success' : 'warning');
+      }
+      
+      div.innerHTML = '<ul>' + checks.map(c => `<li>${c}</li>`).join('') + '</ul>';
+    }
+
+    async function requestPermission() {
+      const div = document.getElementById('permissionStatus');
+      
+      if (!('Notification' in window)) {
+        div.innerHTML = '<p class="error">❌ Browserul nu suportă notificări!</p>';
+        log('Browserul NU suportă notificări', 'error');
+        return;
+      }
+      
+      if (Notification.permission === 'granted') {
+        div.innerHTML = '<p class="success">✅ Permisiunea este deja acordată!</p>';
+        log('Permisiunea este deja acordată', 'success');
+        return;
+      }
+      
+      if (Notification.permission === 'denied') {
+        div.innerHTML = '<p class="error">❌ Permisiunea a fost refuzată. Resetează-o din setările browserului.</p>';
+        log('Permisiunea a fost refuzată - resetează din setări', 'error');
+        return;
+      }
+      
+      log('Cerere permisiune notificări...');
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          div.innerHTML = '<p class="success">✅ Permisiune acordată! Poți trimite notificări.</p>';
+          log('Permisiune ACORDATĂ!', 'success');
+        } else {
+          div.innerHTML = '<p class="error">❌ Permisiune refuzată.</p>';
+          log('Permisiune refuzată', 'error');
+        }
+      } catch (error) {
+        div.innerHTML = `<p class="error">❌ Eroare: ${error.message}</p>`;
+        log(`Eroare la cererea permisiunii: ${error.message}`, 'error');
+      }
+    }
+
+    function sendTestNotification() {
+      if (!('Notification' in window)) {
+        alert('❌ Browserul nu suportă notificări!');
+        log('Browserul NU suportă notificări', 'error');
+        return;
+      }
+      
+      if (Notification.permission !== 'granted') {
+        alert('⚠️ Trebuie să acorzi permisiunea pentru notificări mai întâi!');
+        log('Permisiune lipsă - acordă permisiunea mai întâi', 'warning');
+        return;
+      }
+      
+      try {
+        log('Trimitere notificare test...');
+        const notification = new Notification('🔔 Test Notificare', {
+          body: 'Dacă vezi acest mesaj, notificările funcționează perfect!',
+          icon: '/front-of-bus.png',
+          badge: '/bus-station.png',
+          requireInteraction: false,
+          silent: false
+        });
+        
+        notification.onclick = () => {
+          log('Notificare click!', 'success');
+          window.focus();
+          notification.close();
+        };
+        
+        notification.onerror = (error) => {
+          log(`Eroare notificare: ${error}`, 'error');
+        };
+        
+        setTimeout(() => {
+          try {
+            notification.close();
+          } catch (e) {
+            // Ignore
+          }
+        }, 5000);
+        
+        log('Notificare test trimisă cu succes!', 'success');
+      } catch (error) {
+        alert(`❌ Eroare: ${error.message}`);
+        log(`Eroare la trimiterea notificării: ${error.message}`, 'error');
+      }
+    }
+
+    function sendBusNotification() {
+      if (Notification.permission !== 'granted') {
+        alert('⚠️ Trebuie să acorzi permisiunea pentru notificări mai întâi!');
+        return;
+      }
+      
+      try {
+        log('Trimitere notificare autobuz simulată...');
+        const notification = new Notification('🚌 Autobuzul Linia 5 se apropie!', {
+          body: 'Va sosi la Piața Unirii în 2 minute',
+          icon: '/front-of-bus.png',
+          badge: '/bus-station.png',
+          requireInteraction: false,
+          silent: false,
+          vibrate: [200, 100, 200]
+        });
+        
+        notification.onclick = () => {
+          log('Utilizator a dat click pe notificare!', 'success');
+          window.focus();
+          notification.close();
+        };
+        
+        setTimeout(() => {
+          try {
+            notification.close();
+          } catch (e) {
+            // Ignore
+          }
+        }, 10000);
+        
+        log('Notificare autobuz trimisă cu succes!', 'success');
+      } catch (error) {
+        alert(`❌ Eroare: ${error.message}`);
+        log(`Eroare: ${error.message}`, 'error');
+      }
+    }
+
+    async function checkServiceWorker() {
+      const div = document.getElementById('swStatus');
+      
+      if (!('serviceWorker' in navigator)) {
+        div.innerHTML = '<p class="error">❌ Service Worker nu este suportat</p>';
+        log('Service Worker NU este suportat', 'error');
+        return;
+      }
+      
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        
+        if (registrations.length === 0) {
+          div.innerHTML = '<p class="warning">⚠️ Niciun Service Worker înregistrat</p>';
+          log('Niciun Service Worker înregistrat', 'warning');
+        } else {
+          const info = registrations.map((reg, i) => 
+            `<li>SW ${i + 1}: ${reg.scope} (${reg.active ? '✅ Activ' : '⚠️ Inactiv'})</li>`
+          ).join('');
+          div.innerHTML = `<p class="success">✅ Service Workers înregistrați:</p><ul>${info}</ul>`;
+          log(`${registrations.length} Service Worker(s) găsit(e)`, 'success');
+        }
+        
+        // Check controller
+        if (navigator.serviceWorker.controller) {
+          log(`Service Worker Controller: ${navigator.serviceWorker.controller.scriptURL}`, 'success');
+        } else {
+          log('Niciun controller activ (refresh poate fi necesar)', 'warning');
+        }
+      } catch (error) {
+        div.innerHTML = `<p class="error">❌ Eroare: ${error.message}</p>`;
+        log(`Eroare verificare SW: ${error.message}`, 'error');
+      }
+    }
+
+    async function unregisterSW() {
+      if (!('serviceWorker' in navigator)) {
+        alert('Service Worker nu este suportat');
+        return;
+      }
+      
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        
+        if (registrations.length === 0) {
+          alert('Nu există Service Workers de dezactivat');
+          log('Nu există Service Workers de dezactivat', 'warning');
+          return;
+        }
+        
+        for (const registration of registrations) {
+          await registration.unregister();
+          log(`Service Worker dezactivat: ${registration.scope}`, 'success');
+        }
+        
+        alert('✅ Service Workers dezactivați! Reîncarcă pagina.');
+        log('Toate Service Workers au fost dezactivate', 'success');
+      } catch (error) {
+        alert(`❌ Eroare: ${error.message}`);
+        log(`Eroare dezactivare SW: ${error.message}`, 'error');
+      }
+    }
+
+    // Auto-check on load
+    window.addEventListener('load', () => {
+      log('Pagină încărcată - verificare automată...');
+      checkSupport();
+      checkServiceWorker();
+    });
+  </script>
+</body>
+</html>

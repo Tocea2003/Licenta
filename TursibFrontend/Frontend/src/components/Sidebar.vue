@@ -99,8 +99,25 @@ const loadRoutes = async () => {
   error.value = null
   
   try {
-    routes.value = await apiService.getRoutes()
-    console.log('✅ Trasee încărcate:', routes.value)
+    // Verifică cache-ul localStorage
+    const cachedRoutes = localStorage.getItem('routes')
+    const cachedTimestamp = localStorage.getItem('routesTimestamp')
+    
+    // Cache valid 30 minute
+    if (cachedRoutes && cachedTimestamp && Date.now() - parseInt(cachedTimestamp) < 1800000) {
+      routes.value = JSON.parse(cachedRoutes)
+      console.log('✅ Trasee încărcate din cache:', routes.value.length)
+    } else {
+      // Încarcă din API
+      const fetchedRoutes = await apiService.getRoutes()
+      routes.value = fetchedRoutes
+      
+      // Salvează în cache
+      localStorage.setItem('routes', JSON.stringify(fetchedRoutes))
+      localStorage.setItem('routesTimestamp', Date.now().toString())
+      
+      console.log('✅ Trasee încărcate din API:', routes.value.length)
+    }
   } catch (err: any) {
     console.error('❌ Eroare la încărcarea traseelor:', err)
     error.value = 'Nu s-au putut încărca traseele. Verifică dacă API-ul rulează.'
@@ -109,18 +126,29 @@ const loadRoutes = async () => {
   }
 }
 
-// Selectează un traseu și încarcă stațiile lui
+// Cache pentru stații
+const stationsCache = new Map<number, Station[]>()
+
+// Selectează un traseu și încarcă stațiile lui cu cache
 const selectRoute = async (routeId: number) => {
   selectedRouteId.value = routeId
   loadingStations.value = true
   
   try {
-    const stations = await apiService.getRouteStations(routeId)
-    currentStations.value = stations
-    console.log(`✅ Stații pentru traseul ${routeId}:`, stations)
+    // Verifică cache-ul
+    if (stationsCache.has(routeId)) {
+      currentStations.value = stationsCache.get(routeId)!
+      console.log(`✅ Stații pentru traseul ${routeId} din cache:`, currentStations.value.length)
+    } else {
+      // Încarcă din API
+      const stations = await apiService.getRouteStations(routeId)
+      currentStations.value = stations
+      stationsCache.set(routeId, stations)
+      console.log(`✅ Stații pentru traseul ${routeId} din API:`, stations.length)
+    }
     
     // Emite eveniment către componenta părinte (pentru hartă)
-    emit('routeSelected', routeId, stations)
+    emit('routeSelected', routeId, currentStations.value)
   } catch (err) {
     console.error(`❌ Eroare la încărcarea stațiilor pentru traseul ${routeId}:`, err)
     currentStations.value = []

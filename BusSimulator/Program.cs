@@ -80,6 +80,9 @@ namespace BusSimulator
         private List<Station> stations = new List<Station>();
         private List<(double Latitude, double Longitude)> routePoints = new List<(double, double)>();
         private int currentPointIndex = 0;
+        private int occupancy = 0; // Grad de ocupare: 0-100
+        private Random random = new Random();
+        private int stationsSinceLastUpdate = 0;
         
         public BusSimulator(int busId, int routeId, FirebaseClient firebase, HttpClient httpClient)
         {
@@ -119,7 +122,14 @@ namespace BusSimulator
                 {
                     var location = GetCurrentLocation();
                     
-                    // Trimite locația la Firebase
+                    // Actualizează gradul de ocupare când ajunge la o stație
+                    if (IsNearStation(location))
+                    {
+                        UpdateOccupancy();
+                        stationsSinceLastUpdate = 0;
+                    }
+                    
+                    // Trimite locația la Firebase cu rate limiting
                     await firebase
                         .Child("bus_locations")
                         .Child(busId.ToString())
@@ -129,17 +139,19 @@ namespace BusSimulator
                             longitude = location.Longitude,
                             routeId = routeId,
                             timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                            speed = 35.0 + new Random().NextDouble() * 15.0, // 35-50 km/h
-                            heading = CalculateHeading()
+                            speed = 35.0 + random.NextDouble() * 15.0, // 35-50 km/h
+                            heading = CalculateHeading(),
+                            occupancy = occupancy // Grad de ocupare 0-100
                         });
                     
                     Console.WriteLine($"📍 Bus {busId}: [{location.Latitude:F6}, {location.Longitude:F6}] " +
-                                    $"Point {currentPointIndex + 1}/{routePoints.Count}");
+                                    $"Point {currentPointIndex + 1}/{routePoints.Count} | Ocupare: {occupancy}%");
                     
                     // Mută autobuzul la următorul punct
                     MoveToNextPoint();
                     
-                    await Task.Delay(500); // 0.5 second
+                    // Delay optimizat - 2 secunde între update-uri pentru reducerea load-ului
+                    await Task.Delay(2000);
                 }
                 catch (Exception ex)
                 {
@@ -258,6 +270,39 @@ namespace BusSimulator
             
             var heading = Math.Atan2(dLon, dLat) * 180 / Math.PI;
             return (heading + 360) % 360; // Normalize to 0-360
+        }
+        
+        private bool IsNearStation((double Latitude, double Longitude) location)
+        {
+            const double threshold = 0.0001; // ~11 meters
+            
+            return stations.Any(s => 
+                Math.Abs(s.Latitude - location.Latitude) < threshold &&
+                Math.Abs(s.Longitude - location.Longitude) < threshold);
+        }
+        
+        private void UpdateOccupancy()
+        {
+            // Simulare realistă a urcărilor/coborârilor
+            int change = random.Next(-15, 25); // Mai mulți urcă decât coboară în medie
+            occupancy = Math.Max(0, Math.Min(100, occupancy + change));
+            
+            // Variație în funcție de ora din zi (peak hours)
+            var hour = DateTime.Now.Hour;
+            if ((hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18))
+            {
+                // Ore de vârf - mai plin
+                if (occupancy < 60)
+                    occupancy += random.Next(5, 15);
+            }
+            else if (hour >= 22 || hour <= 5)
+            {
+                // Noapte - mai gol
+                if (occupancy > 30)
+                    occupancy -= random.Next(5, 10);
+            }
+            
+            stationsSinceLastUpdate++;
         }
     }
     

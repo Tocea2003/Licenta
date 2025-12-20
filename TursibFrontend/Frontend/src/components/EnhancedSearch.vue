@@ -474,7 +474,7 @@ const selectAddress = (result: GeocodeResult) => {
 }
 
 const selectStation = (station: Station) => {
-  // In trip mode, set as destination
+  // In trip mode, set as destination and calculate route if we have origin
   if (props.tripMode) {
     destinationLocation.value = {
       lat: station.latitude,
@@ -483,6 +483,12 @@ const selectStation = (station: Station) => {
     }
     searchQuery.value = station.name
     showResults.value = false
+    
+    // Dacă avem și origine, calculează traseu multimodal
+    if (originLocation.value) {
+      console.log('🚀 Calculez traseu către stația:', station.name)
+      emit('routeSearchRequested', originLocation.value, destinationLocation.value)
+    }
     return
   }
   

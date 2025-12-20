@@ -29,18 +29,6 @@
     <!-- Buton pentru locație -->
     <LocationButton @location-found="handleLocationFound" />
     
-    <!-- Toggle pentru afișarea stațiilor -->
-    <div class="stations-toggle">
-      <label class="toggle-label">
-        <input 
-          type="checkbox" 
-          v-model="showAllStations" 
-          class="toggle-checkbox"
-        />
-        <span class="toggle-text">Arată toate stațiile</span>
-      </label>
-    </div>
-    
     <!-- Panoul multimodal (mers pe jos + autobuz + mers pe jos) -->
     <MultimodalDirections
       v-if="showMultimodal && !showTransfer"
@@ -97,6 +85,16 @@
       @close="closeDirections"
       @route-calculated="handleWalkingRouteCalculated"
       @snapped-coordinates="handleSnappedCoordinates"
+    />
+    
+    <!-- Panel pentru stații apropiate (înlocuiește markerele Leaflet) -->
+    <NearbyStationsPanel
+      :visible="showNearbyStations"
+      :stations="nearbyStations"
+      :active-notification-station-id="getNotificationSettings().enabled ? getNotificationSettings().stationId : null"
+      :get-station-e-t-as="getStationETAs"
+      @close="showNearbyStations = false"
+      @toggleNotification="handleNotificationToggle"
     />
 
     <l-map
@@ -192,67 +190,20 @@
         </l-popup>
       </l-marker>
 
-      <!-- Markere pentru stații selectate (când e ales un traseu) -->
-
-      <l-marker
-
-        v-for="station in stations"
-
-        :key="`route-${station.id}`"
-
-        :lat-lng="[station.latitude, station.longitude]"
-
-      >
-        <l-icon
-          :icon-size="[32, 32]"
-          :icon-anchor="[16, 32]"
-          icon-url="/bus-station.png"
-        />
-
-        <l-popup>
-
-          <div>
-
-            <strong>{{ station.name }}</strong>
-
-          </div>
-
-        </l-popup>
-
-      </l-marker>
-      
-      <!-- Markere pentru TOATE stațiile (când nu e selectat traseu și toggle e activ) -->
-
-      <l-marker
-
-        v-if="showAllStations"
-
-        v-for="station in displayAllStations"
-
-        :key="`all-${station.id}`"
-
-        :lat-lng="[station.latitude, station.longitude]"
-
-      >
-        <l-icon
-          :icon-size="[26, 26]"
-          :icon-anchor="[13, 26]"
-          icon-url="/bus-station.png"
-        />
-
-        <l-popup>
-
-          <div>
-
-            <strong>{{ station.name }}</strong>
-
-          </div>
-
-        </l-popup>
-
-      </l-marker>
-
-
+      <!-- Markere pentru stații selectate (când e ales un traseu) - DOAR ICOANE SIMPLE -->
+      <template v-if="stations && stations.length > 0">
+        <l-marker
+          v-for="station in stations"
+          :key="`route-${station.id}`"
+          :lat-lng="[station.latitude, station.longitude]"
+        >
+          <l-icon
+            :icon-size="[32, 32]"
+            :icon-anchor="[16, 32]"
+            icon-url="/bus-station.png"
+          />
+        </l-marker>
+      </template>
 
       <!-- Linia traseului cu săgeți pentru sens (dacă există stații selectate) -->
       <l-polyline
@@ -309,7 +260,14 @@
           <div class="bus-popup">
             <strong :style="{ color: getBusColor(bus.routeId) }">Autobuz {{ bus.id }}</strong><br>
             <small>Traseu: {{ bus.routeId }}</small><br>
-            <small>Viteză: {{ bus.speed?.toFixed(1) }} km/h</small>
+            <small>Viteză: {{ bus.speed?.toFixed(1) }} km/h</small><br>
+            <div class="occupancy-indicator" :class="getOccupancyClass(bus.occupancy)">
+              <span class="occupancy-icon">👥</span>
+              <span class="occupancy-text">{{ getOccupancyLabel(bus.occupancy) }}</span>
+              <div class="occupancy-bar">
+                <div class="occupancy-fill" :style="{ width: bus.occupancy + '%' }"></div>
+              </div>
+            </div>
           </div>
         </l-popup>
       </l-marker>
@@ -324,7 +282,7 @@
 
 <script setup lang="ts">
 
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useDatabaseObject } from 'vuefire'
 import { ref as dbRef, getDatabase } from 'firebase/database'
 
@@ -339,7 +297,25 @@ import EnhancedSearch from './EnhancedSearch.vue'
 import WalkingDirections from './WalkingDirections.vue'
 import MultimodalDirections from './MultimodalDirections.vue'
 import TransferRoute from './TransferRoute.vue'
+import NearbyStationsPanel from './NearbyStationsPanel.vue'
 import apiService, { type Station } from '@/services/apiService'
+import { useNotifications, checkBusNotifications } from '@/composables/useNotifications'
+
+// Notifications
+const { 
+  enableNotifications, 
+  disableNotifications, 
+  getNotificationSettings,
+  checkNotificationSupport
+} = useNotifications()
+
+// Run diagnostics on mount
+onMounted(() => {
+  const diagnostics = checkNotificationSupport()
+  if (!diagnostics.supported) {
+    console.warn('⚠️ Notificările nu sunt suportate de acest browser')
+  }
+})
 
 // Am scos 'leaflet/dist/leaflet.css' de aici, deoarece este deja în main.ts
 
@@ -352,6 +328,7 @@ interface BusLocation {
   timestamp: number
   speed: number
   heading: number
+  occupancy?: number // Grad de ocupare 0-100
 }
 
 
@@ -425,8 +402,8 @@ const secondWalkingPath = ref<[number, number][]>([])
 // State pentru segmentul de traseu multimodal (doar între stațiile de urcare și coborâre)
 const multimodalBusPath = ref<[number, number][]>([])
 
-// State pentru afișarea tuturor stațiilor
-const showAllStations = ref(false)
+// State pentru afișarea panelului cu stații apropiate
+const showNearbyStations = ref(false)
 
 // State pentru afișarea/ascunderea sidebar-ului
 const showSidebar = ref(true)
@@ -471,14 +448,54 @@ const transferData = ref({
   secondWalkTime: 0
 })
 
-// Computed pentru a afișa toate stațiile când nu e selectat un traseu
-const displayAllStations = computed(() => {
-  // Dacă sunt stații selectate (traseu ales), nu afișa toate
-  if (props.stations && props.stations.length > 0) {
+// Cache pentru stații apropiate
+let nearbyStationsCache: any[] = []
+let nearbyStationsCacheKey = ''
+
+// Computed pentru a afișa cele mai apropiate 10 stații când utilizatorul își găsește locația
+// Optimizat cu cache
+const nearbyStations = computed(() => {
+  // Doar dacă utilizatorul a activat afișarea și nu e selectat un traseu
+  if (!showNearbyStations.value || (props.stations && props.stations.length > 0)) {
     return []
   }
-  // Altfel afișează toate stațiile
-  return props.allStations || []
+  
+  // Trebuie să avem locația utilizatorului
+  if (!userLocation.value?.lat || !userLocation.value?.lon) {
+    return []
+  }
+  
+  // Cache key bazat pe locația utilizatorului (rotunjit la 4 decimale)
+  const cacheKey = `${userLocation.value.lat.toFixed(4)}-${userLocation.value.lon.toFixed(4)}`
+  if (cacheKey === nearbyStationsCacheKey && nearbyStationsCache.length > 0) {
+    return nearbyStationsCache
+  }
+  
+  const userLat = userLocation.value.lat
+  const userLon = userLocation.value.lon
+  const allStations = props.allStations || []
+  
+  // Calculare optimizată - evităm map și folosim for loop
+  const stationsWithDistance: Array<typeof allStations[0] & { distance: number }> = []
+  
+  for (let i = 0; i < allStations.length; i++) {
+    const station = allStations[i]
+    if (!station || typeof station.latitude !== 'number' || typeof station.longitude !== 'number') {
+      continue
+    }
+    const distance = calculateDistance(userLat, userLon, station.latitude, station.longitude)
+    stationsWithDistance.push({ ...station, distance })
+  }
+  
+  // Sortăm și luăm primele 10
+  stationsWithDistance.sort((a, b) => a.distance - b.distance)
+  const result = stationsWithDistance.slice(0, 10)
+  
+  // Salvăm în cache
+  nearbyStationsCache = result
+  nearbyStationsCacheKey = cacheKey
+  
+  return result
 })
 
 // Firebase - Ascultă autobuze live
@@ -486,15 +503,49 @@ const database = getDatabase()
 const busLocationsRef = dbRef(database, 'bus_locations')
 const busLocationsData = useDatabaseObject(busLocationsRef)
 
-// Computed pentru a transforma datele Firebase în array și filtra cele mai apropiate 10
+// Cache pentru distanțe calculate recent
+const distanceCache = new Map<string, { distance: number, timestamp: number }>()
+const DISTANCE_CACHE_TTL = 5000 // 5 secunde
+
+// Helper pentru calcularea distanței cu cache
+const getCachedDistance = (busId: string, busLat: number, busLon: number, userLat: number, userLon: number): number => {
+  const cacheKey = `${busId}-${userLat.toFixed(4)}-${userLon.toFixed(4)}`
+  const cached = distanceCache.get(cacheKey)
+  
+  if (cached && Date.now() - cached.timestamp < DISTANCE_CACHE_TTL) {
+    return cached.distance
+  }
+  
+  const distance = calculateDistance(userLat, userLon, busLat, busLon)
+  distanceCache.set(cacheKey, { distance, timestamp: Date.now() })
+  
+  // Curăță cache-ul vechi
+  if (distanceCache.size > 200) {
+    const now = Date.now()
+    for (const [key, value] of distanceCache.entries()) {
+      if (now - value.timestamp > DISTANCE_CACHE_TTL) {
+        distanceCache.delete(key)
+      }
+    }
+  }
+  
+  return distance
+}
+
+// Computed pentru a transforma datele Firebase în array și filtra cele mai apropiate autobuze
+// Optimizat cu cache și limitare inteligentă
 const liveBuses = computed(() => {
   if (!busLocationsData.value) {
     return []
   }
   
   const buses: BusLocation[] = []
-  Object.entries(busLocationsData.value).forEach(([id, data]: [string, any]) => {
-    if (data && data.latitude && data.longitude) {
+  const entries = Object.entries(busLocationsData.value)
+  
+  // Procesare optimizată - evită spread operator
+  for (let i = 0; i < entries.length; i++) {
+    const [id, data] = entries[i] as [string, any]
+    if (data?.latitude && data?.longitude) {
       buses.push({
         id,
         latitude: data.latitude,
@@ -505,30 +556,35 @@ const liveBuses = computed(() => {
         heading: data.heading
       })
     }
-  })
-  
-  // Dacă nu avem locația utilizatorului, afișăm primele 10 autobuze
-  if (!userLocation.value?.lat || !userLocation.value?.lon) {
-    return buses.slice(0, 10)
   }
   
-  // Calculăm distanța pentru fiecare autobuz
-  const busesWithDistance = buses.map(bus => {
-    const distance = calculateDistance(
-      userLocation.value!.lat,
-      userLocation.value!.lon,
-      bus.latitude,
-      bus.longitude
-    )
-    return { ...bus, distance }
-  })
+  // Dacă nu avem locația utilizatorului, returnăm primele 50 (mai eficient decât toate)
+  if (!userLocation.value?.lat || !userLocation.value?.lon) {
+    return buses.slice(0, 50)
+  }
   
-  // Sortăm după distanță și luăm primele 10
-  const nearest = busesWithDistance
-    .sort((a, b) => a.distance - b.distance)
-    .slice(0, 10)
+  const userLat = userLocation.value.lat
+  const userLon = userLocation.value.lon
   
-  return nearest
+  // Folosim un radius pentru filtrare rapidă (30km)
+  const MAX_DISTANCE = 30
+  const busesNearby: (BusLocation & { distance: number })[] = []
+  
+  for (let i = 0; i < buses.length; i++) {
+    const bus = buses[i]
+    if (!bus || typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') {
+      continue
+    }
+    const distance = getCachedDistance(bus.id, bus.latitude, bus.longitude, userLat, userLon)
+    
+    if (distance <= MAX_DISTANCE) {
+      busesNearby.push({ ...bus, distance })
+    }
+  }
+  
+  // Sortare eficientă - top 50 cele mai apropiate
+  busesNearby.sort((a, b) => a.distance - b.distance)
+  return busesNearby.slice(0, 50)
 })
 
 // Funcție pentru calcularea distanței dintre două puncte GPS (Haversine formula)
@@ -553,7 +609,7 @@ const zoom = ref(13)
 // Mapare culori pentru fiecare traseu (încărcat dinamic din API)
 const routeColors = ref<Record<number, string>>({})
 
-// Încarcă culorile traseelor la montare
+// Încarcă culorile traseelor la montare cu cache în localStorage
 onMounted(async () => {
   delete (L.Icon.Default.prototype as any)._getIconUrl
   L.Icon.Default.mergeOptions({
@@ -562,23 +618,95 @@ onMounted(async () => {
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
   })
   
-  // Încarcă culorile traseelor din API
-  try {
-    const routes = await apiService.getRoutes()
-    routes.forEach(route => {
-      if (route.id && (route as any).color) {
-        routeColors.value[route.id] = (route as any).color
+  // Încarcă culorile traseelor din cache sau API
+  const loadRouteColors = async () => {
+    try {
+      // Încearcă să încărci din localStorage
+      const cachedColors = localStorage.getItem('routeColors')
+      const cachedTimestamp = localStorage.getItem('routeColorsTimestamp')
+      
+      // Cache valid 24 ore
+      if (cachedColors && cachedTimestamp && Date.now() - parseInt(cachedTimestamp) < 86400000) {
+        routeColors.value = JSON.parse(cachedColors)
+        console.log('✅ Loaded', Object.keys(routeColors.value).length, 'route colors from cache')
+        return
       }
-    })
-    console.log('✅ Loaded colors for', Object.keys(routeColors.value).length, 'routes')
-  } catch (error) {
-    console.error('❌ Failed to load route colors:', error)
+      
+      // Încarcă din API
+      const routes = await apiService.getRoutes()
+      const colors: Record<number, string> = {}
+      
+      for (let i = 0; i < routes.length; i++) {
+        const route = routes[i]
+        if (route && route.id && (route as any).color) {
+          colors[route.id] = (route as any).color
+        }
+      }
+      
+      routeColors.value = colors
+      
+      // Salvează în cache
+      localStorage.setItem('routeColors', JSON.stringify(colors))
+      localStorage.setItem('routeColorsTimestamp', Date.now().toString())
+      
+      console.log('✅ Loaded', Object.keys(colors).length, 'route colors from API')
+    } catch (error) {
+      console.error('❌ Failed to load route colors:', error)
+    }
   }
   
+  // Încarcă culorile async
+  loadRouteColors()
+  
+  // Hartă ready imediat
   setTimeout(() => {
     isReady.value = true
-  }, 100)
+  }, 50)
 })
+
+// Watch pentru monitorizarea autobuzelor și trimiterea notificărilor
+// Optimizat cu debounce și cache pentru stația monitorizată
+let notificationCheckTimeout: number | null = null
+let cachedMonitoredStation: Station | null = null
+let cachedMonitoredStationId: number | null = null
+
+watch(liveBuses, (buses) => {
+  if (notificationCheckTimeout) {
+    clearTimeout(notificationCheckTimeout)
+  }
+  
+  notificationCheckTimeout = setTimeout(() => {
+    const notificationSettings = getNotificationSettings()
+    
+    if (!notificationSettings.enabled || !notificationSettings.stationId) {
+      cachedMonitoredStation = null
+      cachedMonitoredStationId = null
+      return
+    }
+    
+    // Cache pentru stația monitorizată
+    if (cachedMonitoredStationId !== notificationSettings.stationId) {
+      cachedMonitoredStation = props.allStations?.find(
+        s => s.id === notificationSettings.stationId
+      ) || null
+      cachedMonitoredStationId = notificationSettings.stationId
+    }
+    
+    if (cachedMonitoredStation && buses.length > 0) {
+      // Conversie eficientă - reutilizăm obiectele dacă sunt deja în format corect
+      const busLocations = buses.map(bus => ({
+        id: bus.id,
+        latitude: bus.latitude,
+        longitude: bus.longitude,
+        routeId: bus.routeId,
+        speed: bus.speed,
+        occupancy: (bus as any).occupancy
+      }))
+      
+      checkBusNotifications(busLocations, cachedMonitoredStation)
+    }
+  }, 3000) // Verifică la 3 secunde pentru a reduce load-ul
+}, { deep: false })
 
 // Funcție pentru a obține culoarea unui autobuz în funcție de routeId
 const getBusColor = (routeId: number): string => {
@@ -796,6 +924,9 @@ const centerMap = (lat: number, lon: number, newZoom: number = 15) => {
 const handleLocationFound = (lat: number, lon: number) => {
   userLocation.value = { lat, lon }
   centerMap(lat, lon, 15)
+  // Activează automat panelul cu stații apropiate
+  showNearbyStations.value = true
+  console.log('✅ Locație găsită, deschid panelul cu 10 stații apropiate')
 }
 
 // Handler pentru stația selectată din EnhancedSearch
@@ -1122,10 +1253,44 @@ const handleMultimodalRouteRequested = async (
       
       console.log(`🔄 Transfer: ${route1.routeNumber} → ${transferStation.name} → ${route2.routeNumber}`)
       
-      // Calculăm rutele de mers pe jos
-      const routingData = await calculateBothWalkingRoutes(userLoc, startStation, transferStation, destination)
+      // Calculăm rutele de mers pe jos (start → prima stație, ultima stație → destinație)
+      const routingData = await calculateBothWalkingRoutes(userLoc, startStation, endStation, destination)
       
       if (routingData) {
+        // Calculăm numărul de stații pentru fiecare segment
+        const startIndex1 = stations1.findIndex(s => s.id === startStation.id)
+        const transferIndex1 = stations1.findIndex(s => s.id === transferStation.id)
+        const route1StationsCount = Math.abs(transferIndex1 - startIndex1)
+        
+        const transferIndex2 = stations2.findIndex(s => s.id === transferStation.id)
+        const endIndex2 = stations2.findIndex(s => s.id === endStation.id)
+        const route2StationsCount = Math.abs(endIndex2 - transferIndex2)
+        
+        console.log(`📊 Segment 1: ${route1StationsCount} stații, Segment 2: ${route2StationsCount} stații`)
+        
+        // Calculăm și afișăm traseele de autobuz pe hartă
+        try {
+          // Primul segment de autobuz (start → transfer)
+          const segment1 = await apiService.getRouteSegment(route1.id, startStation.id, transferStation.id)
+          if (segment1 && segment1.points && segment1.points.length > 0) {
+            walkingPath.value = segment1.points.map(point => 
+              [point.latitude, point.longitude] as [number, number]
+            )
+            console.log('✅ Segment 1 GTFS încărcat')
+          }
+          
+          // Al doilea segment de autobuz (transfer → end)
+          const segment2 = await apiService.getRouteSegment(route2.id, transferStation.id, endStation.id)
+          if (segment2 && segment2.points && segment2.points.length > 0) {
+            secondWalkingPath.value = segment2.points.map(point => 
+              [point.latitude, point.longitude] as [number, number]
+            )
+            console.log('✅ Segment 2 GTFS încărcat')
+          }
+        } catch (error) {
+          console.error('❌ Eroare la încărcarea segmentelor GTFS:', error)
+        }
+        
         // Populăm datele pentru panoul de transfer
         transferData.value = {
           startName: userLoc.name || 'Locația ta',
@@ -1135,23 +1300,24 @@ const handleMultimodalRouteRequested = async (
           alightingStation: endStation,
           route1Number: route1.routeNumber,
           route1Color: routeColors.value[route1.id] || '#3b82f6',
-          route1StationsCount: stations1.length,
+          route1StationsCount: route1StationsCount,
           route2Number: route2.routeNumber,
           route2Color: routeColors.value[route2.id] || '#10b981',
-          route2StationsCount: stations2.length,
+          route2StationsCount: route2StationsCount,
           firstWalkDistance: routingData.firstDistance,
           firstWalkTime: routingData.firstTime,
-          busTime1: calculateBusTime(stations1.length),
-          busTime2: calculateBusTime(stations2.length),
+          busTime1: calculateBusTime(route1StationsCount),
+          busTime2: calculateBusTime(route2StationsCount),
           secondWalkDistance: routingData.secondDistance,
           secondWalkTime: routingData.secondTime
         }
         
+        console.log('✅ Deschid panoul de transfer cu datele:', transferData.value)
+        
         // Afișăm panoul
         showTransfer.value = true
-        
-        // Afișăm primul traseu de autobuz pe hartă
-        emit('routeSelected', route1.id, stations1)
+        showMultimodal.value = false
+        showDirections.value = false
       }
     }
     
@@ -1190,6 +1356,7 @@ const closeMultimodal = () => {
   walkingPath.value = []
   secondWalkingPath.value = []
   multimodalBusPath.value = []
+  routePath.value = []
   walkingStart.value = null
   walkingEnd.value = null
   secondWalkingStart.value = null
@@ -1221,6 +1388,7 @@ const closeTransfer = () => {
   walkingPath.value = []
   secondWalkingPath.value = []
   multimodalBusPath.value = []
+  routePath.value = []
   walkingStart.value = null
   walkingEnd.value = null
   secondWalkingStart.value = null
@@ -1280,6 +1448,125 @@ defineExpose({
   centerMap,
   setTripMode
 })
+
+// Helper pentru gradul de ocupare
+const getOccupancyLabel = (occupancy: number | undefined): string => {
+  if (!occupancy) return 'Necunoscut'
+  if (occupancy < 30) return 'Scăzut'
+  if (occupancy < 70) return 'Mediu'
+  return 'Ridicat'
+}
+
+const getOccupancyClass = (occupancy: number | undefined): string => {
+  if (!occupancy) return 'occupancy-unknown'
+  if (occupancy < 30) return 'occupancy-low'
+  if (occupancy < 70) return 'occupancy-medium'
+  return 'occupancy-high'
+}
+
+// Handler pentru notificări
+const handleNotificationToggle = async (stationId: number) => {
+  try {
+    const notificationSettings = getNotificationSettings()
+    
+    if (notificationSettings.enabled && notificationSettings.stationId === stationId) {
+      // Dezactivează notificările
+      disableNotifications()
+      console.log('🔕 Dezactivare notificări pentru stația', stationId)
+      alert('Notificările au fost dezactivate pentru această stație')
+    } else {
+      // Verifică mai întâi suportul pentru notificări
+      if (!('Notification' in window)) {
+        alert('⚠️ Browserul tău nu suportă notificări. Încearcă un browser modern (Chrome, Firefox, Edge).')
+        return
+      }
+      
+      // Activează notificări
+      console.log('🔔 Activare notificări pentru stația', stationId)
+      const success = await enableNotifications(stationId)
+      
+      if (success) {
+        alert('✅ Notificările au fost activate! Vei primi o alertă când autobuzul se apropie (la 2 minute).')
+      } else {
+        alert('❌ Nu s-au putut activa notificările. Verifică dacă ai permis notificările în browser (bifează \"Allow\" în prompt-ul browserului).')
+      }
+    }
+  } catch (error) {
+    console.error('❌ Eroare la gestionarea notificărilor:', error)
+    alert('❌ Eroare la activarea notificărilor. Asigură-te că ai permis notificările în browser și că folosești HTTPS sau localhost.')
+  }
+}
+
+// Calcul ETA pentru autobuze care vin către o stație
+// Optimizat cu memoization și cache persistent
+const stationETACache = new Map<string, Array<{ busId: string, routeNumber: string, eta: string, color: string }>>()
+let etaCacheTimeout: number | null = null
+const ETA_CACHE_DURATION = 5000 // 5 secunde
+
+const getStationETAs = (stationId: number) => {
+  // Verifică cache
+  const now = Date.now()
+  const cacheKey = `${stationId}-${now - (now % ETA_CACHE_DURATION)}` // Cache bucket de 5s
+  
+  if (stationETACache.has(cacheKey)) {
+    return stationETACache.get(cacheKey)!
+  }
+  
+  const etas: Array<{ busId: string, routeNumber: string, eta: string, color: string }> = []
+  
+  const allStations = props.allStations
+  if (!allStations || allStations.length === 0) return etas
+  
+  const station = allStations.find(s => s.id === stationId)
+  if (!station) return etas
+  
+  const stationLat = station.latitude
+  const stationLon = station.longitude
+  const buses = liveBuses.value
+  
+  // Procesare optimizată - evităm forEach
+  for (let i = 0; i < buses.length; i++) {
+    const bus = buses[i]
+    if (!bus || typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') {
+      continue
+    }
+    
+    const distance = getDistance(bus.latitude, bus.longitude, stationLat, stationLon)
+    
+    // Dacă autobuzul e la mai puțin de 5km de stație
+    if (distance < 5) {
+      const avgSpeed = bus.speed || 35 // km/h
+      const etaMinutes = Math.round((distance / avgSpeed) * 60)
+      
+      if (etaMinutes <= 30) { // Afișăm doar dacă e sub 30 min
+        etas.push({
+          busId: bus.id,
+          routeNumber: `Linia ${bus.routeId}`,
+          eta: etaMinutes <= 1 ? '<1 min' : `${etaMinutes} min`,
+          color: routeColors.value[bus.routeId] || '#2563eb'
+        })
+      }
+    }
+  }
+  
+  // Sortează după ETA
+  etas.sort((a, b) => {
+    const etaA = a.eta === '<1 min' ? 0 : parseInt(a.eta)
+    const etaB = b.eta === '<1 min' ? 0 : parseInt(b.eta)
+    return etaA - etaB
+  })
+  
+  // Salvează în cache
+  stationETACache.set(cacheKey, etas)
+  
+  // Curăță cache-ul vechi periodic
+  if (stationETACache.size > 20) {
+    const oldestKey = stationETACache.keys().next().value
+    if (oldestKey) stationETACache.delete(oldestKey)
+  }
+  
+  return etas
+}
 </script>
 
 <style scoped>
@@ -1421,18 +1708,6 @@ defineExpose({
 }
 
 /* Stiluri pentru toggle-ul stațiilor */
-.stations-toggle {
-  position: absolute;
-  top: 80px;
-  right: 16px;
-  z-index: 1000;
-  background: white;
-  padding: 12px 16px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(10px);
-}
-
 /* Stiluri pentru butonul de toggle sidebar */
 .sidebar-toggle-btn {
   position: absolute;
@@ -1461,28 +1736,137 @@ defineExpose({
   color: #374151;
 }
 
-.toggle-label {
+/* Stiluri pentru gradul de ocupare */
+.occupancy-indicator {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.occupancy-low {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.occupancy-medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.occupancy-high {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.occupancy-unknown {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.occupancy-icon {
+  font-size: 14px;
+}
+
+.occupancy-text {
+  flex: 1;
+}
+
+.occupancy-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.occupancy-fill {
+  height: 100%;
+  background: currentColor;
+  transition: width 0.3s ease;
+}
+
+/* Stiluri pentru ETA în stații */
+:deep(.station-popup) {
+  min-width: 200px;
+}
+
+:deep(.station-etas) {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+
+:deep(.eta-title) {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+:deep(.eta-item) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+:deep(.eta-bus) {
+  font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
+  gap: 4px;
 }
 
-.toggle-checkbox {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  accent-color: #3b82f6;
+:deep(.eta-time) {
+  font-weight: 700;
+  color: #059669;
+  background: rgba(5, 150, 105, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
 }
 
-.toggle-text {
+:deep(.notification-btn) {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: none !important;
+  border-radius: 8px;
+  color: white !important;
   font-size: 14px;
-  font-weight: 500;
-  color: #1f2937;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.toggle-label:hover .toggle-text {
-  color: #3b82f6;
+:deep(.notification-btn:hover) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+}
+
+:deep(.notification-btn.active) {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+}
+
+:deep(.notification-btn.active:hover) {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.6);
 }
 </style>

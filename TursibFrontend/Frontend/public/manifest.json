@@ -1,0 +1,46 @@
+{
+  "name": "Tursib - Transport Public Sibiu",
+  "short_name": "Tursib",
+  "description": "Aplicație pentru urmărirea autobuzelor în timp real în Sibiu",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["navigation", "travel", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Vezi harta",
+      "short_name": "Hartă",
+      "description": "Deschide harta cu autobuze live",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Admin Dashboard",
+      "short_name": "Admin",
+      "description": "Panou de administrare",
+      "url": "/admin/analytics",
+      "icons": [
+        {
+          "src": "/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false
+}

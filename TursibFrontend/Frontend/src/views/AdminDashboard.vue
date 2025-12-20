@@ -10,6 +10,10 @@
       </div>
       
       <nav class="sidebar-nav">
+        <router-link to="/admin/analytics" class="nav-item">
+          <span class="nav-icon">📊</span>
+          <span class="nav-text">Analytics</span>
+        </router-link>
         <router-link to="/admin/routes" class="nav-item">
           <span class="nav-icon">🗺️</span>
           <span class="nav-text">Trasee</span>

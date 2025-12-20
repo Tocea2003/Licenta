@@ -20,4 +20,20 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor': ['vue', 'vue-router', 'pinia'],
+          'firebase': ['firebase/app', 'firebase/database', 'vuefire'],
+          'leaflet': ['leaflet', '@vue-leaflet/vue-leaflet'],
+          'charts': ['chart.js'],
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
+  },
+  optimizeDeps: {
+    include: ['leaflet', 'chart.js', 'firebase/database']
+  }
 })
