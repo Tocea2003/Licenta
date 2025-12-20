@@ -18,6 +18,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Register JWT Service
 builder.Services.AddScoped<JwtService>();
 
+// Register Route Calculator Service
+builder.Services.AddScoped<RouteCalculatorService>();
+
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

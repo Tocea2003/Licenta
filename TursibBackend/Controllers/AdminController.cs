@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TursibBackend.Data;
 using TursibBackend.Models;
+using System.Text.Json;
 
 namespace TursibBackend.Controllers
 {
@@ -225,6 +226,72 @@ namespace TursibBackend.Controllers
 
             return NoContent();
         }
+
+        // ========== STATISTICS ==========
+
+        // GET: api/admin/statistics
+        [HttpGet("statistics")]
+        public async Task<ActionResult<StatisticsResponse>> GetStatistics()
+        {
+            try
+            {
+                // Get database statistics
+                var totalRoutes = await _context.Routes.CountAsync();
+                var totalStations = await _context.Stations.CountAsync();
+                var totalBuses = await _context.Buses.CountAsync();
+
+                // Get active buses from Firebase (simulated with database for now)
+                var activeBuses = await _context.Buses.CountAsync();
+
+                // Calculate average occupancy (simulated)
+                var avgOccupancy = 0;
+                if (activeBuses > 0)
+                {
+                    // In real scenario, fetch from Firebase
+                    avgOccupancy = 45; // Mock data
+                }
+
+                // Get route statistics
+                var routeStats = await _context.Routes
+                    .Select(r => new RouteStatistic
+                    {
+                        RouteId = r.Id,
+                        RouteNumber = r.RouteNumber,
+                        Name = r.Name,
+                        ActiveBuses = 0, // Would be calculated from Firebase
+                        AverageOccupancy = 0 // Would be calculated from Firebase
+                    })
+                    .ToListAsync();
+
+                // Get station statistics (mock data for top stations)
+                var stationStats = new List<StationStatistic>
+                {
+                    new StationStatistic { StationName = "Piața Mare", PassengerCount = 1456 },
+                    new StationStatistic { StationName = "Gara CFR", PassengerCount = 1342 },
+                    new StationStatistic { StationName = "Autogării", PassengerCount = 1128 },
+                    new StationStatistic { StationName = "Strand", PassengerCount = 998 },
+                    new StationStatistic { StationName = "Kaufland", PassengerCount = 887 }
+                };
+
+                var response = new StatisticsResponse
+                {
+                    TotalRoutes = totalRoutes,
+                    TotalStations = totalStations,
+                    TotalBuses = totalBuses,
+                    ActiveBuses = activeBuses,
+                    AverageOccupancy = avgOccupancy,
+                    RouteStatistics = routeStats,
+                    TopStations = stationStats,
+                    LastUpdated = DateTime.UtcNow
+                };
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Failed to retrieve statistics", error = ex.Message });
+            }
+        }
     }
 
     // Request models
@@ -243,5 +310,33 @@ namespace TursibBackend.Controllers
     {
         public int StationId { get; set; }
         public int Order { get; set; }
+    }
+
+    // Statistics response models
+    public class StatisticsResponse
+    {
+        public int TotalRoutes { get; set; }
+        public int TotalStations { get; set; }
+        public int TotalBuses { get; set; }
+        public int ActiveBuses { get; set; }
+        public int AverageOccupancy { get; set; }
+        public List<RouteStatistic> RouteStatistics { get; set; } = new();
+        public List<StationStatistic> TopStations { get; set; } = new();
+        public DateTime LastUpdated { get; set; }
+    }
+
+    public class RouteStatistic
+    {
+        public int RouteId { get; set; }
+        public string RouteNumber { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int ActiveBuses { get; set; }
+        public int AverageOccupancy { get; set; }
+    }
+
+    public class StationStatistic
+    {
+        public string StationName { get; set; } = string.Empty;
+        public int PassengerCount { get; set; }
     }
 }

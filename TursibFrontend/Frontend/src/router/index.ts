@@ -2,6 +2,13 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import { authService } from '@/services/adminService'
 
+// Lazy load pentru rute admin (nu sunt necesare imediat)
+const AdminLogin = () => import('../views/AdminLogin.vue')
+const AdminDashboard = () => import('../views/AdminDashboard.vue')
+const AdminAnalytics = () => import('../views/AdminAnalytics.vue')
+const AdminRoutes = () => import('../views/AdminRoutes.vue')
+const AdminStations = () => import('../views/AdminStations.vue')
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -13,34 +20,36 @@ const router = createRouter({
     {
       path: '/about',
       name: 'about',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
       component: () => import('../views/AboutView.vue'),
     },
     {
       path: '/loginadmin',
       name: 'admin-login',
-      component: () => import('../views/AdminLogin.vue'),
+      component: AdminLogin,
     },
     {
       path: '/admin',
-      component: () => import('../views/AdminDashboard.vue'),
+      component: AdminDashboard,
       meta: { requiresAuth: true },
       children: [
         {
           path: '',
-          redirect: '/admin/routes'
+          redirect: '/admin/analytics'
+        },
+        {
+          path: 'analytics',
+          name: 'admin-analytics',
+          component: AdminAnalytics,
         },
         {
           path: 'routes',
           name: 'admin-routes',
-          component: () => import('../views/AdminRoutes.vue'),
+          component: AdminRoutes,
         },
         {
           path: 'stations',
           name: 'admin-stations',
-          component: () => import('../views/AdminStations.vue'),
+          component: AdminStations,
         },
       ]
     },
