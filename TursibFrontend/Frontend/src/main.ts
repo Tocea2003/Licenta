@@ -10,6 +10,10 @@ import { getDatabase } from 'firebase/database'
 import App from './App.vue'
 import router from './router'
 
+// Initialize dark mode before app mount
+import { useDarkMode } from './composables/useDarkMode'
+useDarkMode() // This will load saved preference and apply it
+
 // Firebase configuration
 // Configurație minimală pentru Realtime Database în mod test
 const firebaseConfig = {

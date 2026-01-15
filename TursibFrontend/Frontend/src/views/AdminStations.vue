@@ -106,11 +106,15 @@ const currentStation = ref<Partial<Station>>({
 
 const loadStations = async () => {
   isLoading.value = true
+  console.log('📍 Loading stations...')
   try {
     stations.value = await adminStationsService.getStations()
-  } catch (error) {
-    console.error('Error loading stations:', error)
-    alert('Eroare la încărcarea stațiilor')
+    console.log('✅ Stations loaded successfully:', stations.value.length, 'stations')
+  } catch (error: any) {
+    console.error('❌ Error loading stations:', error)
+    console.error('Error details:', error.response?.data)
+    const errorMsg = error.response?.data?.message || error.message || 'Eroare la încărcarea stațiilor'
+    alert(`Eroare la încărcarea stațiilor: ${errorMsg}`)
   } finally {
     isLoading.value = false
   }
@@ -166,10 +170,10 @@ onMounted(() => {
 
 <style scoped>
 .stations-management {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .page-header {
@@ -182,7 +186,7 @@ onMounted(() => {
 .page-header h2 {
   font-size: 24px;
   font-weight: 700;
-  color: #000000;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -204,7 +208,7 @@ onMounted(() => {
 .loading {
   text-align: center;
   padding: 40px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .stations-table-container {
@@ -217,21 +221,21 @@ onMounted(() => {
 }
 
 .stations-table thead {
-  background: #f9fafb;
+  background: var(--bg-secondary);
 }
 
 .stations-table th {
   padding: 12px 16px;
   text-align: left;
   font-weight: 600;
-  color: #000000;
-  border-bottom: 2px solid #e5e7eb;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--border-color);
 }
 
 .stations-table td {
   padding: 12px 16px;
-  border-bottom: 1px solid #e5e7eb;
-  color: #000000;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
 }
 
 .action-buttons {
@@ -286,7 +290,7 @@ onMounted(() => {
 }
 
 .modal {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 24px;
   width: 100%;
@@ -299,7 +303,7 @@ onMounted(() => {
   margin: 0 0 20px 0;
   font-size: 20px;
   font-weight: 700;
-  color: #000000;
+  color: var(--text-primary);
 }
 
 .form-group {
@@ -316,15 +320,17 @@ onMounted(() => {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #000000;
+  color: var(--text-primary);
 }
 
 .form-group input {
   width: 100%;
   padding: 10px 12px;
-  border: 2px solid #e5e7eb;
+  border: 2px solid var(--border-color);
   border-radius: 8px;
   font-size: 14px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .form-group input:focus {
@@ -333,13 +339,13 @@ onMounted(() => {
 }
 
 .form-help {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 16px;
   font-size: 14px;
-  color: #166534;
+  color: var(--text-secondary);
 }
 
 .modal-actions {
@@ -351,8 +357,8 @@ onMounted(() => {
 
 .btn-secondary {
   padding: 10px 20px;
-  background: #e5e7eb;
-  color: #000000;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   border: none;
   border-radius: 8px;
   font-weight: 600;
@@ -361,6 +367,6 @@ onMounted(() => {
 }
 
 .btn-secondary:hover {
-  background: #d1d5db;
+  background: var(--bg-tertiary);
 }
 </style>

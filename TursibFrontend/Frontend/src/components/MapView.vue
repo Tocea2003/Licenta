@@ -26,8 +26,79 @@
       @route-search-requested="handleRouteSearchRequested"
     />
     
-    <!-- Buton pentru locație -->
-    <LocationButton @location-found="handleLocationFound" />
+    <!-- Butoane din dreapta sus -->
+    <div class="top-right-buttons">
+      <!-- Buton pentru favorite -->
+      <button @click="goToFavorites" class="action-btn" title="Favorite">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M20.84 4.61C20.3292 4.099 19.7228 3.69364 19.0554 3.41708C18.3879 3.14052 17.6725 2.99817 16.95 2.99817C16.2275 2.99817 15.5121 3.14052 14.8446 3.41708C14.1772 3.69364 13.5708 4.099 13.06 4.61L12 5.67L10.94 4.61C9.9083 3.57831 8.50903 2.99871 7.05 2.99871C5.59096 2.99871 4.19169 3.57831 3.16 4.61C2.1283 5.64169 1.54871 7.04097 1.54871 8.5C1.54871 9.95903 2.1283 11.3583 3.16 12.39L4.22 13.45L12 21.23L19.78 13.45L20.84 12.39C21.351 11.8792 21.7563 11.2728 22.0329 10.6053C22.3095 9.93789 22.4518 9.22248 22.4518 8.5C22.4518 7.77752 22.3095 7.06211 22.0329 6.39469C21.7563 5.72728 21.351 5.12084 20.84 4.61V4.61Z" 
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      
+      <!-- Buton pentru statistici -->
+      <button @click="goToStatistics" class="action-btn" title="Statistici">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M3 3v18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M18 17V9M13 17V5M8 17v-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      
+      <!-- Buton pentru dark mode -->
+      <button @click="toggleDarkMode" class="action-btn" title="Dark Mode">
+        <svg v-if="!isDarkMode" width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+      
+      <!-- Buton pentru admin (doar dacă e admin) -->
+      <button 
+        v-if="isAdmin" 
+        @click="goToAdmin" 
+        class="action-btn admin-btn" 
+        title="Admin Panel"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="3" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="14" y="3" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="14" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="3" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      
+      <!-- Buton pentru login/logout -->
+      <button 
+        v-if="!isAuthenticated" 
+        @click="router.push('/login')" 
+        class="action-btn" 
+        title="Login"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="10 17 15 12 10 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="15" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <button 
+        v-else 
+        @click="handleLogout" 
+        class="action-btn logout-btn" 
+        title="Logout"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      
+      <!-- Buton pentru locație -->
+      <LocationButton @location-found="handleLocationFound" />
+    </div>
     
     <!-- Panoul multimodal (mers pe jos + autobuz + mers pe jos) -->
     <MultimodalDirections
@@ -282,7 +353,8 @@
 
 <script setup lang="ts">
 
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onActivated, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { useDatabaseObject } from 'vuefire'
 import { ref as dbRef, getDatabase } from 'firebase/database'
 
@@ -300,6 +372,53 @@ import TransferRoute from './TransferRoute.vue'
 import NearbyStationsPanel from './NearbyStationsPanel.vue'
 import apiService, { type Station } from '@/services/apiService'
 import { useNotifications, checkBusNotifications } from '@/composables/useNotifications'
+import { authService } from '@/services/adminService'
+import { useDarkMode } from '@/composables/useDarkMode'
+
+const router = useRouter()
+
+// Dark mode
+const { isDarkMode, toggleDarkMode } = useDarkMode()
+
+// Navigation functions
+const goToFavorites = () => {
+  router.push('/favorites')
+}
+
+const goToStatistics = () => {
+  router.push('/statistics')
+}
+
+const goToAdmin = () => {
+  router.push('/admin/routes')
+}
+
+// User authentication state
+const isAuthenticated = ref(false)
+const currentUser = ref<{ username: string; role: string } | null>(null)
+const showUserMenu = ref(false)
+
+// Check if user is admin
+const isAdmin = computed(() => {
+  const user = currentUser.value
+  const hasAdminRole = user?.role?.toLowerCase() === 'admin'
+  console.log('🔐 isAdmin check:', { isAuthenticated: isAuthenticated.value, user, hasAdminRole })
+  return isAuthenticated.value && hasAdminRole
+})
+
+const checkAuthStatus = () => {
+  isAuthenticated.value = authService.isAuthenticated()
+  currentUser.value = authService.getUser()
+  console.log('🔐 Auth status updated:', { isAuthenticated: isAuthenticated.value, user: currentUser.value })
+}
+
+const handleLogout = () => {
+  authService.logout()
+  isAuthenticated.value = false
+  currentUser.value = null
+  showUserMenu.value = false
+  console.log('👋 User logged out')
+}
 
 // Notifications
 const { 
@@ -309,12 +428,31 @@ const {
   checkNotificationSupport
 } = useNotifications()
 
-// Run diagnostics on mount
+// Check authentication on mount and periodically
 onMounted(() => {
+  // Initial auth check
+  checkAuthStatus()
+  
+  // Check notifications support
   const diagnostics = checkNotificationSupport()
   if (!diagnostics.supported) {
     console.warn('⚠️ Notificările nu sunt suportate de acest browser')
   }
+  
+  // Check auth status every 2 seconds to detect login changes
+  setInterval(() => {
+    const wasAuthenticated = isAuthenticated.value
+    checkAuthStatus()
+    if (!wasAuthenticated && isAuthenticated.value) {
+      console.log('🔔 User just logged in, auth status updated')
+    }
+  }, 2000)
+})
+
+// Also check when component becomes active (after navigation)
+onActivated(() => {
+  console.log('🔄 MapView activated, re-checking auth status')
+  checkAuthStatus()
 })
 
 // Am scos 'leaflet/dist/leaflet.css' de aici, deoarece este deja în main.ts
@@ -1446,7 +1584,14 @@ const handleRouteSearchRequested = async (
 // Expunem metoda pentru a putea fi apelată din componenta părinte
 defineExpose({
   centerMap,
-  setTripMode
+  setTripMode,
+  invalidateSize: () => {
+    // Forțează recalcularea dimensiunii hărții
+    // map.value este componenta <l-map>, leafletObject este instanța Leaflet reală
+    if (map.value && map.value.leafletObject) {
+      map.value.leafletObject.invalidateSize()
+    }
+  }
 })
 
 // Helper pentru gradul de ocupare
@@ -1710,11 +1855,11 @@ const getStationETAs = (stationId: number) => {
 /* Stiluri pentru toggle-ul stațiilor */
 /* Stiluri pentru butonul de toggle sidebar */
 .sidebar-toggle-btn {
-  position: absolute;
+  position: fixed;
   top: 16px;
-  left: 420px;
-  z-index: 600;
-  background: white;
+  left: 16px;
+  z-index: 1100;
+  background: var(--bg-primary);
   border: none;
   border-radius: 8px;
   width: 40px;
@@ -1723,17 +1868,72 @@ const getStationETAs = (stationId: number) => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  transition: all 0.2s;
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar-toggle-btn:hover {
-  background: #f3f4f6;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-lg);
+  transform: scale(1.05);
 }
 
 .sidebar-toggle-btn svg {
-  color: #374151;
+  color: var(--text-primary);
+}
+
+/* Grup de butoane din dreapta sus */
+.top-right-buttons {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1100;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-btn {
+  background: var(--bg-primary);
+  border: none;
+  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-primary);
+}
+
+.action-btn:hover {
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-lg);
+  transform: scale(1.05);
+}
+
+.action-btn svg {
+  color: currentColor;
+}
+
+.action-btn.logout-btn {
+  color: #ef4444;
+}
+
+.action-btn.logout-btn:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.action-btn.admin-btn {
+  color: #8b5cf6;
+}
+
+.action-btn.admin-btn:hover {
+  background: #f5f3ff;
+  color: #7c3aed;
 }
 
 /* Stiluri pentru gradul de ocupare */

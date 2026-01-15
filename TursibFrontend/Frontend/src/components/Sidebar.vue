@@ -6,10 +6,37 @@
     </div>
 
     <div class="sidebar-content">
-      <!-- Trip Planner Button -->
-      <button @click="toggleTripMode" class="trip-planner-btn" :class="{ active: tripMode }">
-        🗓️ Planifică Călătorie
-      </button>
+      <!-- Quick Actions -->
+      <div class="quick-actions">
+        <button @click="toggleTripMode" class="action-btn trip-btn" :class="{ active: tripMode }">
+          <span class="icon">🗓️</span>
+          <span class="label">Planifică</span>
+        </button>
+        <button @click="goToFavorites" class="action-btn favorites-btn">
+          <span class="icon">❤️</span>
+          <span class="label">Favorite</span>
+        </button>
+        <button @click="goToStatistics" class="action-btn stats-btn">
+          <span class="icon">📊</span>
+          <span class="label">Statistici</span>
+        </button>
+      </div>
+
+      <!-- Quick Stats -->
+      <div class="quick-stats">
+        <div class="stat-card">
+          <div class="stat-value">{{ routes.length }}</div>
+          <div class="stat-label">Trasee</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ favoriteCount }}</div>
+          <div class="stat-label">Favorite</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ searchCount }}</div>
+          <div class="stat-label">Căutări</div>
+        </div>
+      </div>
 
       <!-- Loading State -->
       <div v-if="loading" class="loading">
@@ -63,8 +90,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import apiService, { type Route, type Station } from '@/services/apiService'
+import { useFavorites } from '@/composables/useFavorites'
+import { useStatistics } from '@/composables/useStatistics'
+
+// Router
+const router = useRouter()
+
+// Composables
+const { favorites } = useFavorites()
+const { statistics, recordRouteUsage } = useStatistics()
 
 // Emits pentru comunicare cu componenta părinte
 const emit = defineEmits<{
@@ -80,6 +117,14 @@ const selectedRouteId = ref<number | null>(null)
 const currentStations = ref<Station[]>([])
 const loadingStations = ref(false)
 const tripMode = ref(false)
+
+// Computed stats
+const favoriteCount = computed(() => favorites.value.length)
+const searchCount = computed(() => statistics.value.totalSearches)
+
+// Quick actions
+const goToFavorites = () => router.push('/favorites')
+const goToStatistics = () => router.push('/statistics')
 
 // Toggle trip planning mode
 const toggleTripMode = () => {
@@ -131,6 +176,9 @@ const stationsCache = new Map<number, Station[]>()
 
 // Selectează un traseu și încarcă stațiile lui cu cache
 const selectRoute = async (routeId: number) => {
+  // Track route usage for statistics
+  recordRouteUsage(routeId)
+  
   selectedRouteId.value = routeId
   loadingStations.value = true
   
@@ -167,17 +215,17 @@ onMounted(() => {
 .sidebar {
   width: 100%;
   height: 100vh;
-  background: #1f2937;
-  color: white;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   display: flex;
   flex-direction: column;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-lg);
 }
 
 .sidebar-header {
   padding: 2rem 1.5rem;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  border-bottom: 2px solid #1e40af;
+  background: var(--gradient-primary);
+  border-bottom: 2px solid rgba(59, 130, 246, 0.3);
 }
 
 .sidebar-header h1 {
@@ -199,33 +247,93 @@ onMounted(() => {
 }
 
 /* Trip Planner Button */
-.trip-planner-btn {
-  display: block;
-  width: 100%;
-  padding: 14px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  text-decoration: none;
-  border: 2px solid transparent;
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 2px solid var(--border-color);
   border-radius: 12px;
-  font-weight: 700;
-  font-size: 15px;
-  text-align: center;
-  margin-bottom: 20px;
-  transition: all 0.3s;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
   cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+  gap: 6px;
 }
 
-.trip-planner-btn:hover {
+.action-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+  box-shadow: var(--shadow-md);
+  border-color: #3b82f6;
 }
 
-.trip-planner-btn.active {
+.action-btn .icon {
+  font-size: 24px;
+}
+
+.action-btn .label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.trip-btn.active {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  border-color: #34d399;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.favorites-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.stats-btn:hover {
+  border-color: #8b5cf6;
+  color: #8b5cf6;
+}
+
+/* Quick Stats */
+.quick-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: var(--gradient-primary);
+  padding: 12px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.5px;
 }
 
 /* Loading State */
@@ -255,92 +363,127 @@ onMounted(() => {
   color: #ef4444;
 }
 
+.error-message {
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid #fecaca;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+}
+
 .retry-btn {
-  margin-top: 1rem;
-  padding: 0.5rem 1.5rem;
-  background: #2563eb;
+  margin-top: 0.75rem;
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25);
 }
 
 .retry-btn:hover {
-  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
 }
 
 /* Routes Section */
 .routes-section h2 {
-  font-size: 1.1rem;
-  margin: 0 0 1rem 0;
-  color: #e5e7eb;
+  font-size: 0.95rem;
+  margin: 0 0 0.75rem 0;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .routes-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .route-btn {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  background: #374151;
-  border: 2px solid transparent;
-  border-radius: 8px;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
-  color: white;
+  color: var(--text-primary);
 }
 
 .route-btn:hover {
-  background: #4b5563;
-  border-color: #2563eb;
+  background: var(--bg-tertiary);
+  border-color: #3b82f6;
+  transform: translateX(2px);
+  box-shadow: var(--shadow-sm);
 }
 
 .route-btn.active {
-  background: #2563eb;
-  border-color: #1d4ed8;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
 .route-number {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  font-weight: bold;
-  font-size: 1.1rem;
+  min-width: 36px;
+  height: 36px;
+  background: white;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: #1f2937;
+}
+
+.route-btn.active .route-number {
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: none;
+  color: white;
 }
 
 .route-name {
   flex: 1;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 /* Selected Route Info */
 .selected-route-info {
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #374151;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 2px solid var(--border-color);
 }
 
 .selected-route-info h3 {
-  font-size: 1rem;
-  margin: 0 0 1rem 0;
-  color: #e5e7eb;
+  font-size: 0.875rem;
+  margin: 0 0 0.75rem 0;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .loading-small {
-  color: #9ca3af;
-  font-size: 0.9rem;
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
   font-style: italic;
+  padding: 1rem;
+  text-align: center;
 }
 
 .stations-list {
@@ -349,56 +492,76 @@ onMounted(() => {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .stations-list li {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background: #374151;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  transition: all 0.15s;
+}
+
+.stations-list li:hover {
+  background: var(--bg-tertiary);
+  border-color: #bfdbfe;
+  transform: translateX(2px);
 }
 
 .station-number {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  height: 28px;
-  background: #2563eb;
+  min-width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
   border-radius: 50%;
-  font-weight: bold;
-  font-size: 0.85rem;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: white;
+  flex-shrink: 0;
 }
 
 .station-name {
   flex: 1;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .empty-state {
   text-align: center;
   padding: 2rem 1rem;
-  color: #9ca3af;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
 }
 
-/* Scrollbar styling */
-.sidebar-content::-webkit-scrollbar {
-  width: 8px;
+/* Scrollbar styling - modern și subtil */
+.sidebar-content::-webkit-scrollbar,
+.stations-list::-webkit-scrollbar {
+  width: 6px;
 }
 
-.sidebar-content::-webkit-scrollbar-track {
-  background: #1f2937;
+.sidebar-content::-webkit-scrollbar-track,
+.stations-list::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.sidebar-content::-webkit-scrollbar-thumb {
-  background: #4b5563;
-  border-radius: 4px;
+.sidebar-content::-webkit-scrollbar-thumb,
+.stations-list::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
 }
 
-.sidebar-content::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+.sidebar-content::-webkit-scrollbar-thumb:hover,
+.stations-list::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 </style>

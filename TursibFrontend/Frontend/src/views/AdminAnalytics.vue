@@ -203,9 +203,12 @@ const loadStatistics = async () => {
     })
 
     // Încarcă date statice din API
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5022/api'
+    console.log('📊 Loading routes and stations from API:', API_BASE_URL)
+    
     const [routesRes, stationsRes] = await Promise.all([
-      fetch('http://localhost:5022/api/Routes'),
-      fetch('http://localhost:5022/api/Stations')
+      fetch(`${API_BASE_URL}/Routes`),
+      fetch(`${API_BASE_URL}/Stations`)
     ])
 
     const routes = await routesRes.json()
@@ -213,10 +216,16 @@ const loadStatistics = async () => {
 
     stats.value.totalRoutes = routes.length
     stats.value.totalStations = stations.length
+    
+    console.log('✅ Statistics loaded:', {
+      routes: routes.length,
+      stations: stations.length,
+      activeBuses: stats.value.activeBuses
+    })
 
     isLoading.value = false
   } catch (error) {
-    console.error('Error loading statistics:', error)
+    console.error('❌ Error loading statistics:', error)
     isLoading.value = false
   }
 }
@@ -402,20 +411,20 @@ onUnmounted(() => {
 .page-header h2 {
   font-size: 32px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .subtitle {
   font-size: 16px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .loading {
   text-align: center;
   padding: 48px;
   font-size: 18px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 /* Stats Grid */
@@ -427,19 +436,19 @@ onUnmounted(() => {
 }
 
 .stat-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 16px;
   padding: 24px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-sm);
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-icon {
@@ -454,14 +463,14 @@ onUnmounted(() => {
 .stat-value {
   font-size: 36px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
   line-height: 1;
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #64748b;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -490,16 +499,16 @@ onUnmounted(() => {
 }
 
 .chart-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-sm);
 }
 
 .chart-card h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text-primary);
   margin-bottom: 20px;
 }
 
@@ -509,16 +518,16 @@ onUnmounted(() => {
 
 /* Live Buses */
 .live-buses-section {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-sm);
 }
 
 .live-buses-section h3 {
   font-size: 20px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text-primary);
   margin-bottom: 20px;
 }
 
@@ -529,7 +538,7 @@ onUnmounted(() => {
 }
 
 .live-bus-card {
-  background: #f8fafc;
+  background: var(--bg-secondary);
   border-radius: 12px;
   padding: 16px;
   border-left: 4px solid #3b82f6;
@@ -562,7 +571,7 @@ onUnmounted(() => {
 .bus-route {
   font-size: 18px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 .bus-status {
@@ -590,12 +599,12 @@ onUnmounted(() => {
 }
 
 .bus-stat .label {
-  color: #64748b;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .bus-stat .value {
-  color: #1e293b;
+  color: var(--text-primary);
   font-weight: 600;
 }
 

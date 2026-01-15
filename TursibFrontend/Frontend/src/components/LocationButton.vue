@@ -53,40 +53,24 @@ const findMyLocation = () => {
 
 <style scoped>
 .location-button {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: white;
-  border: 2px solid #3b82f6;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--bg-primary);
+  border: none;
   cursor: pointer;
-  font-size: 24px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
+  font-size: 20px;
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Mobile responsive */
-@media (max-width: 768px) {
-  .location-button {
-    top: 80px; /* Below search bar */
-    right: 10px;
-    width: 44px;
-    height: 44px;
-    font-size: 20px;
-  }
-}
-
 .location-button:hover:not(:disabled) {
-  background: #eff6ff;
-  border-color: #2563eb;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-lg);
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
 .location-button:disabled {
