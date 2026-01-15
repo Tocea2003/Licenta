@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import Sidebar from '../components/Sidebar.vue'
 import MapView from '../components/MapView.vue'
+import BottomNav from '@/components/BottomNav.vue'
 import apiService, { type Station } from '../services/apiService'
 
 // State pentru stațiile și traseul selectat
@@ -60,6 +61,38 @@ const handleSidebarToggle = (visible: boolean) => {
   sidebarVisible.value = visible
 }
 
+// Watch pentru schimbări în vizibilitatea sidebar-ului
+watch(sidebarVisible, () => {
+  // Forțează refresh-ul hărții de mai multe ori pentru siguranță
+  nextTick(() => {
+    // Imediat după ce DOM-ul se actualizează
+    if (mapRef.value && typeof mapRef.value.invalidateSize === 'function') {
+      mapRef.value.invalidateSize()
+    }
+    
+    // După 100ms
+    setTimeout(() => {
+      if (mapRef.value && typeof mapRef.value.invalidateSize === 'function') {
+        mapRef.value.invalidateSize()
+      }
+    }, 100)
+    
+    // După ce animația se termină (350ms)
+    setTimeout(() => {
+      if (mapRef.value && typeof mapRef.value.invalidateSize === 'function') {
+        mapRef.value.invalidateSize()
+      }
+    }, 350)
+    
+    // Un ultim refresh la 500ms
+    setTimeout(() => {
+      if (mapRef.value && typeof mapRef.value.invalidateSize === 'function') {
+        mapRef.value.invalidateSize()
+      }
+    }, 500)
+  })
+})
+
 onMounted(() => {
   loadAllStations()
 })
@@ -86,6 +119,9 @@ onMounted(() => {
         @sidebar-toggle="handleSidebarToggle"
       />
     </div>
+
+    <!-- Bottom Navigation -->
+    <BottomNav />
   </div>
 </template>
 
@@ -97,20 +133,25 @@ onMounted(() => {
   width: 100%;
   display: flex;
   overflow: hidden;
-  background: #f8fafc;
+  background: var(--bg-secondary);
 }
 
-/* Sidebar cu trasee - mereu vizibil */
+/* Sidebar cu trasee - mai îngust și modern */
 .sidebar {
   flex-shrink: 0;
-  width: 350px;
+  width: 320px;
   height: 100vh;
   z-index: 100;
-  transition: transform 0.3s ease-in-out;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08);
+  position: relative;
 }
 
 .sidebar.sidebar-hidden {
-  transform: translateX(-100%);
+  width: 0;
+  min-width: 0;
+  box-shadow: none;
+  overflow: hidden;
 }
 
 /* Map Wrapper */
@@ -118,20 +159,52 @@ onMounted(() => {
   flex: 1;
   height: 100vh;
   position: relative;
+  min-width: 0;
+  overflow: hidden;
 }
 
-/* Mobile styles */
+/* Desktop - adaugă padding bottom pentru bottom nav */
+@media (min-width: 769px) {
+  .app-container {
+    padding-bottom: 0;
+  }
+}
+
+/* Mobile styles - ascunde sidebar, afișează bottom nav */
 @media (max-width: 768px) {
-  :root {
-    --sidebar-width: 250px;
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    z-index: 1001;
+    transform: translateX(-100%);
   }
   
-  .sidebar {
-    width: var(--sidebar-width);
+  .sidebar.sidebar-visible {
+    transform: translateX(0);
   }
   
   .map-wrapper {
-    margin-left: var(--sidebar-width);
+    width: 100%;
+    padding-bottom: 70px; /* Space pentru bottom nav */
+  }
+  
+  /* Overlay când sidebar e deschis pe mobile */
+  .app-container::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  
+  .app-container:has(.sidebar:not(.sidebar-hidden))::before {
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 </style>

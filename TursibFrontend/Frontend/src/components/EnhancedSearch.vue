@@ -1,5 +1,42 @@
 <template>
   <div class="enhanced-search-container">
+    <!-- Quick Access Favorites (when not searching) -->
+    <div v-if="!searchQuery && !originQuery && favorites.length > 0" class="quick-access">
+      <div class="section-title">⭐ Favorite</div>
+      <div class="favorites-grid">
+        <button
+          v-for="favorite in favorites.slice(0, 3)"
+          :key="favorite.id"
+          @click="selectFavorite(favorite)"
+          class="favorite-chip"
+        >
+          <span class="chip-icon">{{ favorite.icon }}</span>
+          <span class="chip-name">{{ favorite.name }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Recent Searches (when not searching) -->
+    <div v-if="!searchQuery && !originQuery && latestSearches.length > 0" class="recent-searches">
+      <div class="section-title">
+        🕒 Căutări Recente
+        <button @click="clearAllSearches" class="clear-all-btn">Șterge tot</button>
+      </div>
+      <div
+        v-for="search in latestSearches.slice(0, 5)"
+        :key="search.id"
+        @click="selectRecentSearch(search)"
+        class="recent-item"
+      >
+        <span class="recent-icon">{{ getSearchIcon(search.type) }}</span>
+        <div class="recent-info">
+          <span class="recent-name">{{ search.result.name }}</span>
+          <span class="recent-time">{{ getRelativeTime(search.timestamp) }}</span>
+        </div>
+        <button @click.stop="removeSearch(search.id)" class="remove-btn">×</button>
+      </div>
+    </div>
+    
     <!-- Origin Search (only in trip mode) -->
     <div v-if="tripMode" class="search-box origin-box">
       <div class="search-label">📍 Plecare din:</div>
@@ -114,6 +151,9 @@
 import { ref, computed } from 'vue'
 import type { Station, Route } from '@/services/apiService'
 import apiService from '@/services/apiService'
+import { useFavorites, type FavoriteLocation } from '@/composables/useFavorites'
+import { useRecentSearches } from '@/composables/useRecentSearches'
+import { useStatistics } from '@/composables/useStatistics'
 
 interface Props {
   stations: Station[]
@@ -140,6 +180,11 @@ const emit = defineEmits<{
   multimodalRouteRequested: [userLocation: { lat: number; lon: number }, destination: { lat: number; lon: number; name: string }]
   routeSearchRequested: [origin: { lat: number; lon: number; name: string }, destination: { lat: number; lon: number; name: string }]
 }>()
+
+// Favorites and Recent Searches
+const { favorites } = useFavorites()
+const { latestSearches, addRecentSearch, removeRecentSearch, clearRecentSearches: clearAllSearches, getRelativeTime } = useRecentSearches()
+const { incrementSearches, recordStationUsage } = useStatistics()
 
 const searchQuery = ref('')
 const showResults = ref(false)
@@ -419,6 +464,20 @@ const selectAddress = (result: GeocodeResult) => {
   const destinationLon = parseFloat(result.lon)
   const destinationName = result.display_name.split(',')[0] || 'Destinație'
   
+  // Track statistics
+  incrementSearches()
+  
+  // Salvează în recent searches
+  addRecentSearch({
+    query: searchQuery.value,
+    type: 'address',
+    result: {
+      name: destinationName,
+      lat: destinationLat,
+      lon: destinationLon
+    }
+  })
+  
   // In trip mode, just set destination
   if (props.tripMode) {
     destinationLocation.value = {
@@ -474,6 +533,22 @@ const selectAddress = (result: GeocodeResult) => {
 }
 
 const selectStation = (station: Station) => {
+  // Track statistics
+  incrementSearches()
+  recordStationUsage(station.id)
+  
+  // Salvează în recent searches
+  addRecentSearch({
+    query: searchQuery.value || station.name,
+    type: 'station',
+    result: {
+      name: station.name,
+      lat: station.latitude,
+      lon: station.longitude,
+      stationId: station.id
+    }
+  })
+  
   // In trip mode, set as destination and calculate route if we have origin
   if (props.tripMode) {
     destinationLocation.value = {
@@ -496,6 +571,67 @@ const selectStation = (station: Station) => {
   emit('stationSelected', station)
   showResults.value = false
   searchQuery.value = station.name
+}
+
+// Select favorite location
+const selectFavorite = (favorite: FavoriteLocation) => {
+  const location = {
+    lat: favorite.lat,
+    lon: favorite.lon,
+    name: favorite.name
+  }
+  
+  // Salvează în recent searches
+  addRecentSearch({
+    query: favorite.name,
+    type: 'address',
+    result: {
+      name: favorite.name,
+      lat: favorite.lat,
+      lon: favorite.lon
+    }
+  })
+  
+  if (props.tripMode && originLocation.value) {
+    destinationLocation.value = location
+    searchQuery.value = favorite.name
+  } else {
+    emit('addressSelected', location)
+    
+    if (props.userLocation) {
+      const nearestStation = findNearestStation(location.lat, location.lon)
+      if (nearestStation) {
+        emit('walkingDirectionsRequested', props.userLocation, nearestStation)
+      }
+    }
+  }
+}
+
+// Select recent search
+const selectRecentSearch = (search: any) => {
+  if (search.type === 'station' && search.result.stationId) {
+    const station = props.stations.find(s => s.id === search.result.stationId)
+    if (station) {
+      selectStation(station)
+    }
+  } else if (search.result.lat && search.result.lon) {
+    const fakeResult: GeocodeResult = {
+      lat: search.result.lat.toString(),
+      lon: search.result.lon.toString(),
+      display_name: search.result.name
+    }
+    selectAddress(fakeResult)
+  }
+}
+
+// Remove search from recent
+const removeSearch = (id: string) => {
+  removeRecentSearch(id)
+}
+
+// Get icon for search type
+const getSearchIcon = (type: string): string => {
+  return type === 'station' ? '🚏' : '📍'
 }
 
 const clearSearch = () => {
@@ -531,6 +667,171 @@ if (typeof window !== 'undefined') {
   max-width: calc(100vw - 100px);
 }
 
+/* Quick Access Favorites */
+.quick-access {
+  margin-bottom: 12px;
+  background: var(--bg-primary);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--shadow-md);
+}
+
+.favorites-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.favorite-chip {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.favorite-chip:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.15);
+}
+
+.chip-icon {
+  font-size: 20px;
+}
+
+.chip-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Recent Searches */
+.recent-searches {
+  margin-bottom: 10px;
+  background: var(--bg-primary);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.recent-searches .section-title {
+  padding: 10px 12px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.clear-all-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  text-transform: none;
+}
+
+.clear-all-btn:hover {
+  background: #fee2e2;
+}
+
+.recent-item {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-top: 1px solid var(--border-color);
+}
+
+.recent-item:first-child {
+  border-top: none;
+}
+
+.recent-item:hover {
+  background: var(--bg-secondary);
+}
+
+.recent-icon {
+  font-size: 18px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.recent-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recent-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-time {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.remove-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.remove-btn:hover {
+  background: #fee2e2;
+}
+
 .search-box {
   position: relative;
   margin-bottom: 8px;
@@ -542,11 +843,11 @@ if (typeof window !== 'undefined') {
 
 .search-label {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   font-size: 13px;
   margin-bottom: 6px;
   padding-left: 2px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--bg-primary);
   backdrop-filter: blur(8px);
   display: inline-block;
   padding: 2px 8px;
@@ -556,24 +857,24 @@ if (typeof window !== 'undefined') {
 .search-input {
   width: 100%;
   padding: 14px 40px 14px 16px;
-  border: 1px solid rgba(229, 231, 235, 0.8);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   font-size: 15px;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--bg-primary);
   backdrop-filter: blur(12px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-sm);
   transition: all 0.2s;
-  color: #111827;
+  color: var(--text-primary);
 }
 
 .search-input::placeholder {
-  color: #9ca3af;
+  color: var(--text-tertiary);
 }
 
 .search-input:focus {
   outline: none;
   border-color: #3b82f6;
-  background: rgba(255, 255, 255, 1);
+  background: var(--bg-primary);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
@@ -582,7 +883,7 @@ if (typeof window !== 'undefined') {
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(107, 114, 128, 0.1);
+  background: var(--bg-tertiary);
   border: none;
   border-radius: 50%;
   width: 24px;
@@ -591,7 +892,7 @@ if (typeof window !== 'undefined') {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 14px;
   transition: all 0.2s;
 }
@@ -603,11 +904,11 @@ if (typeof window !== 'undefined') {
 
 .search-results {
   margin-top: 8px;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--bg-primary);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(229, 231, 235, 0.8);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-lg);
   max-height: 350px;
   overflow-y: auto;
 }
@@ -617,14 +918,14 @@ if (typeof window !== 'undefined') {
 }
 
 .results-section + .results-section {
-  border-top: 1px solid rgba(229, 231, 235, 0.6);
+  border-top: 1px solid var(--border-color);
 }
 
 .section-title {
   padding: 10px 14px 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #6b7280;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.8px;
 }
@@ -640,18 +941,18 @@ if (typeof window !== 'undefined') {
 }
 
 .search-result-item:hover {
-  background: rgba(243, 244, 246, 0.8);
+  background: var(--bg-secondary);
 }
 
 .result-name {
-  color: #1f2937;
+  color: var(--text-primary);
   font-size: 14px;
   flex: 1;
   font-weight: 500;
 }
 
 .result-distance {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
   margin-left: 12px;
@@ -660,12 +961,12 @@ if (typeof window !== 'undefined') {
 .no-results, .searching {
   margin-top: 8px;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--bg-primary);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(229, 231, 235, 0.8);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  color: #6b7280;
+  box-shadow: var(--shadow-md);
+  color: var(--text-secondary);
   text-align: center;
   font-size: 14px;
 }

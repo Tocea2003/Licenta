@@ -52,7 +52,7 @@ namespace TursibBackend.Controllers
             });
         }
 
-        // POST: api/Auth/register (doar pentru development - șterge în producție!)
+        // POST: api/Auth/register
         [HttpPost("register")]
         public async Task<ActionResult<User>> Register([FromBody] LoginRequest request)
         {
@@ -62,14 +62,28 @@ namespace TursibBackend.Controllers
                 return BadRequest(new { message = "Username-ul există deja" });
             }
 
+            // Validare username și parolă
+            if (string.IsNullOrWhiteSpace(request.Username) || request.Username.Length < 3)
+            {
+                return BadRequest(new { message = "Username-ul trebuie să aibă minim 3 caractere" });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
+            {
+                return BadRequest(new { message = "Parola trebuie să aibă minim 6 caractere" });
+            }
+
             // Hash password
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+
+            // Verifică dacă este primul user (devine Admin)
+            var isFirstUser = !await _context.Users.AnyAsync();
 
             var user = new User
             {
                 Username = request.Username,
                 PasswordHash = passwordHash,
-                Role = "Admin", // Primul user devine Admin
+                Role = isFirstUser ? "Admin" : "User", // Primul user devine Admin, restul User
                 CreatedAt = DateTime.UtcNow
             };
 

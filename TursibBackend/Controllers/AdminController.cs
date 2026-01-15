@@ -292,6 +292,47 @@ namespace TursibBackend.Controllers
                 return StatusCode(500, new { message = "Failed to retrieve statistics", error = ex.Message });
             }
         }
+
+        // ========== USER MANAGEMENT ==========
+
+        // GET: api/admin/users
+        [HttpGet("users")]
+        public async Task<ActionResult<IEnumerable<object>>> GetAllUsers()
+        {
+            var users = await _context.Users
+                .Select(u => new
+                {
+                    u.Id,
+                    u.Username,
+                    u.Role,
+                    u.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(users);
+        }
+
+        // PATCH: api/admin/users/5/role
+        [HttpPatch("users/{id}/role")]
+        public async Task<IActionResult> UpdateUserRole(int id, [FromBody] UpdateUserRoleRequest request)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null)
+            {
+                return NotFound(new { message = "User not found" });
+            }
+
+            // Validate role
+            if (request.Role != "Admin" && request.Role != "User")
+            {
+                return BadRequest(new { message = "Invalid role. Must be 'Admin' or 'User'" });
+            }
+
+            user.Role = request.Role;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = $"User role updated to {request.Role}", user = new { user.Id, user.Username, user.Role } });
+        }
     }
 
     // Request models
@@ -338,5 +379,11 @@ namespace TursibBackend.Controllers
     {
         public string StationName { get; set; } = string.Empty;
         public int PassengerCount { get; set; }
+    }
+
+    // Request model for updating user role
+    public class UpdateUserRoleRequest
+    {
+        public string Role { get; set; } = string.Empty;
     }
 }

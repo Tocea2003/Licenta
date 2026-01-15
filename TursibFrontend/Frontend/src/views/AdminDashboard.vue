@@ -72,7 +72,7 @@ const handleLogout = () => {
 .admin-dashboard {
   display: flex;
   min-height: 100vh;
-  background: #f8fafc;
+  background: var(--bg-secondary);
 }
 
 /* Sidebar */
@@ -236,10 +236,10 @@ const handleLogout = () => {
 }
 
 .admin-header {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  background: var(--gradient-primary);
   padding: 48px 48px 64px;
   border-bottom: 3px solid #667eea;
-  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.15);
+  box-shadow: var(--shadow-md);
   position: relative;
   overflow: hidden;
 }
@@ -264,7 +264,7 @@ const handleLogout = () => {
 .page-title {
   font-size: 36px;
   font-weight: 800;
-  color: #1e293b;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
   letter-spacing: -1px;
   text-shadow: none;
@@ -272,7 +272,7 @@ const handleLogout = () => {
 
 .page-subtitle {
   font-size: 16px;
-  color: #475569;
+  color: var(--text-secondary);
   margin: 0;
   font-weight: 500;
   text-shadow: none;

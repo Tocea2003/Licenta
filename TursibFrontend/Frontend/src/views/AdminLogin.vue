@@ -102,13 +102,17 @@ const handleLogin = async () => {
     console.log('✅ Login successful:', response)
     
     // Salvează token și user info
-    localStorage.setItem('admin_token', response.token)
-    localStorage.setItem('admin_user', JSON.stringify({
+    const adminUser = {
       username: response.username,
       role: response.role
-    }))
+    }
+    localStorage.setItem('admin_token', response.token)
+    localStorage.setItem('admin_user', JSON.stringify(adminUser))
 
-    console.log('💾 Token saved, redirecting to /admin/routes')
+    console.log('💾 Token saved:', {
+      token: response.token.substring(0, 20) + '...',
+      user: adminUser
+    })
     
     // Redirect la dashboard după ce token-ul e salvat
     await router.push('/admin/routes')
@@ -129,7 +133,7 @@ const handleLogin = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-bg);
   position: relative;
   overflow: hidden;
   padding: 20px;
@@ -180,7 +184,7 @@ const handleLogin = async () => {
 }
 
 .login-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 24px;
   padding: 48px 40px;
   width: 100%;
@@ -228,13 +232,13 @@ const handleLogin = async () => {
 .login-header h1 {
   font-size: 32px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .subtitle {
   font-size: 15px;
-  color: #64748b;
+  color: var(--text-secondary);
   margin: 8px 0 0;
 }
 
@@ -256,7 +260,7 @@ const handleLogin = async () => {
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 .label-icon {
@@ -265,17 +269,18 @@ const handleLogin = async () => {
 
 .form-group input {
   padding: 14px 16px;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--border-color);
   border-radius: 12px;
   font-size: 15px;
   transition: all 0.2s;
-  background: #f8fafc;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .form-group input:focus {
   outline: none;
   border-color: #667eea;
-  background: white;
+  background: var(--bg-primary);
   box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
 }
 

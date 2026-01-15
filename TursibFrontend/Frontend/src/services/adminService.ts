@@ -13,10 +13,15 @@ const adminApi = axios.create({
 // Interceptor pentru a adăuga JWT token la fiecare cerere
 adminApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('admin_token')
+    // Try admin token first, then fall back to regular token
+    const adminToken = localStorage.getItem('admin_token')
+    const regularToken = localStorage.getItem('token')
+    const token = adminToken || regularToken
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    console.log('🔑 Admin API Request:', config.method?.toUpperCase(), config.url, 'Token:', token ? 'Present' : 'Missing')
     return config
   },
   (error) => {
@@ -28,10 +33,14 @@ adminApi.interceptors.request.use(
 adminApi.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.error('❌ Admin API Error:', error.response?.status, error.response?.data)
     if (error.response?.status === 401) {
       // Token invalid sau expirat - logout
+      console.warn('⚠️ Unauthorized - redirecting to login')
       localStorage.removeItem('admin_token')
       localStorage.removeItem('admin_user')
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
       window.location.href = '/loginadmin'
     }
     return Promise.reject(error)
@@ -83,16 +92,26 @@ const authService = {
   },
 
   logout() {
+    // Clear both admin and regular user tokens
     localStorage.removeItem('admin_token')
     localStorage.removeItem('admin_user')
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
   },
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('admin_token')
+    // Check for both admin and regular user tokens
+    return !!(localStorage.getItem('admin_token') || localStorage.getItem('token'))
   },
 
   getUser(): { username: string; role: string } | null {
-    const userStr = localStorage.getItem('admin_user')
+    // Try admin user first, then regular user
+    const adminUserStr = localStorage.getItem('admin_user')
+    if (adminUserStr) {
+      return JSON.parse(adminUserStr)
+    }
+    
+    const userStr = localStorage.getItem('user')
     return userStr ? JSON.parse(userStr) : null
   }
 }
