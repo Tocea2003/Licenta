@@ -202,7 +202,15 @@ const formatDuration = (minutes: number): string => {
   z-index: 500;
   overflow: hidden;
   animation: slideUp 0.3s ease-out;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .transfer-route-panel {
+    background: rgba(30, 30, 35, 0.98);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
 }
 
 @keyframes slideUp {
@@ -272,6 +280,18 @@ const formatDuration = (minutes: number): string => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
+@media (prefers-color-scheme: dark) {
+  .route-segment {
+    background: rgba(40, 40, 50, 0.6);
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+  }
+  
+  .route-segment:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+}
+
 .route-segment.walk {
   border-color: #3b82f6;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%);
@@ -292,6 +312,20 @@ const formatDuration = (minutes: number): string => {
   color: var(--route-color);
 }
 
+@media (prefers-color-scheme: dark) {
+  .route-segment.walk {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%);
+  }
+  
+  .route-segment.bus {
+    border-color: var(--route-color);
+    background: linear-gradient(135deg, 
+      color-mix(in srgb, var(--route-color) 20%, transparent) 0%, 
+      color-mix(in srgb, var(--route-color) 5%, transparent) 100%);
+  }
+}
+
 .segment-icon {
   flex-shrink: 0;
   width: 32px;
@@ -300,7 +334,13 @@ const formatDuration = (minutes: number): string => {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  .segment-icon {
+    background: rgba(255, 255, 255, 0.1);
+  }
 }
 
 .segment-icon svg {
@@ -326,6 +366,12 @@ const formatDuration = (minutes: number): string => {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .segment-type {
+    color: #e5e7eb;
+  }
 }
 
 .route-badge {
@@ -367,6 +413,23 @@ const formatDuration = (minutes: number): string => {
   font-weight: 600;
 }
 
+@media (prefers-color-scheme: dark) {
+  .segment-distance,
+  .segment-stations {
+    color: #9ca3af;
+  }
+  
+  .segment-from,
+  .segment-to {
+    color: #d1d5db;
+  }
+  
+  .segment-from strong,
+  .segment-to strong {
+    color: #f3f4f6;
+  }
+}
+
 .transfer-indicator {
   display: flex;
   align-items: center;
@@ -403,6 +466,13 @@ const formatDuration = (minutes: number): string => {
   gap: 16px;
 }
 
+@media (prefers-color-scheme: dark) {
+  .route-summary {
+    background: rgba(40, 40, 50, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
 .summary-item {
   text-align: center;
 }
@@ -424,6 +494,16 @@ const formatDuration = (minutes: number): string => {
   color: #1f2937;
 }
 
+@media (prefers-color-scheme: dark) {
+  .summary-label {
+    color: #9ca3af;
+  }
+  
+  .summary-value {
+    color: #f3f4f6;
+  }
+}
+
 /* Scrollbar styling */
 .panel-content::-webkit-scrollbar {
   width: 6px;
@@ -440,6 +520,16 @@ const formatDuration = (minutes: number): string => {
 
 .panel-content::-webkit-scrollbar-thumb:hover {
   background: rgba(156, 163, 175, 0.9);
+}
+
+@media (prefers-color-scheme: dark) {
+  .panel-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  
+  .panel-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
 }
 
 @media (max-width: 768px) {

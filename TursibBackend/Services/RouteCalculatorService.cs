@@ -20,7 +20,18 @@ namespace TursibBackend.Services
             int endStationId,
             DateTime? departureTime = null)
         {
+            var routes = await CalculateAlternativeRoutes(startStationId, endStationId, departureTime);
+            return routes.FirstOrDefault(); // Returnează prima rută (cea mai rapidă)
+        }
+
+        // Calculează 2-3 rute alternative între două stații
+        public async Task<List<CalculatedRoute>> CalculateAlternativeRoutes(
+            int startStationId, 
+            int endStationId,
+            DateTime? departureTime = null)
+        {
             var departure = departureTime ?? DateTime.Now;
+            var alternativeRoutes = new List<CalculatedRoute>();
 
             // Încarcă toate traseele și stațiile
             var routes = await _context.Routes
@@ -30,32 +41,49 @@ namespace TursibBackend.Services
 
             if (routes.Count == 0)
             {
-                return null;
+                return alternativeRoutes;
             }
 
-            // Găsește trasee directe (fără transfer)
-            var directRoute = FindDirectRoute(routes, startStationId, endStationId);
-            if (directRoute != null)
+            // 1. Găsește toate rutele directe posibile
+            var directRoutes = FindAllDirectRoutes(routes, startStationId, endStationId);
+            alternativeRoutes.AddRange(directRoutes);
+
+            // 2. Găsește toate rutele cu un transfer
+            var transferRoutes = FindAllRoutesWithTransfer(routes, startStationId, endStationId);
+            alternativeRoutes.AddRange(transferRoutes);
+
+            // 3. Sortează și limitează rezultatele
+            alternativeRoutes = alternativeRoutes
+                .OrderBy(r => r.TotalDuration) // Sortează după timp
+                .ThenBy(r => r.Segments.Count) // Apoi după număr de segmente
+                .Take(3) // Păstrează doar top 3
+                .ToList();
+
+            // 4. Adaugă metadata pentru fiecare rută
+            for (int i = 0; i < alternativeRoutes.Count; i++)
             {
-                return directRoute;
+                alternativeRoutes[i].RouteRank = i + 1;
+                
+                // Categorisire rută
+                if (i == 0)
+                    alternativeRoutes[i].RouteCategory = "Cea mai rapidă";
+                else if (alternativeRoutes[i].Segments.Count < alternativeRoutes[0].Segments.Count)
+                    alternativeRoutes[i].RouteCategory = "Mai puține transferuri";
+                else
+                    alternativeRoutes[i].RouteCategory = "Rută alternativă";
             }
 
-            // Găsește trasee cu un transfer
-            var transferRoute = FindRouteWithTransfer(routes, startStationId, endStationId);
-            if (transferRoute != null)
-            {
-                return transferRoute;
-            }
-
-            // Dacă nu se găsește nimic, returnează null
-            return null;
+            return alternativeRoutes;
         }
 
-        private CalculatedRoute? FindDirectRoute(
+        // Găsește toate rutele directe posibile
+        private List<CalculatedRoute> FindAllDirectRoutes(
             List<RouteModel> routes, 
             int startStationId, 
             int endStationId)
         {
+            var directRoutes = new List<CalculatedRoute>();
+
             foreach (var route in routes)
             {
                 var stations = route.RouteStations
@@ -77,7 +105,7 @@ namespace TursibBackend.Services
                     // Estimare timp de călătorie (2 minute per stație)
                     var estimatedDuration = (endIndex - startIndex) * 2;
 
-                    return new CalculatedRoute
+                    directRoutes.Add(new CalculatedRoute
                     {
                         RouteType = "direct",
                         TotalDuration = estimatedDuration,
@@ -95,18 +123,21 @@ namespace TursibBackend.Services
                                 StationCount = stationsBetween.Count
                             }
                         }
-                    };
+                    });
                 }
             }
 
-            return null;
+            return directRoutes;
         }
 
-        private CalculatedRoute? FindRouteWithTransfer(
+        // Găsește toate rutele cu un transfer
+        private List<CalculatedRoute> FindAllRoutesWithTransfer(
             List<RouteModel> routes,
             int startStationId,
             int endStationId)
         {
+            var transferRoutes = new List<CalculatedRoute>();
+
             // Caută toate combinațiile posibile cu un transfer
             foreach (var route1 in routes)
             {
@@ -153,7 +184,7 @@ namespace TursibBackend.Services
                             var duration2 = (endIndex2 - transferIndex2) * 2;
                             var transferWaitTime = 5; // 5 minute așteptare
 
-                            return new CalculatedRoute
+                            transferRoutes.Add(new CalculatedRoute
                             {
                                 RouteType = "transfer",
                                 TotalDuration = duration1 + duration2 + transferWaitTime,
@@ -189,13 +220,13 @@ namespace TursibBackend.Services
                                         StationCount = segment2Stations.Count
                                     }
                                 }
-                            };
+                            });
                         }
                     }
                 }
             }
 
-            return null;
+            return transferRoutes;
         }
 
         // Calculează distanța Haversine între două coordonate
@@ -227,6 +258,8 @@ namespace TursibBackend.Services
         public string RouteType { get; set; } = "direct"; // "direct" sau "transfer"
         public int TotalDuration { get; set; } // în minute
         public List<RouteSegment> Segments { get; set; } = new();
+        public int RouteRank { get; set; } // 1 = cea mai bună, 2 = a doua, etc.
+        public string RouteCategory { get; set; } = ""; // "Cea mai rapidă", "Mai puține transferuri", etc.
     }
 
     public class RouteSegment

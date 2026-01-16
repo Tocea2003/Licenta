@@ -15,15 +15,24 @@
             <span class="label-icon">👤</span>
             Utilizator
           </label>
-          <input
-            id="username"
-            v-model="credentials.username"
-            type="text"
-            placeholder="Introdu username-ul"
-            required
-            autocomplete="username"
-            :disabled="isLoading"
-          />
+          <div class="input-wrapper">
+            <input
+              id="username"
+              v-model="credentials.username"
+              type="text"
+              placeholder="Introdu username-ul"
+              required
+              autocomplete="username"
+              :disabled="isLoading"
+              :class="{ 
+                'input-valid': usernameValid === true,
+                'input-invalid': usernameValid === false
+              }"
+            />
+            <span v-if="usernameValid !== null" class="validation-icon">
+              {{ usernameValid ? '✓' : '✗' }}
+            </span>
+          </div>
         </div>
 
         <div class="form-group">
@@ -31,15 +40,41 @@
             <span class="label-icon">🔒</span>
             Parolă
           </label>
-          <input
-            id="password"
-            v-model="credentials.password"
-            type="password"
-            placeholder="Introdu parola"
-            required
-            autocomplete="current-password"
-            :disabled="isLoading"
-          />
+          <div class="input-wrapper">
+            <input
+              id="password"
+              v-model="credentials.password"
+              :type="showPassword ? 'text' : 'password'"
+              placeholder="Introdu parola"
+              required
+              autocomplete="current-password"
+              :disabled="isLoading"
+              :class="{ 
+                'input-valid': passwordValid === true,
+                'input-invalid': passwordValid === false
+              }"
+            />
+            <button 
+              type="button" 
+              class="toggle-password"
+              @click="togglePasswordVisibility"
+              :aria-label="showPassword ? 'Ascunde parola' : 'Arată parola'"
+            >
+              {{ showPassword ? '👁️' : '👁️‍🗨️' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="remember-me-wrapper">
+          <label class="remember-me-label">
+            <input 
+              type="checkbox" 
+              v-model="rememberMe"
+              class="remember-checkbox"
+            />
+            <span class="checkbox-custom"></span>
+            <span>Ține-mă minte</span>
+          </label>
         </div>
 
         <Transition name="fade">
@@ -49,7 +84,7 @@
           </div>
         </Transition>
 
-        <button type="submit" class="btn-login" :disabled="isLoading">
+        <button type="submit" class="btn-login" :disabled="isLoading || !credentials.username || !credentials.password">
           <span v-if="isLoading" class="spinner"></span>
           <span v-else class="login-icon">→</span>
           {{ isLoading ? 'Se conectează...' : 'Autentificare' }}
@@ -80,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '@/services/adminService'
 
@@ -93,6 +128,36 @@ const credentials = ref({
 
 const isLoading = ref(false)
 const errorMessage = ref('')
+const rememberMe = ref(false)
+const showPassword = ref(false)
+const usernameValid = ref<boolean | null>(null)
+const passwordValid = ref<boolean | null>(null)
+
+// Check for saved credentials on mount
+onMounted(() => {
+  const savedUsername = localStorage.getItem('saved_username')
+  if (savedUsername) {
+    credentials.value.username = savedUsername
+    rememberMe.value = true
+  }
+})
+
+// Live validation
+watch(() => credentials.value.username, (newVal) => {
+  if (!newVal) {
+    usernameValid.value = null
+    return
+  }
+  usernameValid.value = newVal.length >= 3
+})
+
+watch(() => credentials.value.password, (newVal) => {
+  if (!newVal) {
+    passwordValid.value = null
+    return
+  }
+  passwordValid.value = newVal.length >= 6
+})
 
 const handleLogin = async () => {
   isLoading.value = true
@@ -103,6 +168,13 @@ const handleLogin = async () => {
     const response = await authService.login(credentials.value)
     
     console.log('✅ Login successful:', response)
+    
+    // Save credentials if remember me is checked
+    if (rememberMe.value) {
+      localStorage.setItem('saved_username', credentials.value.username)
+    } else {
+      localStorage.removeItem('saved_username')
+    }
     
     // Salvează token și user info
     localStorage.setItem('token', response.token)
@@ -123,6 +195,10 @@ const handleLogin = async () => {
   } finally {
     isLoading.value = false
   }
+}
+
+const togglePasswordVisibility = () => {
+  showPassword.value = !showPassword.value
 }
 </script>
 
@@ -273,6 +349,52 @@ label {
   font-size: 16px;
 }
 
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrapper input {
+  flex: 1;
+  padding-right: 45px;
+}
+
+.validation-icon {
+  position: absolute;
+  right: 14px;
+  font-size: 18px;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+}
+
+.toggle-password:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+input.input-valid {
+  border-color: #48bb78;
+  background-color: rgba(72, 187, 120, 0.05);
+}
+
+input.input-invalid {
+  border-color: #f56565;
+  background-color: rgba(245, 101, 101, 0.05);
+}
+
 input {
   padding: 14px 16px;
   border: 2px solid var(--border-color);
@@ -293,6 +415,57 @@ input:disabled {
   background-color: var(--bg-tertiary);
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.remember-me-wrapper {
+  margin: -8px 0 8px 0;
+}
+
+.remember-me-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+.remember-me-label:hover {
+  color: var(--text-primary);
+}
+
+.remember-checkbox {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.checkbox-custom {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  position: relative;
+  transition: all 0.3s ease;
+  background: var(--bg-secondary);
+}
+
+.remember-checkbox:checked + .checkbox-custom {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+}
+
+.remember-checkbox:checked + .checkbox-custom::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
 }
 
 .error-banner {

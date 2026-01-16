@@ -15,16 +15,25 @@
             <span class="label-icon">👤</span>
             Utilizator
           </label>
-          <input
-            id="username"
-            v-model="credentials.username"
-            type="text"
-            placeholder="Alege un username"
-            required
-            autocomplete="username"
-            :disabled="isLoading"
-            minlength="3"
-          />
+          <div class="input-wrapper">
+            <input
+              id="username"
+              v-model="credentials.username"
+              type="text"
+              placeholder="Alege un username"
+              required
+              autocomplete="username"
+              :disabled="isLoading"
+              minlength="3"
+              :class="{ 
+                'input-valid': usernameValid === true,
+                'input-invalid': usernameValid === false
+              }"
+            />
+            <span v-if="usernameValid !== null" class="validation-icon">
+              {{ usernameValid ? '✓' : '✗' }}
+            </span>
+          </div>
           <small class="helper-text">Minim 3 caractere</small>
         </div>
 
@@ -33,17 +42,50 @@
             <span class="label-icon">🔒</span>
             Parolă
           </label>
-          <input
-            id="password"
-            v-model="credentials.password"
-            type="password"
-            placeholder="Alege o parolă"
-            required
-            autocomplete="new-password"
-            :disabled="isLoading"
-            minlength="6"
-          />
-          <small class="helper-text">Minim 6 caractere</small>
+          <div class="input-wrapper">
+            <input
+              id="password"
+              v-model="credentials.password"
+              :type="showPassword ? 'text' : 'password'"
+              placeholder="Alege o parolă"
+              required
+              autocomplete="new-password"
+              :disabled="isLoading"
+              minlength="6"
+              :class="{ 
+                'input-valid': passwordValid === true,
+                'input-invalid': passwordValid === false
+              }"
+            />
+            <button 
+              type="button" 
+              class="toggle-password"
+              @click="togglePasswordVisibility"
+              :aria-label="showPassword ? 'Ascunde parola' : 'Arată parola'"
+            >
+              {{ showPassword ? '👁️' : '👁️‍🗨️' }}
+            </button>
+          </div>
+          
+          <!-- Password Strength Indicator -->
+          <div v-if="credentials.password" class="password-strength">
+            <div class="strength-bar">
+              <div 
+                class="strength-fill" 
+                :style="{ 
+                  width: `${((passwordStrength?.score ?? 0) / 5) * 100}%`,
+                  backgroundColor: passwordStrength?.color ?? '#cbd5e0'
+                }"
+              ></div>
+            </div>
+            <small 
+              class="strength-label" 
+              :style="{ color: passwordStrength?.color ?? '#718096' }"
+            >
+              {{ passwordStrength?.label ?? '' }}
+            </small>
+          </div>
+          <small class="helper-text">Minim 6 caractere (recomandăm: litere, cifre, simboluri)</small>
         </div>
 
         <div class="form-group">
@@ -51,15 +93,32 @@
             <span class="label-icon">🔒</span>
             Confirmă Parola
           </label>
-          <input
-            id="confirmPassword"
-            v-model="confirmPassword"
-            type="password"
-            placeholder="Confirmă parola"
-            required
-            autocomplete="new-password"
-            :disabled="isLoading"
-          />
+          <div class="input-wrapper">
+            <input
+              id="confirmPassword"
+              v-model="confirmPassword"
+              :type="showConfirmPassword ? 'text' : 'password'"
+              placeholder="Confirmă parola"
+              required
+              autocomplete="new-password"
+              :disabled="isLoading"
+              :class="{ 
+                'input-valid': confirmValid === true,
+                'input-invalid': confirmValid === false
+              }"
+            />
+            <button 
+              type="button" 
+              class="toggle-password"
+              @click="toggleConfirmPasswordVisibility"
+              :aria-label="showConfirmPassword ? 'Ascunde parola' : 'Arată parola'"
+            >
+              {{ showConfirmPassword ? '👁️' : '👁️‍🗨️' }}
+            </button>
+          </div>
+          <small v-if="confirmPassword && !isPasswordMatch" class="error-text">
+            Parolele nu coincid
+          </small>
         </div>
 
         <Transition name="fade">
@@ -76,7 +135,7 @@
           </div>
         </Transition>
 
-        <button type="submit" class="btn-signup" :disabled="isLoading || !isPasswordMatch">
+        <button type="submit" class="btn-signup" :disabled="isLoading || !isPasswordMatch || !credentials.username || !credentials.password">
           <span v-if="isLoading" class="spinner"></span>
           <span v-else class="signup-icon">✓</span>
           {{ isLoading ? 'Se creează contul...' : 'Creare Cont' }}
@@ -107,7 +166,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '@/services/adminService'
 
@@ -122,10 +181,66 @@ const confirmPassword = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const showPassword = ref(false)
+const showConfirmPassword = ref(false)
+
+// Live validation states
+const usernameValid = ref<boolean | null>(null)
+const passwordValid = ref<boolean | null>(null)
+const confirmValid = ref<boolean | null>(null)
+
+// Password strength calculation
+const passwordStrength = computed(() => {
+  const password = credentials.value.password
+  if (!password) return { score: 0, label: '', color: '' }
+  
+  let score = 0
+  if (password.length >= 6) score++
+  if (password.length >= 10) score++
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++
+  if (/\d/.test(password)) score++
+  if (/[^a-zA-Z\d]/.test(password)) score++
+  
+  const levels = [
+    { score: 0, label: '', color: '' },
+    { score: 1, label: 'Foarte slabă', color: '#f56565' },
+    { score: 2, label: 'Slabă', color: '#ed8936' },
+    { score: 3, label: 'Medie', color: '#ecc94b' },
+    { score: 4, label: 'Bună', color: '#48bb78' },
+    { score: 5, label: 'Excelentă', color: '#38a169' }
+  ]
+  
+  return levels[score]
+})
 
 const isPasswordMatch = computed(() => {
   if (!confirmPassword.value) return true
   return credentials.value.password === confirmPassword.value
+})
+
+// Live validation watchers
+watch(() => credentials.value.username, (newVal) => {
+  if (!newVal) {
+    usernameValid.value = null
+    return
+  }
+  usernameValid.value = newVal.length >= 3
+})
+
+watch(() => credentials.value.password, (newVal) => {
+  if (!newVal) {
+    passwordValid.value = null
+    return
+  }
+  passwordValid.value = newVal.length >= 6
+})
+
+watch(confirmPassword, (newVal) => {
+  if (!newVal) {
+    confirmValid.value = null
+    return
+  }
+  confirmValid.value = newVal === credentials.value.password
 })
 
 const handleSignUp = async () => {
@@ -185,6 +300,14 @@ const handleSignUp = async () => {
   } finally {
     isLoading.value = false
   }
+}
+
+const togglePasswordVisibility = () => {
+  showPassword.value = !showPassword.value
+}
+
+const toggleConfirmPasswordVisibility = () => {
+  showConfirmPassword.value = !showConfirmPassword.value
 }
 </script>
 
@@ -335,6 +458,52 @@ label {
   font-size: 16px;
 }
 
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrapper input {
+  flex: 1;
+  padding-right: 45px;
+}
+
+.validation-icon {
+  position: absolute;
+  right: 14px;
+  font-size: 18px;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+}
+
+.toggle-password:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+input.input-valid {
+  border-color: #48bb78;
+  background-color: #f0fff4;
+}
+
+input.input-invalid {
+  border-color: #f56565;
+  background-color: #fff5f5;
+}
+
 input {
   padding: 14px 16px;
   border: 2px solid #e2e8f0;
@@ -356,10 +525,43 @@ input:disabled {
   opacity: 0.6;
 }
 
+.password-strength {
+  margin-top: 8px;
+}
+
+.strength-bar {
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.strength-fill {
+  height: 100%;
+  transition: all 0.3s ease;
+  border-radius: 2px;
+}
+
+.strength-label {
+  font-size: 12px;
+  font-weight: 600;
+  display: block;
+}
+
 .helper-text {
   color: #718096;
   font-size: 12px;
-  margin-top: -4px;
+  margin-top: 4px;
+  display: block;
+}
+
+.error-text {
+  color: #f56565;
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
+  font-weight: 500;
 }
 
 .error-banner {
