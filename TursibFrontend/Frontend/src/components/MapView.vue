@@ -44,6 +44,13 @@
         </svg>
       </button>
       
+      <!-- Buton pentru istoric călătorii -->
+      <button @click="showTripHistory = !showTripHistory" class="action-btn" title="Istoric călătorii" :class="{ 'active': showTripHistory }">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      
       <!-- Buton pentru dark mode -->
       <button @click="toggleDarkMode" class="action-btn" title="Dark Mode">
         <svg v-if="!isDarkMode" width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -141,6 +148,13 @@
       :second-walk-distance="transferData.secondWalkDistance"
       :second-walk-time="transferData.secondWalkTime"
       @close="closeTransfer"
+    />
+    
+    <!-- Panoul pentru istoric călătorii -->
+    <TripHistory
+      :visible="showTripHistory"
+      @close="showTripHistory = false"
+      @select-trip="handleTripSelected"
     />
     
     <!-- Panoul de direcții de mers pe jos (pentru căutări simple) -->
@@ -398,10 +412,12 @@ import MultimodalDirections from './MultimodalDirections.vue'
 import TransferRoute from './TransferRoute.vue'
 import NearbyStationsPanel from './NearbyStationsPanel.vue'
 import AlternativeRoutesPanel from './AlternativeRoutesPanel.vue'
+import TripHistory from './TripHistory.vue'
 import apiService, { type Station } from '@/services/apiService'
 import { useNotifications, checkBusNotifications } from '@/composables/useNotifications'
 import { authService } from '@/services/adminService'
 import { useDarkMode } from '@/composables/useDarkMode'
+import { tripHistoryService, type TripHistoryItem } from '@/services/tripHistoryService'
 
 const router = useRouter()
 
@@ -591,6 +607,9 @@ const showNearbyStations = ref(false)
 const alternativeRoutes = ref<any[]>([])
 const showAlternatives = ref(false)
 const selectedAlternative = ref<any | null>(null)
+
+// State pentru istoric călătorii
+const showTripHistory = ref(false)
 
 // State pentru afișarea/ascunderea sidebar-ului
 const showSidebar = ref(true)
@@ -1485,6 +1504,9 @@ const handleAlternativeRouteSelected = async (route: any) => {
   selectedAlternative.value = route
   showAlternatives.value = false
   
+  // Salvează călătoria în istoric
+  saveTripToHistory(route)
+  
   // Curățăm traseele anterioare
   walkingPath.value = []
   secondWalkingPath.value = []
@@ -2046,6 +2068,61 @@ const closeMultimodal = () => {
   console.log('✅ Rută multimodală închisă - totul resetat')
 }
 
+// Handler pentru selectarea unei călătorii din istoric
+const handleTripSelected = async (trip: TripHistoryItem) => {
+  console.log('📜 Călătorie selectată din istoric:', trip)
+  
+  // Setăm locațiile
+  savedUserLocation.value = trip.startCoords
+  savedDestination.value = {
+    lat: trip.endCoords.lat,
+    lon: trip.endCoords.lon,
+    name: trip.endLocation
+  }
+  
+  // Găsim stațiile apropiate
+  const startStation = findNearestStation(trip.startCoords.lat, trip.startCoords.lon, props.allStations)
+  const endStation = findNearestStation(trip.endCoords.lat, trip.endCoords.lon, props.allStations)
+  
+  if (!startStation || !endStation) {
+    console.error('❌ Nu s-au găsit stații pentru această călătorie')
+    return
+  }
+  
+  // Fetch alternative routes
+  const alternatives = await fetchAlternativeRoutes(startStation.id, endStation.id)
+  if (alternatives.length > 0) {
+    alternativeRoutes.value = alternatives
+    showAlternatives.value = true
+    showTripHistory.value = false
+  }
+}
+
+// Salvează călătoria în istoric când se selectează o rută
+const saveTripToHistory = (route: any) => {
+  if (!savedUserLocation.value || !savedDestination.value) {
+    console.log('⚠️ Nu pot salva călătoria - lipsesc date despre locații')
+    return
+  }
+  
+  const busSegments = route.segments?.filter((s: any) => s.type === 'bus') || []
+  const busLines = busSegments.map((s: any) => s.routeNumber)
+  
+  tripHistoryService.saveTrip({
+    startLocation: 'Locația ta',
+    endLocation: savedDestination.value.name,
+    startCoords: savedUserLocation.value,
+    endCoords: { lat: savedDestination.value.lat, lon: savedDestination.value.lon },
+    routeType: busSegments.length === 1 ? 'direct' : 'transfer',
+    routeDetails: {
+      busLines,
+      totalDuration: route.totalDuration || 0,
+      totalStations: route.totalStations || 0,
+      transferStation: busSegments.length > 1 ? busSegments[0].endStation?.name : undefined
+    }
+  })
+}
+
 // Închide panoul de transfer
 const closeTransfer = () => {
   showTransfer.value = false
@@ -2438,6 +2515,15 @@ const getStationETAs = (stationId: number) => {
   background: var(--bg-secondary);
   box-shadow: var(--shadow-lg);
   transform: scale(1.05);
+}
+
+.action-btn.active {
+  background: #667eea;
+  color: white;
+}
+
+.action-btn.active:hover {
+  background: #5568d3;
 }
 
 .action-btn svg {

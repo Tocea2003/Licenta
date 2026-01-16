@@ -95,6 +95,15 @@
         </div>
       </form>
 
+      <div class="divider">
+        <span>SAU</span>
+      </div>
+
+      <GoogleSignIn 
+        @success="handleGoogleSuccess"
+        @error="handleGoogleError"
+      />
+
       <div class="login-footer">
         <router-link to="/signup" class="signup-link">
           Nu ai cont? <strong>Creează unul</strong>
@@ -118,6 +127,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '@/services/adminService'
+import GoogleSignIn from '@/components/GoogleSignIn.vue'
 
 const router = useRouter()
 
@@ -199,6 +209,27 @@ const handleLogin = async () => {
 
 const togglePasswordVisibility = () => {
   showPassword.value = !showPassword.value
+}
+
+const handleGoogleSuccess = (userData: any) => {
+  console.log('✅ Google login successful:', userData)
+  
+  // Salvează token și user info
+  localStorage.setItem('token', userData.token)
+  localStorage.setItem('user', JSON.stringify({
+    username: userData.username,
+    role: userData.role
+  }))
+
+  console.log('💾 Token saved, reloading page to initialize favorites')
+  
+  // Reload page pentru a reinițializa toate composable-urile cu noul token
+  window.location.href = '/'
+}
+
+const handleGoogleError = (error: string) => {
+  console.error('❌ Google login error:', error)
+  errorMessage.value = error || 'Eroare la autentificarea cu Google'
 }
 </script>
 
@@ -590,6 +621,33 @@ input:disabled {
 
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
+}
+
+.divider {
+  position: relative;
+  text-align: center;
+  margin: 32px 0;
+}
+
+.divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, #e2e8f0, transparent);
+}
+
+.divider span {
+  position: relative;
+  display: inline-block;
+  padding: 0 16px;
+  background: var(--bg-primary);
+  color: #718096;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
 }
 
 @media (max-width: 640px) {
