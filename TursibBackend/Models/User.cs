@@ -6,6 +6,7 @@ namespace TursibBackend.Models
         public string Username { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
         public string Role { get; set; } = "User"; // "Admin" sau "User"
+        public string? Email { get; set; } // Email pentru Google login
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public string? Favorites { get; set; } // JSON string cu lista de favorite
     }

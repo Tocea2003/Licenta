@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TursibBackend")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f178bae8c815ff9a27e355345556d9df5b58df6b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7c6b6431efad1445093a6ccf6ab4d836b48e079c")]
 [assembly: System.Reflection.AssemblyProductAttribute("TursibBackend")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TursibBackend")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
