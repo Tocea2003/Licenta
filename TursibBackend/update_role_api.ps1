@@ -2,22 +2,25 @@
 param(
     [string]$ApiUrl = "http://localhost:5022/api",
     [string]$AdminUser = "MogaSlaher",
-    [string]$AdminPassword = "",
+    [SecureString]$AdminPassword,
     [string]$TargetUsername = "MogaSlaher",
     [string]$NewRole = "User"
 )
 
-if ($AdminPassword -eq "") {
+if ($null -eq $AdminPassword) {
     $AdminPassword = Read-Host "Enter password for $AdminUser" -AsSecureString
-    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($AdminPassword)
-    $AdminPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
 }
+
+# Convert SecureString to plain text for API call
+$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($AdminPassword)
+$PlainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+[System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
 
 Write-Host "Step 1: Logging in as admin..." -ForegroundColor Cyan
 
 $loginBody = @{
     username = $AdminUser
-    password = $AdminPassword
+    password = $PlainPassword
 } | ConvertTo-Json
 
 try {
@@ -70,5 +73,10 @@ try {
         $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
         $responseBody = $reader.ReadToEnd()
         Write-Host "Response: $responseBody" -ForegroundColor Red
+    }
+} finally {
+    # Clear sensitive data from memory
+    if ($PlainPassword) {
+        $PlainPassword = $null
     }
 }

@@ -167,6 +167,14 @@
       @close="showNearbyStations = false"
       @toggleNotification="handleNotificationToggle"
     />
+    
+    <!-- Alternative Routes Panel -->
+    <AlternativeRoutesPanel
+      v-if="showAlternatives"
+      :routes="alternativeRoutes"
+      @close="showAlternatives = false"
+      @select-route="handleAlternativeRouteSelected"
+    />
 
     <l-map
 
@@ -261,6 +269,27 @@
         </l-popup>
       </l-marker>
 
+      <!-- Marker ROȘU pentru stația de transfer (schimbare autobuz) -->
+      <l-marker
+        v-if="showTransfer && transferData.transferStation"
+        :lat-lng="[transferData.transferStation.latitude, transferData.transferStation.longitude]"
+      >
+        <l-icon
+          :icon-size="[50, 50]"
+          :icon-anchor="[25, 50]"
+        >
+          <div style="font-size: 50px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+            📍
+          </div>
+        </l-icon>
+        <l-popup>
+          <div style="text-align: center; font-weight: bold; color: #ef4444;">
+            🔄 TRANSFER AICI<br>
+            {{ transferData.transferStation.name }}
+          </div>
+        </l-popup>
+      </l-marker>
+
       <!-- Markere pentru stații selectate (când e ales un traseu) - DOAR ICOANE SIMPLE -->
       <template v-if="stations && stations.length > 0">
         <l-marker
@@ -295,24 +324,22 @@
         :opacity="0.7"
       />
       
-      <!-- Linia punctată pentru traseu de mers pe jos (la stația de urcare) -->
+      <!-- Linia VERDE - traseul complet al primului autobuz -->
       <l-polyline
-        v-if="walkingPath.length > 0"
-        :lat-lngs="walkingPath"
+        v-if="completeBusRoute1.length > 0"
+        :lat-lngs="completeBusRoute1"
         color="#10b981"
         :weight="4"
-        :opacity="0.8"
-        dashArray="10, 10"
+        :opacity="0.6"
       />
       
-      <!-- Linia punctată pentru al doilea traseu de mers pe jos (de la stația de coborâre la destinație) -->
+      <!-- Linia ALBASTRĂ - traseul complet al celui de-al doilea autobuz (dacă e transfer) -->
       <l-polyline
-        v-if="secondWalkingPath.length > 0"
-        :lat-lngs="secondWalkingPath"
-        color="#f59e0b"
+        v-if="completeBusRoute2.length > 0"
+        :lat-lngs="completeBusRoute2"
+        color="#3b82f6"
         :weight="4"
-        :opacity="0.8"
-        dashArray="10, 10"
+        :opacity="0.6"
       />
 
       <!-- Markere pentru autobuze LIVE - ascunse când e afișată o rută -->
@@ -370,6 +397,7 @@ import WalkingDirections from './WalkingDirections.vue'
 import MultimodalDirections from './MultimodalDirections.vue'
 import TransferRoute from './TransferRoute.vue'
 import NearbyStationsPanel from './NearbyStationsPanel.vue'
+import AlternativeRoutesPanel from './AlternativeRoutesPanel.vue'
 import apiService, { type Station } from '@/services/apiService'
 import { useNotifications, checkBusNotifications } from '@/composables/useNotifications'
 import { authService } from '@/services/adminService'
@@ -469,7 +497,8 @@ interface BusLocation {
   occupancy?: number // Grad de ocupare 0-100
 }
 
-
+// API Base URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5022/api'
 
 // Props
 
@@ -540,8 +569,28 @@ const secondWalkingPath = ref<[number, number][]>([])
 // State pentru segmentul de traseu multimodal (doar între stațiile de urcare și coborâre)
 const multimodalBusPath = ref<[number, number][]>([])
 
+// State pentru trasee reale de mers pe jos (roșu)
+const actualWalkingPath = ref<[number, number][]>([]) // De la user la prima stație
+const actualSecondWalkingPath = ref<[number, number][]>([]) // De la ultima stație la destinație
+
+// State pentru traseul complet (ROȘU) - tot drumul de la start la destinație
+const completeRoutePath = ref<[number, number][]>([])
+
+// State pentru traseele COMPLETE ale autobuzelor (pentru afișare în verde și albastru)
+const completeBusRoute1 = ref<[number, number][]>([]) // Traseul complet al primului autobuz (VERDE)
+const completeBusRoute2 = ref<[number, number][]>([]) // Traseul complet al celui de-al doilea autobuz (ALBASTRU)
+
+// Salvăm locația utilizatorului și destinația pentru calculul traseelor
+const savedUserLocation = ref<{ lat: number; lon: number } | null>(null)
+const savedDestination = ref<{ lat: number; lon: number; name: string } | null>(null)
+
 // State pentru afișarea panelului cu stații apropiate
 const showNearbyStations = ref(false)
+
+// State pentru rute alternative
+const alternativeRoutes = ref<any[]>([])
+const showAlternatives = ref(false)
+const selectedAlternative = ref<any | null>(null)
 
 // State pentru afișarea/ascunderea sidebar-ului
 const showSidebar = ref(true)
@@ -1287,6 +1336,469 @@ const findConnectingRoute = async (startStation: typeof props.allStations[0], en
   }
 }
 
+// Fetch alternative routes - CALCULARE LOCALĂ (nu depinde de backend)
+const fetchAlternativeRoutes = async (startStationId: number, endStationId: number) => {
+  try {
+    console.log('🔍 Caut rute alternative local...')
+    
+    const routes = await apiService.getRoutes()
+    const alternatives: any[] = []
+    
+    // Cache pentru stațiile fiecărei rute
+    const routeStationsCache: Map<number, any[]> = new Map()
+    
+    // Preîncarcă toate stațiile pentru fiecare rută
+    for (const route of routes) {
+      const stations = await apiService.getRouteStations(route.id)
+      routeStationsCache.set(route.id, stations)
+    }
+    
+    // 1. Găsește toate rutele DIRECTE
+    for (const route of routes) {
+      const stations = routeStationsCache.get(route.id) || []
+      const startIndex = stations.findIndex((s: any) => s.id === startStationId)
+      const endIndex = stations.findIndex((s: any) => s.id === endStationId)
+      
+      if (startIndex !== -1 && endIndex !== -1 && startIndex !== endIndex) {
+        const stationCount = Math.abs(endIndex - startIndex)
+        const estimatedTime = stationCount * 3 // 3 min per station
+        
+        alternatives.push({
+          routeId: route.id,
+          routeNumber: route.routeNumber,
+          routeType: 'direct',
+          totalDuration: estimatedTime,
+          segments: [{
+            type: 'bus',
+            routeNumber: route.routeNumber,
+            color: route.color,
+            startStation: stations[startIndex],
+            endStation: stations[endIndex],
+            stationCount: stationCount,
+            duration: estimatedTime
+          }]
+        })
+      }
+    }
+    
+    // 2. Găsește rute cu TRANSFER (doar primele 2 pentru performanță)
+    const routesWithStart = routes.filter(r => {
+      const stations = routeStationsCache.get(r.id) || []
+      return stations.some((s: any) => s.id === startStationId)
+    })
+    
+    const routesWithEnd = routes.filter(r => {
+      const stations = routeStationsCache.get(r.id) || []
+      return stations.some((s: any) => s.id === endStationId)
+    })
+    
+    let transferCount = 0
+    for (const route1 of routesWithStart) {
+      if (transferCount >= 2) break
+      
+      const stations1 = routeStationsCache.get(route1.id) || []
+      
+      for (const route2 of routesWithEnd) {
+        if (route1.id === route2.id || transferCount >= 2) continue
+        
+        const stations2 = routeStationsCache.get(route2.id) || []
+        const commonStations = stations1.filter((s1: any) => 
+          stations2.some((s2: any) => s2.id === s1.id)
+        )
+        
+        if (commonStations.length > 0) {
+          const transferStation = commonStations[0]
+          const startIdx1 = stations1.findIndex((s: any) => s.id === startStationId)
+          const transferIdx1 = stations1.findIndex((s: any) => s.id === transferStation.id)
+          const transferIdx2 = stations2.findIndex((s: any) => s.id === transferStation.id)
+          const endIdx2 = stations2.findIndex((s: any) => s.id === endStationId)
+          
+          const count1 = Math.abs(transferIdx1 - startIdx1)
+          const count2 = Math.abs(endIdx2 - transferIdx2)
+          const time1 = count1 * 3
+          const time2 = count2 * 3
+          const totalTime = time1 + time2 + 5 // +5 min transfer
+          
+          alternatives.push({
+            routeId: `${route1.id}-${route2.id}`,
+            routeNumber: `${route1.routeNumber} → ${route2.routeNumber}`,
+            routeType: 'transfer',
+            totalDuration: totalTime,
+            segments: [
+              {
+                type: 'bus',
+                routeNumber: route1.routeNumber,
+                color: route1.color,
+                startStation: stations1[startIdx1],
+                endStation: transferStation,
+                stationCount: count1,
+                duration: time1
+              },
+              {
+                type: 'transfer',
+                station: transferStation,
+                duration: 5
+              },
+              {
+                type: 'bus',
+                routeNumber: route2.routeNumber,
+                color: route2.color,
+                startStation: transferStation,
+                endStation: stations2[endIdx2],
+                stationCount: count2,
+                duration: time2
+              }
+            ]
+          })
+          
+          transferCount++
+        }
+      }
+    }
+    
+    // 3. Sortează după durată și atribuie categorii
+    alternatives.sort((a, b) => a.totalDuration - b.totalDuration)
+    
+    if (alternatives.length > 0) {
+      alternatives[0].routeCategory = 'fastest'
+      if (alternatives.length > 1) {
+        alternatives[alternatives.length - 1].routeCategory = 'scenic'
+      }
+    }
+    
+    // Atribuie rank final
+    alternatives.forEach((alt, idx) => {
+      alt.routeRank = idx + 1
+    })
+    
+    console.log(`✅ Găsite ${alternatives.length} rute alternative (local)`)
+    return alternatives.slice(0, 3) // Max 3 rute
+  } catch (error) {
+    console.error('❌ Eroare la calcularea rutelor alternative:', error)
+    return []
+  }
+}
+
+// Handler pentru selectarea unei rute alternative
+const handleAlternativeRouteSelected = async (route: any) => {
+  console.log('✅ Rută alternativă selectată:', route)
+  selectedAlternative.value = route
+  showAlternatives.value = false
+  
+  // Curățăm traseele anterioare
+  walkingPath.value = []
+  secondWalkingPath.value = []
+  multimodalBusPath.value = []
+  actualWalkingPath.value = []
+  actualSecondWalkingPath.value = []
+  completeRoutePath.value = []
+  completeBusRoute1.value = []
+  completeBusRoute2.value = []
+  
+  if (!route.segments || route.segments.length === 0) {
+    console.error('❌ Ruta nu are segmente')
+    return
+  }
+  
+  const busSegments = route.segments.filter((s: any) => s.type === 'bus')
+  
+  if (busSegments.length === 0) {
+    console.error('❌ Ruta nu are segmente de autobuz')
+    return
+  }
+  
+  // Verificăm dacă e rută directă sau cu transfer
+  if (busSegments.length === 1) {
+    // RUTĂ DIRECTĂ
+    const segment = busSegments[0]
+    console.log(`🚌 Afișez rută directă: ${segment.routeNumber}`)
+    
+    try {
+      // Găsim ID-ul rutei din backend
+      const routes = await apiService.getRoutes()
+      const foundRoute = routes.find(r => r.routeNumber === segment.routeNumber)
+      
+      if (!foundRoute) {
+        console.error(`❌ Nu am găsit ruta ${segment.routeNumber}`)
+        return
+      }
+      
+      // Încărcăm segmentul GTFS de autobuz (doar partea pe care o parcurg)
+      const gtfsSegment = await apiService.getRouteSegment(
+        foundRoute.id, 
+        segment.startStation.id, 
+        segment.endStation.id
+      )
+      
+      let busPart: [number, number][] = gtfsSegment?.points?.map(point => 
+        [point.latitude, point.longitude] as [number, number]
+      ) || []
+      
+      console.log(`✅ Segment GTFS autobuz: ${busPart.length} puncte`)
+      
+      // Dacă GTFS nu returnează suficiente puncte, calculăm cu OSRM
+      if (busPart.length < 2) {
+        console.log('⚠️ GTFS insuficient, calculez cu OSRM...')
+        const coords = `${segment.startStation.longitude},${segment.startStation.latitude};${segment.endStation.longitude},${segment.endStation.latitude}`
+        const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
+        try {
+          const resp = await fetch(url)
+          const data = await resp.json()
+          if (data.code === 'Ok' && data.routes?.[0]) {
+            busPart = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+            console.log(`✅ Segment OSRM calculat: ${busPart.length} puncte`)
+          }
+        } catch (e) {
+          console.error('Eroare OSRM:', e)
+        }
+      }
+      
+      // Calculăm traseele de mers pe jos dacă avem locația salvată
+      if (savedUserLocation.value && savedDestination.value) {
+        // 1. Traseu de la user la prima stație
+        try {
+          const url1 = `https://router.project-osrm.org/route/v1/foot/${savedUserLocation.value.lon},${savedUserLocation.value.lat};${segment.startStation.longitude},${segment.startStation.latitude}?overview=full&geometries=geojson`
+          const resp1 = await fetch(url1)
+          const data1 = await resp1.json()
+          if (data1.code === 'Ok' && data1.routes?.[0]) {
+            actualWalkingPath.value = data1.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+            console.log(`🚶 Traseu mers pe jos la stație: ${actualWalkingPath.value.length} puncte`)
+          }
+        } catch (e) {
+          console.error('Eroare calculare traseu la stație:', e)
+        }
+        
+        // 2. Traseu de la ultima stație la destinație
+        try {
+          const url2 = `https://router.project-osrm.org/route/v1/foot/${segment.endStation.longitude},${segment.endStation.latitude};${savedDestination.value.lon},${savedDestination.value.lat}?overview=full&geometries=geojson`
+          const resp2 = await fetch(url2)
+          const data2 = await resp2.json()
+          if (data2.code === 'Ok' && data2.routes?.[0]) {
+            actualSecondWalkingPath.value = data2.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+            console.log(`🚶 Traseu mers pe jos la destinație: ${actualSecondWalkingPath.value.length} puncte`)
+          }
+        } catch (e) {
+          console.error('Eroare calculare traseu la destinație:', e)
+        }
+      }
+      
+      // Construiește traseul COMPLET (ROȘU): mers pe jos + autobuz + mers pe jos
+      completeRoutePath.value = [
+        ...actualWalkingPath.value,
+        ...busPart,
+        ...actualSecondWalkingPath.value
+      ]
+      console.log(`🔴 Traseu complet roșu: ${completeRoutePath.value.length} puncte`)
+      console.log(`  - Walking1: ${actualWalkingPath.value.length} puncte`)
+      console.log(`  - Bus: ${busPart.length} puncte`)
+      console.log(`  - Walking2: ${actualSecondWalkingPath.value.length} puncte`)
+      
+      // Încarcă traseul COMPLET al autobuzului pentru afișare în VERDE
+      try {
+        const shapeData = await apiService.getRouteShape(foundRoute.id)
+        if (shapeData && shapeData.points && shapeData.points.length > 0) {
+          completeBusRoute1.value = shapeData.points.map((p: any) => [p.latitude, p.longitude] as [number, number])
+          console.log(`🟢 Traseu COMPLET autobuz (verde): ${completeBusRoute1.value.length} puncte`)
+        }
+      } catch (e) {
+        console.error('Eroare încărcare traseu complet:', e)
+      }
+      
+      // Afișăm panelul cu detalii
+      multimodalData.value = {
+        startLocation: 'Locația ta',
+        endLocation: 'Destinația',
+        boardingStation: segment.startStation.name,
+        alightingStation: segment.endStation.name,
+        busLine: segment.routeNumber,
+        busColor: segment.color || '#3b82f6',
+        busStationsList: [segment.startStation.name, segment.endStation.name],
+        firstWalkDistance: 0,
+        firstWalkTime: 0,
+        secondWalkDistance: 0,
+        secondWalkTime: 0,
+        busTime: segment.duration || 0
+      }
+      
+      showMultimodal.value = true
+      
+      // Centrează harta pe traseu complet
+      if (completeRoutePath.value.length > 0) {
+        const bounds = L.latLngBounds(completeRoutePath.value)
+        map.value?.leafletObject?.fitBounds(bounds, { padding: [50, 50] })
+      }
+      
+    } catch (error) {
+      console.error('❌ Eroare la încărcarea rutei:', error)
+    }
+    
+  } else if (busSegments.length === 2) {
+    // RUTĂ CU TRANSFER
+    const segment1 = busSegments[0]
+    const segment2 = busSegments[1]
+    const transferSegment = route.segments.find((s: any) => s.type === 'transfer')
+    
+    console.log(`🔄 Transfer: ${segment1.routeNumber} → ${segment2.routeNumber}`)
+    
+    try {
+      // Găsim ID-urile rutelor
+      const routes = await apiService.getRoutes()
+      const route1 = routes.find(r => r.routeNumber === segment1.routeNumber)
+      const route2 = routes.find(r => r.routeNumber === segment2.routeNumber)
+      
+      if (!route1 || !route2) {
+        console.error('❌ Nu am găsit rutele')
+        return
+      }
+      
+      // Încărcăm primul segment GTFS
+      const gtfsSegment1 = await apiService.getRouteSegment(
+        route1.id,
+        segment1.startStation.id,
+        segment1.endStation.id
+      )
+      
+      // Încărcăm al doilea segment GTFS
+      const gtfsSegment2 = await apiService.getRouteSegment(
+        route2.id,
+        segment2.startStation.id,
+        segment2.endStation.id
+      )
+      
+      let busPart1: [number, number][] = gtfsSegment1?.points?.map(point => 
+        [point.latitude, point.longitude] as [number, number]
+      ) || []
+      
+      let busPart2: [number, number][] = gtfsSegment2?.points?.map(point => 
+        [point.latitude, point.longitude] as [number, number]
+      ) || []
+      
+      console.log(`✅ Segment 1: ${busPart1.length} puncte, Segment 2: ${busPart2.length} puncte`)
+      
+      // Calculăm cu OSRM dacă GTFS nu returnează suficiente puncte
+      if (busPart1.length < 2) {
+        console.log('⚠️ GTFS segment 1 insuficient, calculez cu OSRM...')
+        const coords = `${segment1.startStation.longitude},${segment1.startStation.latitude};${segment1.endStation.longitude},${segment1.endStation.latitude}`
+        const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
+        try {
+          const resp = await fetch(url)
+          const data = await resp.json()
+          if (data.code === 'Ok' && data.routes?.[0]) {
+            busPart1 = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+            console.log(`✅ Segment 1 OSRM: ${busPart1.length} puncte`)
+          }
+        } catch (e) {
+          console.error('Eroare OSRM segment 1:', e)
+        }
+      }
+      
+      if (busPart2.length < 2) {
+        console.log('⚠️ GTFS segment 2 insuficient, calculez cu OSRM...')
+        const coords = `${segment2.startStation.longitude},${segment2.startStation.latitude};${segment2.endStation.longitude},${segment2.endStation.latitude}`
+        const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
+        try {
+          const resp = await fetch(url)
+          const data = await resp.json()
+          if (data.code === 'Ok' && data.routes?.[0]) {
+            busPart2 = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+            console.log(`✅ Segment 2 OSRM: ${busPart2.length} puncte`)
+          }
+        } catch (e) {
+          console.error('Eroare OSRM segment 2:', e)
+        }
+      }
+      
+      // Calculăm traseele de mers pe jos
+      if (savedUserLocation.value && savedDestination.value) {
+        try {
+          const url1 = `https://router.project-osrm.org/route/v1/foot/${savedUserLocation.value.lon},${savedUserLocation.value.lat};${segment1.startStation.longitude},${segment1.startStation.latitude}?overview=full&geometries=geojson`
+          const resp1 = await fetch(url1)
+          const data1 = await resp1.json()
+          if (data1.code === 'Ok' && data1.routes?.[0]) {
+            actualWalkingPath.value = data1.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+          }
+        } catch (e) {}
+        
+        try {
+          const url2 = `https://router.project-osrm.org/route/v1/foot/${segment2.endStation.longitude},${segment2.endStation.latitude};${savedDestination.value.lon},${savedDestination.value.lat}?overview=full&geometries=geojson`
+          const resp2 = await fetch(url2)
+          const data2 = await resp2.json()
+          if (data2.code === 'Ok' && data2.routes?.[0]) {
+            actualSecondWalkingPath.value = data2.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+          }
+        } catch (e) {}
+      }
+      
+      // Construiește traseul COMPLET (ROȘU): mers pe jos + autobuz1 + autobuz2 + mers pe jos
+      completeRoutePath.value = [
+        ...actualWalkingPath.value,
+        ...busPart1,
+        ...busPart2,
+        ...actualSecondWalkingPath.value
+      ]
+      console.log(`🔴 Traseu complet roșu: ${completeRoutePath.value.length} puncte`)
+      console.log(`  - Walking1: ${actualWalkingPath.value.length} puncte`)
+      console.log(`  - Bus1: ${busPart1.length} puncte`)
+      console.log(`  - Bus2: ${busPart2.length} puncte`)
+      console.log(`  - Walking2: ${actualSecondWalkingPath.value.length} puncte`)
+      
+      // Încarcă traseele COMPLETE pentru ambele autobuze
+      try {
+        const shapes1 = await apiService.getRouteShape(route1.id)
+        if (shapes1 && shapes1.points && shapes1.points.length > 0) {
+          completeBusRoute1.value = shapes1.points.map((p: any) => [p.latitude, p.longitude] as [number, number])
+          console.log(`🟢 Traseu complet autobuz 1: ${completeBusRoute1.value.length} puncte`)
+        }
+      } catch (e) {
+        console.error('Eroare încărcare traseu 1:', e)
+      }
+      
+      try {
+        const shapes2 = await apiService.getRouteShape(route2.id)
+        if (shapes2 && shapes2.points && shapes2.points.length > 0) {
+          completeBusRoute2.value = shapes2.points.map((p: any) => [p.latitude, p.longitude] as [number, number])
+          console.log(`🔵 Traseu complet autobuz 2: ${completeBusRoute2.value.length} puncte`)
+        }
+      } catch (e) {
+        console.error('Eroare încărcare traseu 2:', e)
+      }
+      
+      // Afișăm panelul de transfer
+      transferData.value = {
+        startName: 'Locația ta',
+        endName: 'Destinația',
+        boardingStation: segment1.startStation,
+        transferStation: transferSegment?.station || segment1.endStation,
+        alightingStation: segment2.endStation,
+        route1Number: segment1.routeNumber,
+        route1Color: segment1.color || '#3b82f6',
+        route1StationsCount: segment1.stationCount || 0,
+        route2Number: segment2.routeNumber,
+        route2Color: segment2.color || '#10b981',
+        route2StationsCount: segment2.stationCount || 0,
+        firstWalkDistance: 0,
+        firstWalkTime: 0,
+        busTime1: segment1.duration || 0,
+        busTime2: segment2.duration || 0,
+        secondWalkDistance: 0,
+        secondWalkTime: 0
+      }
+      
+      showTransfer.value = true
+      showMultimodal.value = false
+      
+      // Centrează harta pe traseu complet
+      if (completeRoutePath.value.length > 0) {
+        const bounds = L.latLngBounds(completeRoutePath.value)
+        map.value?.leafletObject?.fitBounds(bounds, { padding: [50, 50] })
+      }
+      
+    } catch (error) {
+      console.error('❌ Eroare la încărcarea rutei cu transfer:', error)
+    }
+  }
+}
+
 // Handler pentru traseu multimodal (mers pe jos + autobuz + mers pe jos)
 const handleMultimodalRouteRequested = async (
   userLoc: { lat: number; lon: number; name?: string },
@@ -1295,6 +1807,10 @@ const handleMultimodalRouteRequested = async (
   console.log('🚀 Calculez traseu multimodal...')
   console.log('📍 De la:', userLoc)
   console.log('📍 La:', destination)
+  
+  // Salvăm locația și destinația pentru calculul ulterior
+  savedUserLocation.value = userLoc
+  savedDestination.value = destination
   
   // 1. Găsește stația cea mai apropiată de utilizator
   const startStation = findNearestStation(userLoc.lat, userLoc.lon, props.allStations)
@@ -1312,6 +1828,16 @@ const handleMultimodalRouteRequested = async (
   
   console.log(`🚏 Stație start: ${startStation.name}`)
   console.log(`🚏 Stație destinație: ${endStation.name}`)
+  
+  // 2.5. Fetch alternative routes - ÎNTOTDEAUNA
+  const alternatives = await fetchAlternativeRoutes(startStation.id, endStation.id)
+  if (alternatives.length > 0) {
+    alternativeRoutes.value = alternatives
+    showAlternatives.value = true
+    console.log(`📊 Afișez panelul cu ${alternatives.length} rute alternative`)
+    // OPREȘTE AICI - utilizatorul trebuie să selecteze o rută
+    return
+  }
   
   // 3. Găsește traseul de autobuz care conectează cele două stații
   const busRoute = await findConnectingRoute(startStation, endStation)

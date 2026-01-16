@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TursibBackend.Services;
+using static TursibBackend.Services.RouteCalculatorService;
 
 namespace TursibBackend.Controllers
 {
@@ -41,6 +42,36 @@ namespace TursibBackend.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Failed to calculate route", error = ex.Message });
+            }
+        }
+
+        // POST: api/routing/alternatives
+        [HttpPost("alternatives")]
+        public async Task<ActionResult<List<CalculatedRoute>>> CalculateAlternativeRoutes([FromBody] RouteRequest request)
+        {
+            if (request.StartStationId == request.EndStationId)
+            {
+                return BadRequest(new { message = "Start and end stations must be different" });
+            }
+
+            try
+            {
+                var routes = await _routeCalculator.CalculateAlternativeRoutes(
+                    request.StartStationId,
+                    request.EndStationId,
+                    request.DepartureTime
+                );
+
+                if (routes.Count == 0)
+                {
+                    return NotFound(new { message = "No routes found between these stations" });
+                }
+
+                return Ok(routes);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Failed to calculate alternative routes", error = ex.Message });
             }
         }
     }
