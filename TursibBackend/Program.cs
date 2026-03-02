@@ -4,12 +4,23 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using TursibBackend.Data;
 using TursibBackend.Services;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+// Configure Memory Cache
+builder.Services.AddMemoryCache();
+
+// Add Performance Logging
+builder.Services.AddLogging(logging =>
+{
+    logging.AddConsole();
+    logging.AddDebug();
+});
 
 // Configurare DbContext pentru Entity Framework Core cu SQLite
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

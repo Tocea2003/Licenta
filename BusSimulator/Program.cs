@@ -129,20 +129,8 @@ namespace BusSimulator
                         stationsSinceLastUpdate = 0;
                     }
                     
-                    // Trimite locația la Firebase cu rate limiting
-                    await firebase
-                        .Child("bus_locations")
-                        .Child(busId.ToString())
-                        .PutAsync(new
-                        {
-                            latitude = location.Latitude,
-                            longitude = location.Longitude,
-                            routeId = routeId,
-                            timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                            speed = 35.0 + random.NextDouble() * 15.0, // 35-50 km/h
-                            heading = CalculateHeading(),
-                            occupancy = occupancy // Grad de ocupare 0-100
-                        });
+                    // Trimite locația la Firebase cu rate limiting și retry
+                    await SendLocationWithRetry(location);
                     
                     Console.WriteLine($"📍 Bus {busId}: [{location.Latitude:F6}, {location.Longitude:F6}] " +
                                     $"Point {currentPointIndex + 1}/{routePoints.Count} | Ocupare: {occupancy}%");
@@ -157,6 +145,49 @@ namespace BusSimulator
                 {
                     Console.WriteLine($"❌ Bus {busId} error: {ex.Message}");
                     await Task.Delay(5000);
+                }
+            }
+        }
+        
+        private async Task SendLocationWithRetry((double Latitude, double Longitude) location, int maxRetries = 3)
+        {
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            {
+                try
+                {
+                    await firebase
+                        .Child("bus_locations")
+                        .Child(busId.ToString())
+                        .PutAsync(new
+                        {
+                            latitude = location.Latitude,
+                            longitude = location.Longitude,
+                            routeId = routeId,
+                            timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                            speed = 35.0 + random.NextDouble() * 15.0, // 35-50 km/h
+                            heading = CalculateHeading(),
+                            occupancy = occupancy // Grad de ocupare 0-100
+                        });
+                    
+                    // Success - exit retry loop
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (attempt == maxRetries)
+                    {
+                        // Last attempt failed - log detailed error
+                        Console.WriteLine($"❌ Bus {busId} error: {ex.Message}");
+                        if (ex.InnerException != null)
+                        {
+                            Console.WriteLine($"   Inner: {ex.InnerException.Message}");
+                        }
+                    }
+                    else
+                    {
+                        // Retry with exponential backoff
+                        await Task.Delay(500 * attempt);
+                    }
                 }
             }
         }
