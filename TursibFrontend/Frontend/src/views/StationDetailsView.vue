@@ -13,8 +13,29 @@
     </div>
 
     <div v-if="loading" class="loading-state">
-      <div class="spinner"></div>
-      <p>Se încarcă informații...</p>
+      <div class="skeleton-container">
+        <div class="skeleton-header">
+          <SkeletonLoader variant="circular" :width="60" :height="60" />
+          <div class="skeleton-text">
+            <SkeletonLoader variant="text" width="70%" :height="24" />
+            <SkeletonLoader variant="text" width="50%" :height="16" />
+          </div>
+        </div>
+        
+        <div class="skeleton-section">
+          <SkeletonLoader variant="text" width="40%" :height="20" />
+          <div class="skeleton-cards">
+            <div v-for="i in 3" :key="i" class="skeleton-eta-card">
+              <SkeletonLoader variant="rounded" :width="60" :height="60" />
+              <div class="skeleton-eta-info">
+                <SkeletonLoader variant="text" width="100%" :height="18" />
+                <SkeletonLoader variant="text" width="70%" :height="14" />
+              </div>
+              <SkeletonLoader variant="text" width="60px" :height="32" />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-else-if="error" class="error-state">
@@ -94,6 +115,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import apiService, { type Station, type Route } from '@/services/apiService'
 import { useFavorites } from '@/composables/useFavorites'
+import SkeletonLoader from '@/components/SkeletonLoader.vue'
 
 interface LiveETA {
   routeNumber: string
@@ -309,18 +331,50 @@ onUnmounted(() => {
   padding: 80px 24px;
 }
 
-.spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid #e5e7eb;
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto 16px;
+.skeleton-container {
+  padding: 24px;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.skeleton-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.skeleton-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-section {
+  margin-bottom: 24px;
+}
+
+.skeleton-cards {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-eta-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-primary);
+  border-radius: 16px;
+  border: 1px solid var(--border-primary);
+}
+
+.skeleton-eta-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .retry-btn {

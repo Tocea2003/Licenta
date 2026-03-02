@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using TursibBackend.Data;
+using System.Diagnostics;
 
 namespace TursibBackend.Controllers
 {
@@ -9,16 +11,33 @@ namespace TursibBackend.Controllers
     public class ShapesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMemoryCache _cache;
+        private readonly ILogger<ShapesController> _logger;
+        private const int CACHE_DURATION_MINUTES = 30;
 
-        public ShapesController(ApplicationDbContext context)
+        public ShapesController(ApplicationDbContext context, IMemoryCache cache, ILogger<ShapesController> logger)
         {
             _context = context;
+            _cache = cache;
+            _logger = logger;
         }
 
         // GET: api/shapes/{shapeId}
         [HttpGet("{shapeId}")]
         public async Task<ActionResult<IEnumerable<ShapePointDto>>> GetShapePoints(string shapeId)
         {
+            var stopwatch = Stopwatch.StartNew();
+            var cacheKey = $"shape_{shapeId}";
+
+            // Încearcă să obții din cache
+            if (_cache.TryGetValue(cacheKey, out List<ShapePointDto>? cachedPoints))
+            {
+                stopwatch.Stop();
+                _logger.LogInformation("✅ Cache HIT for shape {ShapeId} - Response time: {ElapsedMs}ms", shapeId, stopwatch.ElapsedMilliseconds);
+                return Ok(cachedPoints);
+            }
+
+            // Cache MISS - interogare database
             var shapePoints = await _context.Database
                 .SqlQueryRaw<ShapePointDto>(@"
                     SELECT Latitude, Longitude, Sequence 
@@ -29,8 +48,17 @@ namespace TursibBackend.Controllers
 
             if (!shapePoints.Any())
             {
+                stopwatch.Stop();
+                _logger.LogWarning("❌ Shape {ShapeId} not found - Response time: {ElapsedMs}ms", shapeId, stopwatch.ElapsedMilliseconds);
                 return NotFound();
             }
+
+            // Salvează în cache
+            _cache.Set(cacheKey, shapePoints, TimeSpan.FromMinutes(CACHE_DURATION_MINUTES));
+            
+            stopwatch.Stop();
+            _logger.LogInformation("📊 Shape {ShapeId} loaded from DB - Response time: {ElapsedMs}ms, Points: {Count} (cached for {Minutes}min)", 
+                shapeId, stopwatch.ElapsedMilliseconds, shapePoints.Count, CACHE_DURATION_MINUTES);
 
             return Ok(shapePoints);
         }
@@ -39,6 +67,18 @@ namespace TursibBackend.Controllers
         [HttpGet("route/{routeId}")]
         public async Task<ActionResult<object>> GetRouteShape(int routeId)
         {
+            var stopwatch = Stopwatch.StartNew();
+            var cacheKey = $"route_{routeId}_shape";
+
+            // Încearcă să obții din cache
+            if (_cache.TryGetValue(cacheKey, out object? cachedShape))
+            {
+                stopwatch.Stop();
+                _logger.LogInformation("✅ Cache HIT for route {RouteId} shape - Response time: {ElapsedMs}ms", routeId, stopwatch.ElapsedMilliseconds);
+                return Ok(cachedShape);
+            }
+
+            // Cache MISS - interogare database
             // Găsește un trip reprezentativ pentru traseu (prima cursă)
             var trip = await _context.Database
                 .SqlQueryRaw<TripDto>(@"
@@ -50,6 +90,8 @@ namespace TursibBackend.Controllers
 
             if (trip == null || string.IsNullOrEmpty(trip.ShapeId))
             {
+                stopwatch.Stop();
+                _logger.LogWarning("❌ Route {RouteId} shape not found - Response time: {ElapsedMs}ms", routeId, stopwatch.ElapsedMilliseconds);
                 return NotFound();
             }
 
@@ -61,13 +103,22 @@ namespace TursibBackend.Controllers
                     ORDER BY Sequence", trip.ShapeId)
                 .ToListAsync();
 
-            return Ok(new
+            var result = new
             {
                 routeId,
                 shapeId = trip.ShapeId,
                 directionId = trip.DirectionId,
                 points = shapePoints
-            });
+            };
+
+            // Salvează în cache
+            _cache.Set(cacheKey, result, TimeSpan.FromMinutes(CACHE_DURATION_MINUTES));
+            
+            stopwatch.Stop();
+            _logger.LogInformation("📊 Route {RouteId} shape loaded from DB - Response time: {ElapsedMs}ms, Points: {Count} (cached for {Minutes}min)", 
+                routeId, stopwatch.ElapsedMilliseconds, shapePoints.Count, CACHE_DURATION_MINUTES);
+
+            return Ok(result);
         }
 
         // GET: api/shapes/route/{routeId}/segment?fromStationId={fromId}&toStationId={toId}
@@ -77,6 +128,19 @@ namespace TursibBackend.Controllers
             [FromQuery] int fromStationId, 
             [FromQuery] int toStationId)
         {
+            var stopwatch = Stopwatch.StartNew();
+            var cacheKey = $"route_{routeId}_segment_{fromStationId}_{toStationId}";
+
+            // Încearcă să obții din cache
+            if (_cache.TryGetValue(cacheKey, out object? cachedSegment))
+            {
+                stopwatch.Stop();
+                _logger.LogInformation("✅ Cache HIT for route {RouteId} segment {From}->{To} - Response time: {ElapsedMs}ms", 
+                    routeId, fromStationId, toStationId, stopwatch.ElapsedMilliseconds);
+                return Ok(cachedSegment);
+            }
+
+            // Cache MISS - interogare database
             // Găsește trip-ul pentru traseu
             var trip = await _context.Database
                 .SqlQueryRaw<TripDto>(@"
@@ -88,6 +152,8 @@ namespace TursibBackend.Controllers
 
             if (trip == null || string.IsNullOrEmpty(trip.ShapeId))
             {
+                stopwatch.Stop();
+                _logger.LogWarning("❌ Trip not found for route {RouteId} - Response time: {ElapsedMs}ms", routeId, stopwatch.ElapsedMilliseconds);
                 return NotFound("Trip not found for route");
             }
 
@@ -102,6 +168,8 @@ namespace TursibBackend.Controllers
 
             if (stopSequences.Count != 2)
             {
+                stopwatch.Stop();
+                _logger.LogWarning("❌ Stations not found in trip for route {RouteId} - Response time: {ElapsedMs}ms", routeId, stopwatch.ElapsedMilliseconds);
                 return NotFound("Stations not found in trip");
             }
 
@@ -125,14 +193,23 @@ namespace TursibBackend.Controllers
 
             // Pentru simplitate, returnează toate punctele
             // În viitor, poți calcula exact care puncte shape corespund segmentului dintre stații
-            return Ok(new
+            var result = new
             {
                 routeId,
                 shapeId = trip.ShapeId,
                 fromStationId,
                 toStationId,
                 points = allShapePoints
-            });
+            };
+
+            // Salvează în cache
+            _cache.Set(cacheKey, result, TimeSpan.FromMinutes(CACHE_DURATION_MINUTES));
+            
+            stopwatch.Stop();
+            _logger.LogInformation("📊 Route {RouteId} segment {From}->{To} loaded from DB - Response time: {ElapsedMs}ms, Points: {Count} (cached for {Minutes}min)", 
+                routeId, fromStationId, toStationId, stopwatch.ElapsedMilliseconds, allShapePoints.Count, CACHE_DURATION_MINUTES);
+
+            return Ok(result);
         }
     }
 
