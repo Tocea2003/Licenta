@@ -27,6 +27,17 @@ export interface Station {
   longitude: number
 }
 
+export interface StationScheduleEntry {
+  routeId: number
+  routeNumber: string
+  routeName: string
+  routeColor?: string
+  direction?: string
+  directionId: number
+  arrivalTime: string
+  departureTime: string
+}
+
 export interface Bus {
   id: number
   licensePlate: string
@@ -81,6 +92,18 @@ export default {
   // GET /api/stations/{id} - Returnează o stație specifică
   async getStation(id: number): Promise<Station> {
     const response = await apiClient.get<Station>(`/stations/${id}`)
+    return response.data
+  },
+
+  // GET /api/stations/{id}/routes - Returnează traseele care trec prin stație
+  async getStationRoutes(stationId: number): Promise<Route[]> {
+    const response = await apiClient.get<Route[]>(`/stations/${stationId}/routes`)
+    return response.data
+  },
+
+  // GET /api/stations/{id}/schedule - Returnează orarul stației din BD
+  async getStationSchedule(stationId: number): Promise<StationScheduleEntry[]> {
+    const response = await apiClient.get<StationScheduleEntry[]>(`/stations/${stationId}/schedule`)
     return response.data
   },
 
