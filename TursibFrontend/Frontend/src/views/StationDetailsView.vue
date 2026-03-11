@@ -113,7 +113,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import apiService, { type Station, type Route } from '@/services/apiService'
+import apiService, { type Station, type Route, type StationScheduleEntry } from '@/services/apiService'
 import { useFavorites } from '@/composables/useFavorites'
 import SkeletonLoader from '@/components/SkeletonLoader.vue'
 
@@ -145,69 +145,55 @@ const loadStationData = async () => {
   
   try {
     // Load station details
-    const stations = await apiService.getStations()
-    station.value = stations.find(s => s.id === stationId.value) || null
+    station.value = await apiService.getStation(stationId.value)
     
-    if (!station.value) {
+    // Load routes passing through this station directly from DB
+    routes.value = await apiService.getStationRoutes(stationId.value)
+    
+    // Load real schedule from DB and build upcoming ETAs
+    const schedule = await apiService.getStationSchedule(stationId.value)
+    buildETAsFromSchedule(schedule)
+    
+  } catch (err: any) {
+    if (err?.response?.status === 404) {
       error.value = 'Stația nu a fost găsită'
-      return
+    } else {
+      console.error('Error loading station data:', err)
+      error.value = 'Eroare la încărcarea datelor'
     }
-    
-    // Load routes for this station
-    const allRoutes = await apiService.getRoutes()
-    // Filter routes that include this station
-    const routesPromises = allRoutes.map(async (r) => {
-      const stations = await apiService.getRouteStations(r.id)
-      if (stations.some(s => s.id === stationId.value)) {
-        return r
-      }
-      return null
-    })
-    
-    const routesResults = await Promise.all(routesPromises)
-    routes.value = routesResults.filter(r => r !== null) as Route[]
-    
-    // Generate mock ETAs (în producție ar veni de la API-ul real)
-    generateMockETAs()
-    
-  } catch (err) {
-    console.error('Error loading station data:', err)
-    error.value = 'Eroare la încărcarea datelor'
   } finally {
     loading.value = false
   }
 }
 
-const generateMockETAs = () => {
-  if (routes.value.length === 0) {
-    liveETAs.value = []
-    return
-  }
-  
-  const now = Date.now()
+const buildETAsFromSchedule = (schedule: StationScheduleEntry[]) => {
+  const now = new Date()
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
   const etas: LiveETA[] = []
-  
-  // Generate 3-5 upcoming arrivals
-  const numArrivals = Math.min(routes.value.length, Math.floor(Math.random() * 3) + 3)
-  
-  for (let i = 0; i < numArrivals; i++) {
-    const route = routes.value[i % routes.value.length]
-    if (!route) continue
-    
-    const minutesAway = Math.floor(Math.random() * 30) + (i * 5)
-    const arrivalTime = now + (minutesAway * 60 * 1000)
-    
+
+  for (const entry of schedule) {
+    // Parse "HH:MM:SS" – GTFS allows hours >= 24 for trips past midnight
+    const parts = entry.departureTime.split(':')
+    if (parts.length < 2) continue
+    const hours = parseInt(parts[0])
+    const minutes = parseInt(parts[1])
+    const entryMinutes = hours * 60 + minutes
+
+    const diffSeconds = (entryMinutes - currentMinutes) * 60
+    // Show only buses arriving in the next 60 minutes
+    if (diffSeconds < 0 || diffSeconds > 3600) continue
+
     etas.push({
-      routeNumber: route.routeNumber || `Linia ${route.id}`,
-      routeName: route.name,
-      direction: i % 2 === 0 ? 'Centru' : 'Periferie',
-      arrivalTime,
-      countdown: minutesAway * 60,
-      color: route.color || '#3b82f6'
+      routeNumber: entry.routeNumber,
+      routeName: entry.routeName,
+      direction: entry.direction || (entry.directionId === 0 ? 'Dus' : 'Întors'),
+      arrivalTime: Date.now() + diffSeconds * 1000,
+      countdown: diffSeconds,
+      color: entry.routeColor || '#3b82f6'
     })
   }
-  
-  liveETAs.value = etas.sort((a, b) => a.arrivalTime - b.arrivalTime)
+
+  liveETAs.value = etas.sort((a, b) => a.arrivalTime - b.arrivalTime).slice(0, 10)
 }
 
 const updateCountdowns = () => {
@@ -217,11 +203,6 @@ const updateCountdowns = () => {
     const countdown = Math.max(0, Math.floor((eta.arrivalTime - now) / 1000))
     return { ...eta, countdown }
   }).filter(eta => eta.countdown > 0) // Remove expired ETAs
-  
-  // Regenerate if we run out of ETAs
-  if (liveETAs.value.length === 0) {
-    generateMockETAs()
-  }
 }
 
 const formatCountdown = (seconds: number): string => {
