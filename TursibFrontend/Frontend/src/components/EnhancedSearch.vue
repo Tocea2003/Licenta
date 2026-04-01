@@ -708,6 +708,17 @@ if (typeof window !== 'undefined') {
   max-width: calc(100vw - 80px);
 }
 
+@media (max-width: 768px) {
+  .enhanced-search-container {
+    top: 68px;       /* below the 44px top button row */
+    left: 12px;
+    right: 12px;
+    transform: none;
+    width: auto;
+    max-width: 100%;
+  }
+}
+
 /* ── Quick Access Favorites ── */
 .quick-access {
   margin-bottom: 8px;

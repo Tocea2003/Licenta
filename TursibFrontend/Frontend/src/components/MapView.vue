@@ -14,8 +14,7 @@
     </button>
     
     <!-- Enhanced Search pentru stații și adrese -->
-    <EnhancedSearch 
-      v-if="showSidebar"
+    <EnhancedSearch
       :stations="allStations"
       :user-location="userLocation"
       :trip-mode="tripMode"
