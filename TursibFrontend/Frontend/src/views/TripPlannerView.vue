@@ -1,50 +1,143 @@
 <template>
   <div class="trip-planner-page">
-    <TripSearch 
-      :stations="allStations" 
-      :user-location="userLocation"
-      @route-selected="handleRouteSelected" 
-    />
+    <div class="trip-header">
+      <h1>Planificare Călătorie</h1>
+      <p class="subtitle">Alege punctele de plecare și destinație</p>
+    </div>
+
+    <div class="search-wrapper">
+      <EnhancedSearch
+        :stations="allStations"
+        :user-location="userLocation"
+        :trip-mode="true"
+        @route-search-requested="handleRouteSearchRequested"
+      />
+    </div>
+
+    <!-- Loading -->
+    <div v-if="isLoading" class="results-loading">
+      <div class="spinner"></div>
+      <p>Se caută rute...</p>
+    </div>
+
+    <!-- Error -->
+    <div v-if="errorMessage" class="results-error">
+      <p>{{ errorMessage }}</p>
+    </div>
+
+    <!-- Route Results -->
+    <div v-if="routeResults.length > 0" class="route-results">
+      <h2>Rute disponibile</h2>
+      <div
+        v-for="route in routeResults"
+        :key="route.routeRank"
+        class="route-card"
+      >
+        <div class="route-card-header">
+          <span class="route-category">{{ route.routeCategory }}</span>
+          <span class="route-duration">{{ route.totalDuration }} min</span>
+        </div>
+        <div class="route-segments">
+          <div
+            v-for="(segment, idx) in route.segments"
+            :key="idx"
+            class="segment"
+            :class="segment.type"
+          >
+            <span class="segment-icon">{{ segmentIcon(segment.type) }}</span>
+            <div class="segment-info">
+              <span v-if="segment.type === 'bus'" class="segment-name">
+                Linia {{ segment.routeNumber }} — {{ segment.stationCount }} stații
+              </span>
+              <span v-else-if="segment.type === 'walk'" class="segment-name">
+                Mers pe jos {{ segment.distance?.toFixed(2) }} km
+              </span>
+              <span v-else class="segment-name">Transfer</span>
+              <span class="segment-duration">{{ segment.duration }} min</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import TripSearch from '@/components/TripSearch.vue'
-import { useRouter } from 'vue-router'
+import EnhancedSearch from '@/components/EnhancedSearch.vue'
 import apiService, { type Station } from '@/services/apiService'
 
-const router = useRouter()
 const allStations = ref<Station[]>([])
 const userLocation = ref<{ lat: number; lon: number } | null>(null)
+const isLoading = ref(false)
+const errorMessage = ref('')
+const routeResults = ref<any[]>([])
+
+const segmentIcon = (type: string) => {
+  if (type === 'bus') return '🚌'
+  if (type === 'walk') return '🚶'
+  return '🔄'
+}
+
+const findNearestStation = (lat: number, lon: number): Station | null => {
+  if (!allStations.value.length) return null
+  let nearest: Station | null = null
+  let minDist = Infinity
+  for (const s of allStations.value) {
+    const d = Math.hypot(s.latitude - lat, s.longitude - lon)
+    if (d < minDist) { minDist = d; nearest = s }
+  }
+  return nearest
+}
+
+const handleRouteSearchRequested = async (
+  origin: { lat: number; lon: number; name: string },
+  destination: { lat: number; lon: number; name: string }
+) => {
+  errorMessage.value = ''
+  routeResults.value = []
+
+  const startStation = findNearestStation(origin.lat, origin.lon)
+  const endStation = findNearestStation(destination.lat, destination.lon)
+
+  if (!startStation || !endStation) {
+    errorMessage.value = 'Nu s-au găsit stații în apropiere.'
+    return
+  }
+
+  if (startStation.id === endStation.id) {
+    errorMessage.value = 'Stația de plecare și destinație sunt identice. Alege locații diferite.'
+    return
+  }
+
+  isLoading.value = true
+  try {
+    const routes = await apiService.getRouteAlternatives(startStation.id, endStation.id)
+    routeResults.value = routes
+    if (routes.length === 0) {
+      errorMessage.value = 'Nu s-au găsit rute între aceste stații.'
+    }
+  } catch (err: any) {
+    errorMessage.value = err?.response?.data?.message ?? 'Eroare la calcularea rutei. Încearcă din nou.'
+  } finally {
+    isLoading.value = false
+  }
+}
 
 const loadStations = async () => {
   try {
     allStations.value = await apiService.getStations()
-    console.log('✅ Loaded stations for trip planner:', allStations.value.length)
   } catch (error) {
-    console.error('❌ Error loading stations:', error)
+    console.error('Error loading stations:', error)
   }
-}
-
-const handleRouteSelected = (result: any) => {
-  console.log('Route selected:', result)
-  // Traseul se afișează direct în TripSearch component cu harta
 }
 
 onMounted(() => {
   loadStations()
-  
-  // Get user location if available
   if ('geolocation' in navigator) {
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        userLocation.value = {
-          lat: position.coords.latitude,
-          lon: position.coords.longitude
-        }
-      },
-      (error) => console.log('Geolocation error:', error)
+      (pos) => { userLocation.value = { lat: pos.coords.latitude, lon: pos.coords.longitude } },
+      () => {}
     )
   }
 })
@@ -55,6 +148,148 @@ onMounted(() => {
   min-height: 100vh;
   background: var(--gradient-bg);
   padding: 40px 20px;
-  padding-bottom: 100px; /* Space pentru bottom nav */
+  padding-bottom: 100px;
+}
+
+.trip-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.trip-header h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 6px 0;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.search-wrapper {
+  max-width: 600px;
+  margin: 0 auto 24px;
+  position: relative;
+  /* Override the absolute positioning of EnhancedSearch so it fits in the page flow */
+}
+
+.search-wrapper :deep(.enhanced-search-container) {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  width: 100%;
+  max-width: 100%;
+}
+
+.results-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 32px;
+  color: var(--text-secondary);
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--color-primary, #2563eb);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.results-error {
+  max-width: 600px;
+  margin: 16px auto;
+  padding: 14px 16px;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+
+.route-results {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.route-results h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 14px;
+}
+
+.route-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-md);
+}
+
+.route-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.route-category {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.route-duration {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-primary, #2563eb);
+}
+
+.route-segments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.segment {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.segment-icon {
+  font-size: 1.1rem;
+}
+
+.segment-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+}
+
+.segment-name {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.segment-duration {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
 }
 </style>

@@ -2,7 +2,6 @@
 import { ref, onMounted, watch, nextTick } from 'vue'
 import Sidebar from '../components/Sidebar.vue'
 import MapView from '../components/MapView.vue'
-import BottomNav from '@/components/BottomNav.vue'
 import apiService, { type Station } from '../services/apiService'
 
 // State pentru stațiile și traseul selectat
@@ -120,8 +119,6 @@ onMounted(() => {
       />
     </div>
 
-    <!-- Bottom Navigation -->
-    <BottomNav />
   </div>
 </template>
 

@@ -446,14 +446,12 @@ const showUserMenu = ref(false)
 const isAdmin = computed(() => {
   const user = currentUser.value
   const hasAdminRole = user?.role?.toLowerCase() === 'admin'
-  console.log('🔐 isAdmin check:', { isAuthenticated: isAuthenticated.value, user, hasAdminRole })
   return isAuthenticated.value && hasAdminRole
 })
 
 const checkAuthStatus = () => {
   isAuthenticated.value = authService.isAuthenticated()
   currentUser.value = authService.getUser()
-  console.log('🔐 Auth status updated:', { isAuthenticated: isAuthenticated.value, user: currentUser.value })
 }
 
 const handleLogout = () => {
