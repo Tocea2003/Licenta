@@ -609,8 +609,8 @@ const selectedAlternative = ref<any | null>(null)
 // State pentru istoric călătorii
 const showTripHistory = ref(false)
 
-// State pentru afișarea/ascunderea sidebar-ului
-const showSidebar = ref(true)
+// State pentru afișarea/ascunderea sidebar-ului (sincronizat cu HomeView)
+const showSidebar = ref(typeof window !== 'undefined' ? window.innerWidth >= 768 : true)
 const tripMode = ref(false)
 
 // State pentru panoul multimodal
@@ -2463,8 +2463,8 @@ const getStationETAs = (stationId: number) => {
   background: var(--bg-primary);
   border: none;
   border-radius: 8px;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2498,8 +2498,8 @@ const getStationETAs = (stationId: number) => {
   background: var(--bg-primary);
   border: none;
   border-radius: 8px;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
