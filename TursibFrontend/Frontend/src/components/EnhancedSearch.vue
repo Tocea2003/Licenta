@@ -2,7 +2,10 @@
   <div class="enhanced-search-container">
     <!-- Quick Access Favorites (when not searching) -->
     <div v-if="!searchQuery && !originQuery && favorites.length > 0" class="quick-access">
-      <div class="section-title">⭐ Favorite</div>
+      <div class="section-title">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        Favorite
+      </div>
       <div class="favorites-grid">
         <button
           v-for="favorite in favorites.slice(0, 3)"
@@ -19,7 +22,8 @@
     <!-- Recent Searches (when not searching) -->
     <div v-if="!searchQuery && !originQuery && latestSearches.length > 0" class="recent-searches">
       <div class="section-title">
-        🕒 Căutări Recente
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Recente
         <button @click="clearAllSearches" class="clear-all-btn">Șterge tot</button>
       </div>
       <div
@@ -28,7 +32,10 @@
         @click="selectRecentSearch(search)"
         class="recent-item"
       >
-        <span class="recent-icon">{{ getSearchIcon(search.type) }}</span>
+        <span class="recent-icon" :class="search.type === 'station' ? 'station-icon' : 'address-icon'">
+          <svg v-if="search.type === 'station'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        </span>
         <div class="recent-info">
           <span class="recent-name">{{ search.result.name }}</span>
           <span class="recent-time">{{ getRelativeTime(search.timestamp) }}</span>
@@ -39,86 +46,117 @@
     
     <!-- Origin Search (only in trip mode) -->
     <div v-if="tripMode" class="search-box origin-box">
-      <div class="search-label">📍 Plecare din:</div>
-      <input
-        v-model="originQuery"
-        type="text"
-        placeholder="🔍 Caută adresă sau stație de plecare..."
-        class="search-input"
-        @input="handleOriginSearch"
-        @focus="showOriginResults = true"
-      />
-      <button v-if="originQuery" @click="clearOriginSearch" class="clear-btn">✕</button>
+      <div class="search-label">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9" opacity=".3"/></svg>
+        Plecare din
+      </div>
+      <div class="input-wrapper">
+        <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input
+          v-model="originQuery"
+          type="text"
+          placeholder="Stație sau adresă de plecare..."
+          class="search-input"
+          @input="handleOriginSearch"
+          @focus="showOriginResults = true"
+        />
+        <button v-if="originQuery" @click="clearOriginSearch" class="clear-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
     </div>
-    
+
     <div v-if="tripMode && showOriginResults && (geocodeOriginResults.length > 0 || filteredOriginStations.length > 0)" class="search-results">
-      <!-- Rezultate geocoding (adrese) -->
       <div v-if="geocodeOriginResults.length > 0" class="results-section">
-        <div class="section-title">📍 Adrese</div>
+        <div class="section-title">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          Adrese
+        </div>
         <div
           v-for="(result, index) in geocodeOriginResults"
           :key="`origin-address-${index}`"
           class="search-result-item"
           @click="selectOriginAddress(result)"
         >
+          <span class="result-icon address-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          </span>
           <span class="result-name">{{ result.display_name }}</span>
         </div>
       </div>
-      
-      <!-- Stații -->
       <div v-if="filteredOriginStations.length > 0" class="results-section">
-        <div class="section-title">🚏 Stații</div>
+        <div class="section-title">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Stații
+        </div>
         <div
           v-for="station in filteredOriginStations"
           :key="`origin-station-${station.id}`"
           class="search-result-item"
           @click="selectOriginStation(station)"
         >
-          <span class="result-name">{{ station.name }}</span>
-          <span v-if="selectedLocation" class="result-distance">
-            {{ calculateDistance(station.latitude, station.longitude) }} km
+          <span class="result-icon station-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
           </span>
+          <span class="result-name">{{ station.name }}</span>
         </div>
       </div>
     </div>
 
     <!-- Destination Search -->
     <div class="search-box">
-      <div v-if="tripMode" class="search-label">🎯 Destinație:</div>
-      <input
-        v-model="searchQuery"
-        type="text"
-        :placeholder="tripMode ? '🔍 Caută adresă sau stație de destinație...' : '🔍 Caută stație sau adresă...'"
-        class="search-input"
-        @input="handleSearch"
-        @focus="showResults = true"
-      />
-      <button v-if="searchQuery" @click="clearSearch" class="clear-btn">✕</button>
+      <div v-if="tripMode" class="search-label">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+        Destinație
+      </div>
+      <div class="input-wrapper">
+        <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input
+          v-model="searchQuery"
+          type="text"
+          :placeholder="tripMode ? 'Stație sau adresă destinație...' : 'Caută stație sau adresă...'"
+          class="search-input"
+          @input="handleSearch"
+          @focus="showResults = true"
+        />
+        <button v-if="searchQuery" @click="clearSearch" class="clear-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
     </div>
-    
+
     <div v-if="showResults && (geocodeResults.length > 0 || filteredStations.length > 0)" class="search-results">
-      <!-- Rezultate geocoding (adrese) -->
       <div v-if="geocodeResults.length > 0" class="results-section">
-        <div class="section-title">📍 Adrese</div>
+        <div class="section-title">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          Adrese
+        </div>
         <div
           v-for="(result, index) in geocodeResults"
           :key="`address-${index}`"
           class="search-result-item"
           @click="selectAddress(result)"
         >
+          <span class="result-icon address-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          </span>
           <span class="result-name">{{ result.display_name }}</span>
         </div>
       </div>
-      
-      <!-- Stații -->
       <div v-if="filteredStations.length > 0" class="results-section">
-        <div class="section-title">🚏 Stații</div>
+        <div class="section-title">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          Stații
+        </div>
         <div
           v-for="station in filteredStations"
           :key="`station-${station.id}`"
           class="search-result-item"
           @click="selectStation(station)"
         >
+          <span class="result-icon station-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          </span>
           <span class="result-name">{{ station.name }}</span>
           <span v-if="selectedLocation" class="result-distance">
             {{ calculateDistance(station.latitude, station.longitude) }} km
@@ -126,23 +164,25 @@
         </div>
       </div>
     </div>
-    
+
     <div v-if="showResults && searchQuery && geocodeResults.length === 0 && filteredStations.length === 0 && !isSearching" class="no-results">
-      Nu s-au găsit rezultate
+      Niciun rezultat găsit
     </div>
-    
+
     <div v-if="isSearching" class="searching">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
       Căutare...
     </div>
 
     <!-- Search Routes Button (only in trip mode) -->
-    <button 
-      v-if="tripMode && originLocation && destinationLocation" 
-      @click="searchRoutes" 
+    <button
+      v-if="tripMode && originLocation && destinationLocation"
+      @click="searchRoutes"
       class="search-routes-btn"
       :disabled="isSearchingRoutes"
     >
-      {{ isSearchingRoutes ? '🔍 Căutare...' : '🚌 Caută Rute' }}
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      {{ isSearchingRoutes ? 'Căutare...' : 'Caută Rute' }}
     </button>
   </div>
 </template>
@@ -657,25 +697,26 @@ if (typeof window !== 'undefined') {
 </script>
 
 <style scoped>
+/* ── Container ── */
 .enhanced-search-container {
   position: absolute;
-  top: 20px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 700;
-  width: 420px;
-  max-width: calc(100vw - 100px);
+  width: 440px;
+  max-width: calc(100vw - 80px);
 }
 
-/* Quick Access Favorites */
+/* ── Quick Access Favorites ── */
 .quick-access {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   background: var(--bg-primary);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 12px;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
 }
 
 .favorites-grid {
@@ -689,7 +730,7 @@ if (typeof window !== 'undefined') {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  padding: 12px 8px;
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -700,14 +741,12 @@ if (typeof window !== 'undefined') {
 
 .favorite-chip:hover {
   background: #eff6ff;
-  border-color: #3b82f6;
+  border-color: #93c5fd;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 4px 10px rgba(59,130,246,0.12);
 }
 
-.chip-icon {
-  font-size: 20px;
-}
+.chip-icon { font-size: 18px; }
 
 .chip-name {
   font-size: 11px;
@@ -720,75 +759,73 @@ if (typeof window !== 'undefined') {
   max-width: 100%;
 }
 
-/* Recent Searches */
+/* ── Recent Searches ── */
 .recent-searches {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   background: var(--bg-primary);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: var(--shadow-md);
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
   overflow: hidden;
 }
 
 .recent-searches .section-title {
-  padding: 10px 12px 6px;
+  padding: 10px 14px 8px;
   font-size: 10px;
   font-weight: 700;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.8px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 5px;
+}
+
+.recent-searches .section-title .clear-all-btn {
+  margin-left: auto;
 }
 
 .clear-all-btn {
   background: none;
   border: none;
   color: #ef4444;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 3px 8px;
   border-radius: 6px;
   transition: all 0.2s;
   text-transform: none;
+  letter-spacing: 0;
 }
 
-.clear-all-btn:hover {
-  background: #fee2e2;
-}
+.clear-all-btn:hover { background: #fee2e2; }
 
 .recent-item {
-  padding: 8px 12px;
+  padding: 9px 14px;
   display: flex;
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.15s;
   border-top: 1px solid var(--border-color);
 }
 
-.recent-item:first-child {
-  border-top: none;
-}
-
-.recent-item:hover {
-  background: var(--bg-secondary);
-}
+.recent-item:hover { background: var(--bg-secondary); }
 
 .recent-icon {
-  font-size: 18px;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-tertiary);
-  border-radius: 6px;
+  border-radius: 8px;
   flex-shrink: 0;
 }
+
+.recent-icon.station-icon { background: #eff6ff; color: #2563eb; }
+.recent-icon.address-icon { background: #f0fdf4; color: #16a34a; }
 
 .recent-info {
   flex: 1;
@@ -807,19 +844,15 @@ if (typeof window !== 'undefined') {
   white-space: nowrap;
 }
 
-.recent-time {
-  font-size: 10px;
-  color: var(--text-tertiary);
-}
+.recent-time { font-size: 10px; color: var(--text-tertiary); }
 
 .remove-btn {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 6px;
   border: none;
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  font-size: 20px;
+  background: transparent;
+  color: var(--text-tertiary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -828,200 +861,217 @@ if (typeof window !== 'undefined') {
   flex-shrink: 0;
 }
 
-.remove-btn:hover {
-  background: #fee2e2;
-}
+.remove-btn:hover { background: #fee2e2; color: #ef4444; }
 
+/* ── Search boxes ── */
 .search-box {
-  position: relative;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
-.origin-box {
-  margin-bottom: 8px;
-}
+.origin-box { margin-bottom: 6px; }
 
 .search-label {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 13px;
-  margin-bottom: 6px;
-  padding-left: 2px;
-  background: var(--bg-primary);
-  backdrop-filter: blur(8px);
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin-bottom: 5px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Input wrapper with icon */
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--text-tertiary);
+  pointer-events: none;
+  z-index: 1;
+  flex-shrink: 0;
 }
 
 .search-input {
   width: 100%;
-  padding: 14px 40px 14px 16px;
-  border: 1px solid var(--border-color);
+  padding: 13px 40px 13px 42px;
+  border: 1.5px solid var(--border-color);
   border-radius: 12px;
-  font-size: 15px;
+  font-size: 14px;
   background: var(--bg-primary);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
   transition: all 0.2s;
   color: var(--text-primary);
+  font-family: inherit;
 }
 
-.search-input::placeholder {
-  color: var(--text-tertiary);
-}
+.search-input::placeholder { color: var(--text-tertiary); }
 
 .search-input:focus {
   outline: none;
   border-color: #3b82f6;
-  background: var(--bg-primary);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.1), 0 2px 12px rgba(0,0,0,0.06);
 }
 
 .clear-btn {
   position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 10px;
   background: var(--bg-tertiary);
   border: none;
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: 14px;
   transition: all 0.2s;
 }
 
-.clear-btn:hover {
-  background: rgba(107, 114, 128, 0.2);
-  color: #374151;
-}
+.clear-btn:hover { background: rgba(239,68,68,0.12); color: #ef4444; }
 
+/* ── Results dropdown ── */
 .search-results {
-  margin-top: 8px;
+  margin-top: 6px;
   background: var(--bg-primary);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: var(--shadow-lg);
-  max-height: 350px;
+  backdrop-filter: blur(16px);
+  border: 1.5px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  max-height: 320px;
   overflow-y: auto;
 }
 
-.results-section {
-  padding: 4px 0;
-}
+.results-section { padding: 4px 0; }
 
 .results-section + .results-section {
   border-top: 1px solid var(--border-color);
 }
 
 .section-title {
-  padding: 10px 14px 6px;
-  font-size: 11px;
+  padding: 8px 14px 5px;
+  font-size: 10px;
   font-weight: 700;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .search-result-item {
-  padding: 12px 14px;
+  padding: 10px 14px;
   cursor: pointer;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  transition: all 0.2s;
-  background: transparent;
+  gap: 10px;
+  transition: background 0.15s;
 }
 
-.search-result-item:hover {
-  background: var(--bg-secondary);
+.search-result-item:hover { background: var(--bg-secondary); }
+
+.result-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
+
+.result-icon.station-icon { background: #eff6ff; color: #2563eb; }
+.result-icon.address-icon { background: #f0fdf4; color: #16a34a; }
 
 .result-name {
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
   flex: 1;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .result-distance {
-  color: var(--text-secondary);
-  font-size: 12px;
+  color: var(--text-tertiary);
+  font-size: 11px;
   font-weight: 600;
-  margin-left: 12px;
+  background: var(--bg-secondary);
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
 }
 
+/* ── No results / Loading ── */
 .no-results, .searching {
-  margin-top: 8px;
-  padding: 16px;
+  margin-top: 6px;
+  padding: 14px;
   background: var(--bg-primary);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.07);
   color: var(--text-secondary);
   text-align: center;
-  font-size: 14px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-.searching {
-  color: #3b82f6;
-}
+.searching { color: #3b82f6; }
 
-/* Search Routes Button */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin-icon { animation: spin 0.8s linear infinite; }
+
+/* ── Search Routes Button ── */
 .search-routes-btn {
   width: 100%;
-  padding: 14px 20px;
-  margin-top: 12px;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  padding: 13px 20px;
+  margin-top: 8px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
   color: white;
   border: none;
   border-radius: 12px;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  transition: all 0.25s;
+  box-shadow: 0 3px 12px rgba(37,99,235,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
 }
 
 .search-routes-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 5px 18px rgba(37,99,235,0.45);
 }
 
-.search-routes-btn:active {
-  transform: translateY(0);
-}
+.search-routes-btn:active { transform: translateY(0); }
 
 .search-routes-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
   transform: none;
 }
 
-/* Scrollbar styling */
-.search-results::-webkit-scrollbar {
-  width: 5px;
-}
-
-.search-results::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.search-results::-webkit-scrollbar-thumb {
-  background: rgba(209, 213, 219, 0.8);
-  border-radius: 10px;
-}
-
-.search-results::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.9);
-}
-
+/* ── Scrollbar ── */
+.search-results::-webkit-scrollbar { width: 4px; }
+.search-results::-webkit-scrollbar-track { background: transparent; }
+.search-results::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
 </style>
