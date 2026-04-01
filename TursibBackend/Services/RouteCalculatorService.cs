@@ -1,6 +1,8 @@
 using TursibBackend.Data;
 using TursibBackend.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using RouteModel = TursibBackend.Models.Route;
 
 namespace TursibBackend.Services
@@ -12,15 +14,37 @@ namespace TursibBackend.Services
     public class RouteCalculatorService
     {
         private readonly ApplicationDbContext _context;
-        private const double WALKING_SPEED_KM_PER_HOUR = 5.0; // Viteza medie de mers pe jos
-        private const double MAX_WALKING_DISTANCE_KM = 0.5; // Distanța maximă pentru walking (500m)
-        private const int TRANSFER_PENALTY_MINUTES = 5; // Penalitate pentru fiecare transfer
-        private const int AVG_BUS_SPEED_KM_PER_HOUR = 25; // Viteza medie autobuz în oraș
-        private const int STATION_STOP_TIME_MINUTES = 1; // Timp de oprire la fiecare stație
+        private readonly IMemoryCache _cache;
+        private readonly ILogger<RouteCalculatorService> _logger;
 
-        public RouteCalculatorService(ApplicationDbContext context)
+        // Configurabil din appsettings.json secțiunea "Routing"
+        private readonly double _walkingSpeedKmPerHour;
+        private readonly double _maxWalkingDistanceKm;
+        private readonly int _transferPenaltyMinutes;
+        private readonly int _avgBusSpeedKmPerHour;
+        private readonly int _stationStopTimeMinutes;
+        private readonly int _graphCacheDurationMinutes;
+
+        private const string GRAPH_CACHE_KEY = "transport_graph";
+        private const string ROUTES_DATA_CACHE_KEY = "routes_data_for_graph";
+
+        public RouteCalculatorService(
+            ApplicationDbContext context,
+            IMemoryCache cache,
+            ILogger<RouteCalculatorService> logger,
+            IConfiguration configuration)
         {
             _context = context;
+            _cache = cache;
+            _logger = logger;
+
+            var routing = configuration.GetSection("Routing");
+            _walkingSpeedKmPerHour = routing.GetValue("WalkingSpeedKmPerHour", 5.0);
+            _maxWalkingDistanceKm = routing.GetValue("MaxWalkingDistanceKm", 0.5);
+            _transferPenaltyMinutes = routing.GetValue("TransferPenaltyMinutes", 5);
+            _avgBusSpeedKmPerHour = routing.GetValue("AvgBusSpeedKmPerHour", 25);
+            _stationStopTimeMinutes = routing.GetValue("StationStopTimeMinutes", 1);
+            _graphCacheDurationMinutes = routing.GetValue("GraphCacheDurationMinutes", 30);
         }
 
         #region Public API Methods
@@ -49,25 +73,17 @@ namespace TursibBackend.Services
             var departure = departureTime ?? DateTime.Now;
             var alternativeRoutes = new List<CalculatedRoute>();
 
-            // Încarcă datele necesare
-            var allRoutes = await _context.Routes
-                .Include(r => r.RouteStations)
-                .ThenInclude(rs => rs.Station)
-                .ToListAsync();
+            // Obține graful din cache sau îl construiește
+            var (graph, allRoutes, allStations) = await GetOrBuildGraphAsync();
 
-            var allStations = await _context.Stations.ToListAsync();
-
-            if (allRoutes.Count == 0 || allStations.Count == 0)
+            if (graph == null || allRoutes.Count == 0 || allStations.Count == 0)
             {
                 return alternativeRoutes;
             }
 
-            // Construiește graful de transport
-            var graph = BuildTransportGraph(allRoutes, allStations);
-
             // 1. Ruta optimă (minimizare timp total)
-            var optimalPath = DijkstraSearch(graph, startStationId, endStationId, 
-                transferPenalty: TRANSFER_PENALTY_MINUTES);
+            var optimalPath = DijkstraSearch(graph, startStationId, endStationId,
+                transferPenalty: _transferPenaltyMinutes);
             if (optimalPath != null)
             {
                 var route = BuildCalculatedRoute(optimalPath, allRoutes, allStations);
@@ -77,8 +93,8 @@ namespace TursibBackend.Services
             }
 
             // 2. Ruta cu penalitate mare pentru transferuri (favorează direct)
-            var directPath = DijkstraSearch(graph, startStationId, endStationId, 
-                transferPenalty: TRANSFER_PENALTY_MINUTES * 3);
+            var directPath = DijkstraSearch(graph, startStationId, endStationId,
+                transferPenalty: _transferPenaltyMinutes * 3);
             if (directPath != null && !PathsAreEquivalent(optimalPath, directPath))
             {
                 var route = BuildCalculatedRoute(directPath, allRoutes, allStations);
@@ -88,10 +104,10 @@ namespace TursibBackend.Services
             }
 
             // 3. Ruta cu penalitate mică pentru walking (permite mai mult walking)
-            var walkingPath = DijkstraSearch(graph, startStationId, endStationId, 
-                transferPenalty: TRANSFER_PENALTY_MINUTES, 
-                maxWalkingDistance: MAX_WALKING_DISTANCE_KM * 1.5);
-            if (walkingPath != null && !PathsAreEquivalent(optimalPath, walkingPath) 
+            var walkingPath = DijkstraSearch(graph, startStationId, endStationId,
+                transferPenalty: _transferPenaltyMinutes,
+                maxWalkingDistance: _maxWalkingDistanceKm * 1.5);
+            if (walkingPath != null && !PathsAreEquivalent(optimalPath, walkingPath)
                 && !PathsAreEquivalent(directPath, walkingPath))
             {
                 var route = BuildCalculatedRoute(walkingPath, allRoutes, allStations);
@@ -117,6 +133,54 @@ namespace TursibBackend.Services
 
         #endregion
 
+        #region Graph Caching
+
+        /// <summary>
+        /// Obține graful de transport din cache sau îl construiește și cachează.
+        /// Graful este cacheat pentru a evita reconstrucția la fiecare request.
+        /// </summary>
+        private async Task<(TransportGraph? graph, List<RouteModel> routes, List<Station> stations)> GetOrBuildGraphAsync()
+        {
+            if (_cache.TryGetValue(GRAPH_CACHE_KEY, out TransportGraph? cachedGraph) &&
+                _cache.TryGetValue(ROUTES_DATA_CACHE_KEY, out (List<RouteModel> routes, List<Station> stations) cachedData))
+            {
+                _logger.LogInformation("Graph cache HIT - reusing cached transport graph");
+                return (cachedGraph!, cachedData.routes, cachedData.stations);
+            }
+
+            _logger.LogInformation("Graph cache MISS - building transport graph from database...");
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+            var allRoutes = await _context.Routes
+                .Include(r => r.RouteStations)
+                .ThenInclude(rs => rs.Station)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var allStations = await _context.Stations
+                .AsNoTracking()
+                .ToListAsync();
+
+            if (allRoutes.Count == 0 || allStations.Count == 0)
+            {
+                return (null, allRoutes, allStations);
+            }
+
+            var graph = BuildTransportGraph(allRoutes, allStations);
+            var cacheDuration = TimeSpan.FromMinutes(_graphCacheDurationMinutes);
+
+            _cache.Set(GRAPH_CACHE_KEY, graph, cacheDuration);
+            _cache.Set(ROUTES_DATA_CACHE_KEY, (allRoutes, allStations), cacheDuration);
+
+            stopwatch.Stop();
+            _logger.LogInformation("Transport graph built in {ElapsedMs}ms - {NodeCount} nodes, cached for {Minutes}min",
+                stopwatch.ElapsedMilliseconds, graph.Nodes.Count, _graphCacheDurationMinutes);
+
+            return (graph, allRoutes, allStations);
+        }
+
+        #endregion
+
         #region Dijkstra Algorithm Implementation
 
         /// <summary>
@@ -124,11 +188,11 @@ namespace TursibBackend.Services
         /// Găsește drumul cu costul minim (timp) între două stații.
         /// </summary>
         private List<GraphNode>? DijkstraSearch(
-            TransportGraph graph, 
-            int startStationId, 
+            TransportGraph graph,
+            int startStationId,
             int endStationId,
-            int transferPenalty = TRANSFER_PENALTY_MINUTES,
-            double maxWalkingDistance = MAX_WALKING_DISTANCE_KM)
+            int transferPenalty = 5,
+            double maxWalkingDistance = 0.5)
         {
             // Inițializare: distanțe infinite, precedent null
             var distances = new Dictionary<int, double>();
@@ -287,7 +351,7 @@ namespace TursibBackend.Services
                         toStation.Latitude, toStation.Longitude);
 
                     // Calculează timpul de călătorie
-                    var travelTime = (distance / AVG_BUS_SPEED_KM_PER_HOUR) * 60 + STATION_STOP_TIME_MINUTES;
+                    var travelTime = (distance / _avgBusSpeedKmPerHour) * 60 + _stationStopTimeMinutes;
 
                     // Adaugă muchie
                     graph.Nodes[fromStation.Id].Edges.Add(new GraphEdge
@@ -323,7 +387,7 @@ namespace TursibBackend.Services
                                 RouteId = otherRoute.Id,
                                 RouteNumber = otherRoute.RouteNumber,
                                 Distance = 0,
-                                TravelTime = TRANSFER_PENALTY_MINUTES,
+                                TravelTime = _transferPenaltyMinutes,
                                 Type = EdgeType.Transfer
                             });
                         }
@@ -355,9 +419,9 @@ namespace TursibBackend.Services
                         station2.Latitude, station2.Longitude);
 
                     // Doar dacă distanța este sub pragul maxim
-                    if (distance <= MAX_WALKING_DISTANCE_KM)
+                    if (distance <= _maxWalkingDistanceKm)
                     {
-                        var walkingTime = (distance / WALKING_SPEED_KM_PER_HOUR) * 60;
+                        var walkingTime = (distance / _walkingSpeedKmPerHour) * 60;
 
                         // Muchie bidirecțională
                         graph.Nodes[station1.Id].Edges.Add(new GraphEdge

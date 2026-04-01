@@ -14,8 +14,7 @@
     </button>
     
     <!-- Enhanced Search pentru stații și adrese -->
-    <EnhancedSearch 
-      v-if="showSidebar"
+    <EnhancedSearch
       :stations="allStations"
       :user-location="userLocation"
       :trip-mode="tripMode"
@@ -446,14 +445,12 @@ const showUserMenu = ref(false)
 const isAdmin = computed(() => {
   const user = currentUser.value
   const hasAdminRole = user?.role?.toLowerCase() === 'admin'
-  console.log('🔐 isAdmin check:', { isAuthenticated: isAuthenticated.value, user, hasAdminRole })
   return isAuthenticated.value && hasAdminRole
 })
 
 const checkAuthStatus = () => {
   isAuthenticated.value = authService.isAuthenticated()
   currentUser.value = authService.getUser()
-  console.log('🔐 Auth status updated:', { isAuthenticated: isAuthenticated.value, user: currentUser.value })
 }
 
 const handleLogout = () => {
@@ -611,8 +608,8 @@ const selectedAlternative = ref<any | null>(null)
 // State pentru istoric călătorii
 const showTripHistory = ref(false)
 
-// State pentru afișarea/ascunderea sidebar-ului
-const showSidebar = ref(true)
+// State pentru afișarea/ascunderea sidebar-ului (sincronizat cu HomeView)
+const showSidebar = ref(typeof window !== 'undefined' ? window.innerWidth >= 768 : true)
 const tripMode = ref(false)
 
 // State pentru panoul multimodal
@@ -2465,8 +2462,8 @@ const getStationETAs = (stationId: number) => {
   background: var(--bg-primary);
   border: none;
   border-radius: 8px;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2485,23 +2482,23 @@ const getStationETAs = (stationId: number) => {
   color: var(--text-primary);
 }
 
-/* Grup de butoane din dreapta sus */
+/* Grup de butoane din dreapta sus - grid 2 rânduri × 3 coloane */
 .top-right-buttons {
   position: fixed;
   top: 16px;
   right: 16px;
   z-index: 1100;
-  display: flex;
-  gap: 8px;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  gap: 6px;
 }
 
 .action-btn {
   background: var(--bg-primary);
   border: none;
   border-radius: 8px;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;

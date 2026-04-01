@@ -9,16 +9,20 @@ namespace TursibBackend.Services
     public class JwtService
     {
         private readonly IConfiguration _configuration;
+        private readonly string _jwtKey;
 
         public JwtService(IConfiguration configuration)
         {
             _configuration = configuration;
+            _jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
+                ?? _configuration["Jwt:Key"]
+                ?? throw new InvalidOperationException(
+                    "JWT Key not configured. Set the JWT_KEY environment variable or Jwt:Key in appsettings.");
         }
 
         public string GenerateToken(User user)
         {
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
-                _configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured")));
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtKey));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
             var claims = new[]
@@ -44,7 +48,7 @@ namespace TursibBackend.Services
             try
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "");
+                var key = Encoding.UTF8.GetBytes(_jwtKey);
 
                 var validationParameters = new TokenValidationParameters
                 {
