@@ -218,14 +218,14 @@
 
         <!-- Ora plecării -->
         <div class="form-group">
-          <label class="form-label">🕐 Ora plecării</label>
-          <input v-model="planTime" type="time" class="time-input" />
+          <label class="form-label">🕐 Plecare după ora</label>
+          <input v-model="planTime" type="time" class="time-input" required />
         </div>
 
         <!-- Buton căutare -->
         <button
           @click="searchRoutes"
-          :disabled="!planOrigin || !planDest || isSearching"
+          :disabled="!planOrigin || !planDest || !planTime || isSearching"
           class="btn-search-routes"
         >
           <span v-if="isSearching">⏳ Se caută cursele...</span>
@@ -261,6 +261,10 @@
             </div>
           </div>
           <div class="result-meta">
+            <span class="result-countdown" :class="{ urgent: result.minutesUntil < 5 }">
+              {{ result.minutesUntil <= 0 ? 'Acum' : `în ${result.minutesUntil} min` }}
+            </span>
+            <span>•</span>
             <span>{{ result.stationsBetween }} stații</span>
             <span>•</span>
             <span>{{ result.direction }}</span>
@@ -448,6 +452,7 @@ interface PlanResult {
   arrivalTime: string
   stationsBetween: number
   direction: string
+  minutesUntil: number
 }
 
 const planOriginQuery = ref('')
@@ -509,11 +514,11 @@ const searchRoutes = async () => {
     // 1. Orar stație de plecare
     const schedule = await apiService.getStationSchedule(planOrigin.value.id)
 
-    // 2. Filtrăm cursele în intervalul [ora selectată, +3h]
+    // 2. Filtrăm cursele de la ora selectată în sus (restul zilei)
     const upcoming = schedule.filter(entry => {
       const p = entry.departureTime.split(':')
       const entryMin = parseInt(p[0]) * 60 + parseInt(p[1])
-      return entryMin >= targetMinutes && entryMin <= targetMinutes + 180
+      return entryMin >= targetMinutes
     })
 
     if (!upcoming.length) { searchDone.value = true; return }
@@ -539,10 +544,12 @@ const searchRoutes = async () => {
       if (originIdx === -1 || destIdx === -1 || destIdx <= originIdx) continue
 
       const stationsBetween = destIdx - originIdx
+      const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes()
       for (const entry of upcoming.filter(e => e.routeId === routeId)) {
         const depParts = entry.departureTime.split(':')
         const depMin   = parseInt(depParts[0]) * 60 + parseInt(depParts[1])
         const arrMin   = depMin + stationsBetween * 2 // ~2 min per stație
+        const minutesUntil = depMin - nowMinutes
 
         results.push({
           routeNumber:     entry.routeNumber,
@@ -552,6 +559,7 @@ const searchRoutes = async () => {
           arrivalTime:     minutesToStr(arrMin),
           stationsBetween,
           direction:       entry.direction || (entry.directionId === 0 ? 'Dus' : 'Întors'),
+          minutesUntil,
         })
       }
     }
@@ -1097,6 +1105,16 @@ onUnmounted(() => { if (countdownTimer) clearInterval(countdownTimer) })
   gap: 6px;
   font-size: 11px;
   color: var(--text-secondary);
+  align-items: center;
+}
+
+.result-countdown {
+  font-weight: 700;
+  color: #10b981;
+}
+
+.result-countdown.urgent {
+  color: #ef4444;
 }
 
 .hint-text { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
