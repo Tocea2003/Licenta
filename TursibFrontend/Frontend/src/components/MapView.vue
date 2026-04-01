@@ -2482,15 +2482,15 @@ const getStationETAs = (stationId: number) => {
   color: var(--text-primary);
 }
 
-/* Grup de butoane din dreapta sus */
+/* Grup de butoane din dreapta sus - grid 2 rânduri × 3 coloane */
 .top-right-buttons {
   position: fixed;
   top: 16px;
   right: 16px;
   z-index: 1100;
-  display: flex;
-  gap: 8px;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  gap: 6px;
 }
 
 .action-btn {
