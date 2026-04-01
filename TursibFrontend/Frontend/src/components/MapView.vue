@@ -358,6 +358,66 @@
         :opacity="0.6"
       />
 
+      <!-- Mers pe jos: origine → stație urcare (portocaliu, punctat) -->
+      <l-polyline
+        v-if="actualWalkingPath.length > 0 && (showMultimodal || showTransfer)"
+        :lat-lngs="actualWalkingPath"
+        color="#f97316"
+        :weight="4"
+        :opacity="0.9"
+        :dash-array="'8, 8'"
+      />
+
+      <!-- Segment autobuz 1 -->
+      <l-polyline
+        v-if="walkingPath.length > 0 && (showMultimodal || showTransfer)"
+        :lat-lngs="walkingPath"
+        :color="showTransfer ? transferData.route1Color : multimodalData.busColor"
+        :weight="5"
+        :opacity="0.85"
+      />
+
+      <!-- Segment autobuz 2 (transfer) -->
+      <l-polyline
+        v-if="secondWalkingPath.length > 0 && showTransfer"
+        :lat-lngs="secondWalkingPath"
+        :color="transferData.route2Color"
+        :weight="5"
+        :opacity="0.85"
+      />
+
+      <!-- Mers pe jos: stație coborâre → destinație (portocaliu, punctat) -->
+      <l-polyline
+        v-if="actualSecondWalkingPath.length > 0 && (showMultimodal || showTransfer)"
+        :lat-lngs="actualSecondWalkingPath"
+        color="#f97316"
+        :weight="4"
+        :opacity="0.9"
+        :dash-array="'8, 8'"
+      />
+
+      <!-- Marker origine plan (adresă sau locație) -->
+      <l-marker
+        v-if="(showMultimodal || showTransfer) && savedUserLocation"
+        :lat-lng="[savedUserLocation.lat, savedUserLocation.lon]"
+      >
+        <l-icon :icon-size="[36, 36]" :icon-anchor="[18, 36]" icon-url="/placeholder.png" />
+        <l-popup>
+          <strong>{{ multimodalData.startLocation || transferData.startName || 'Origine' }}</strong>
+        </l-popup>
+      </l-marker>
+
+      <!-- Marker destinație plan -->
+      <l-marker
+        v-if="(showMultimodal || showTransfer) && savedDestination"
+        :lat-lng="[savedDestination.lat, savedDestination.lon]"
+      >
+        <l-icon :icon-size="[36, 36]" :icon-anchor="[18, 36]" icon-url="/placeholder.png" />
+        <l-popup>
+          <strong>{{ savedDestination.name }}</strong>
+        </l-popup>
+      </l-marker>
+
       <!-- Markere pentru autobuze LIVE - ascunse când e afișată o rută -->
       <l-marker
         v-if="!showMultimodal && !showTransfer"
@@ -416,6 +476,7 @@ import NearbyStationsPanel from './NearbyStationsPanel.vue'
 import AlternativeRoutesPanel from './AlternativeRoutesPanel.vue'
 import TripHistory from './TripHistory.vue'
 import apiService, { type Station } from '@/services/apiService'
+import type { PlanResult } from './Sidebar.vue'
 import { useNotifications, checkBusNotifications } from '@/composables/useNotifications'
 import { authService } from '@/services/adminService'
 import { useDarkMode } from '@/composables/useDarkMode'
@@ -523,10 +584,12 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5022/api'
 interface Props {
 
   stations?: Station[]
-  
+
   allStations?: Station[]
 
   routeColor?: string
+
+  tripPlan?: PlanResult | null
 
 }
 
@@ -535,10 +598,12 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
 
   stations: () => [],
-  
+
   allStations: () => [],
 
-  routeColor: '#2563eb' // Albastru
+  routeColor: '#2563eb', // Albastru
+
+  tripPlan: null
 
 })
 
@@ -1931,6 +1996,8 @@ const closeMultimodal = () => {
   secondWalkingPath.value = []
   multimodalBusPath.value = []
   routePath.value = []
+  actualWalkingPath.value = []
+  actualSecondWalkingPath.value = []
   walkingStart.value = null
   walkingEnd.value = null
   secondWalkingStart.value = null
@@ -2014,6 +2081,8 @@ const closeTransfer = () => {
   secondWalkingPath.value = []
   multimodalBusPath.value = []
   routePath.value = []
+  actualWalkingPath.value = []
+  actualSecondWalkingPath.value = []
   walkingStart.value = null
   walkingEnd.value = null
   secondWalkingStart.value = null
@@ -2047,6 +2116,133 @@ const closeTransfer = () => {
 const calculateBusTime = (stationsCount: number): number => {
   return stationsCount * 2 // 2 minute per stație
 }
+
+// Watch pentru planul de călătorie selectat din Sidebar (Planificare tab)
+watch(() => props.tripPlan, async (plan) => {
+  if (!plan) return
+
+  // Resetăm starea anterioară
+  walkingPath.value = []
+  secondWalkingPath.value = []
+  multimodalBusPath.value = []
+  actualWalkingPath.value = []
+  actualSecondWalkingPath.value = []
+  completeRoutePath.value = []
+  completeBusRoute1.value = []
+  completeBusRoute2.value = []
+  showMultimodal.value = false
+  showTransfer.value = false
+  showDirections.value = false
+
+  const boarding = plan.boardingStation
+  const alighting = plan.alightingStation
+  const transfer = plan.transferStation ?? null
+
+  // Colectăm toate căile pentru a calcula bounds
+  const allPoints: [number, number][] = []
+
+  // 1. Mers pe jos: origin → stație urcare (dacă originea e adresă, nu stație)
+  if (plan.walkToStartMinutes && plan.walkToStartMinutes > 0) {
+    try {
+      const resp = await fetch(
+        `https://router.project-osrm.org/route/v1/foot/${plan.originLon},${plan.originLat};${boarding.longitude},${boarding.latitude}?overview=full&geometries=geojson`
+      )
+      const data = await resp.json()
+      if (data.code === 'Ok' && data.routes?.[0]) {
+        actualWalkingPath.value = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+        allPoints.push(...actualWalkingPath.value)
+      }
+    } catch {}
+  } else {
+    allPoints.push([plan.originLat, plan.originLon])
+  }
+
+  // 2. Segment autobuz 1: boarding → transfer (sau alighting dacă direct)
+  const busEndStation = transfer ?? alighting
+  try {
+    const seg1 = await apiService.getRouteSegment(plan.route1Id, boarding.id, busEndStation.id)
+    if (seg1?.points?.length) {
+      walkingPath.value = seg1.points.map(p => [p.latitude, p.longitude] as [number, number])
+      allPoints.push(...walkingPath.value)
+    }
+  } catch {}
+
+  // 3. Segment autobuz 2 (dacă e transfer): transfer → alighting
+  if (plan.type === 'transfer' && transfer && plan.route2Id) {
+    try {
+      const seg2 = await apiService.getRouteSegment(plan.route2Id, transfer.id, alighting.id)
+      if (seg2?.points?.length) {
+        secondWalkingPath.value = seg2.points.map(p => [p.latitude, p.longitude] as [number, number])
+        allPoints.push(...secondWalkingPath.value)
+      }
+    } catch {}
+  }
+
+  // 4. Mers pe jos: stație coborâre → destinație
+  if (plan.walkToEndMinutes && plan.walkToEndMinutes > 0) {
+    try {
+      const resp = await fetch(
+        `https://router.project-osrm.org/route/v1/foot/${alighting.longitude},${alighting.latitude};${plan.destLon},${plan.destLat}?overview=full&geometries=geojson`
+      )
+      const data = await resp.json()
+      if (data.code === 'Ok' && data.routes?.[0]) {
+        actualSecondWalkingPath.value = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+        allPoints.push(...actualSecondWalkingPath.value)
+      }
+    } catch {}
+  } else {
+    allPoints.push([plan.destLat, plan.destLon])
+  }
+
+  // Salvăm pentru panoul de detalii
+  savedUserLocation.value = { lat: plan.originLat, lon: plan.originLon }
+  savedDestination.value = { lat: plan.destLat, lon: plan.destLon, name: plan.destName }
+
+  if (plan.type === 'direct') {
+    multimodalData.value = {
+      startLocation: plan.originName,
+      endLocation: plan.destName,
+      boardingStation: boarding.name,
+      alightingStation: alighting.name,
+      busLine: plan.route1Number,
+      busColor: plan.route1Color || '#3b82f6',
+      busStationsList: [boarding.name, alighting.name],
+      firstWalkDistance: 0,
+      firstWalkTime: plan.walkToStartMinutes ?? 0,
+      secondWalkDistance: 0,
+      secondWalkTime: plan.walkToEndMinutes ?? 0,
+      busTime: plan.stationsBetween * 2
+    }
+    showMultimodal.value = true
+  } else if (plan.type === 'transfer' && transfer) {
+    transferData.value = {
+      startName: plan.originName,
+      endName: plan.destName,
+      boardingStation: boarding,
+      transferStation: transfer,
+      alightingStation: alighting,
+      route1Number: plan.route1Number,
+      route1Color: plan.route1Color || '#3b82f6',
+      route1StationsCount: plan.route1StationsCount ?? 0,
+      route2Number: plan.route2Number ?? '',
+      route2Color: plan.route2Color || '#10b981',
+      route2StationsCount: plan.route2StationsCount ?? 0,
+      firstWalkDistance: 0,
+      firstWalkTime: plan.walkToStartMinutes ?? 0,
+      busTime1: (plan.route1StationsCount ?? 0) * 2,
+      busTime2: (plan.route2StationsCount ?? 0) * 2,
+      secondWalkDistance: 0,
+      secondWalkTime: plan.walkToEndMinutes ?? 0
+    }
+    showTransfer.value = true
+  }
+
+  // Fit bounds
+  if (allPoints.length > 0 && map.value?.leafletObject) {
+    const bounds = L.latLngBounds(allPoints)
+    map.value.leafletObject.fitBounds(bounds, { padding: [60, 60] })
+  }
+}, { deep: true })
 
 // Set trip mode
 const setTripMode = (enabled: boolean) => {

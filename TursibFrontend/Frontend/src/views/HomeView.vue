@@ -4,13 +4,13 @@ import Sidebar from '../components/Sidebar.vue'
 import MapView from '../components/MapView.vue'
 import BottomNav from '@/components/BottomNav.vue'
 import apiService, { type Station } from '../services/apiService'
+import type { PlanResult } from '../components/Sidebar.vue'
 
-// State pentru stațiile și traseul selectat
 const selectedStations = ref<Station[]>([])
 const selectedRouteId = ref<number | null>(null)
 const allStations = ref<Station[]>([])
 const sidebarVisible = ref(true)
-// Folosim `any` pentru ref-ul componentei ca să evităm erori de tipare legate de InstanceType
+const activeTripPlan = ref<PlanResult | null>(null)
 const mapRef = ref<any>(null)
 
 // Mapare culori pentru fiecare traseu
@@ -29,13 +29,17 @@ const loadAllStations = async () => {
 const handleRouteSelected = (routeId: number, stations: Station[]) => {
   selectedStations.value = stations
   selectedRouteId.value = routeId
-  
+
   // Centrează harta pe prima stație dacă există
   if (stations.length > 0 && mapRef.value && typeof mapRef.value.centerMap === 'function') {
     const firstStation = stations[0]
     if (!firstStation) return
     mapRef.value.centerMap(firstStation.latitude, firstStation.longitude, 14)
   }
+}
+
+const handlePlanSelected = (plan: PlanResult) => {
+  activeTripPlan.value = plan
 }
 
 // Handler pentru toggle sidebar
@@ -88,15 +92,17 @@ onMounted(() => {
       :class="{ 'sidebar-hidden': !sidebarVisible }"
       :all-stations="allStations"
       @route-selected="handleRouteSelected"
+      @plan-selected="handlePlanSelected"
     />
     
     <!-- Harta ocupă restul ecranului -->
     <div class="map-wrapper">
-      <MapView 
+      <MapView
         ref="mapRef"
         :stations="selectedStations"
         :all-stations="allStations"
         :route-color="selectedRouteId ? routeColors[selectedRouteId] : '#2563eb'"
+        :trip-plan="activeTripPlan"
         @route-selected="handleRouteSelected"
         @sidebar-toggle="handleSidebarToggle"
       />
