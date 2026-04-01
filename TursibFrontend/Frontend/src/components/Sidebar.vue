@@ -65,6 +65,7 @@
         <p>{{ error }}</p>
         <button @click="loadRoutes" class="retry-btn">Reîncearcă</button>
       </div>
+    </div>
 
       <!-- Routes List -->
       <div v-else class="routes-section">
@@ -91,6 +92,22 @@
             </svg>
           </button>
         </div>
+
+        <!-- Ora plecării -->
+        <div class="form-group">
+          <label class="form-label">🕐 Ora plecării</label>
+          <input v-model="planTime" type="time" class="time-input" />
+        </div>
+
+        <!-- Buton căutare -->
+        <button
+          @click="searchRoutes"
+          :disabled="!planOrigin || !planDest || isSearching"
+          class="btn-search-routes"
+        >
+          <span v-if="isSearching">⏳ Se caută cursele...</span>
+          <span v-else>🔍 Caută curse</span>
+        </button>
       </div>
 
       <!-- Selected Route Stations -->
@@ -112,15 +129,13 @@
         </ol>
       </div>
     </div>
+
   </aside>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import apiService, { type Route, type Station } from '@/services/apiService'
-import { useFavorites } from '@/composables/useFavorites'
-import { useStatistics } from '@/composables/useStatistics'
+import { ref, onMounted, onUnmounted } from 'vue'
+import apiService, { type Route, type Station, type StationScheduleEntry } from '@/services/apiService'
 
 const router = useRouter()
 const { favorites } = useFavorites()
@@ -128,7 +143,6 @@ const { statistics, recordRouteUsage } = useStatistics()
 
 const emit = defineEmits<{
   routeSelected: [routeId: number, stations: Station[]]
-  tripModeChanged: [enabled: boolean]
 }>()
 
 const routes = ref<Route[]>([])
@@ -180,6 +194,11 @@ const stationsCache = new Map<number, Station[]>()
 const selectRoute = async (routeId: number) => {
   recordRouteUsage(routeId)
   selectedRouteId.value = routeId
+  if (stationsCache.has(routeId)) {
+    currentStations.value = stationsCache.get(routeId)!
+    emit('routeSelected', routeId, currentStations.value)
+    return
+  }
   loadingStations.value = true
   try {
     if (stationsCache.has(routeId)) {
@@ -193,7 +212,7 @@ const selectRoute = async (routeId: number) => {
   } catch {
     currentStations.value = []
   } finally {
-    loadingStations.value = false
+    isSearching.value = false
   }
 }
 
@@ -273,7 +292,8 @@ onMounted(loadRoutes)
   gap: 8px;
 }
 
-.action-btn {
+/* ===== SHARED STATES ===== */
+.center-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -359,6 +379,7 @@ onMounted(loadRoutes)
   letter-spacing: 0.6px;
   color: var(--text-secondary);
 }
+.clear-btn:hover { color: var(--text-primary); }
 
 .section-count {
   font-size: 11px;
@@ -434,6 +455,7 @@ onMounted(loadRoutes)
   line-height: 1.3;
   color: var(--text-primary);
 }
+.eta-direction { display: block; font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
 
 .route-arrow {
   color: var(--text-tertiary);
@@ -485,6 +507,7 @@ onMounted(loadRoutes)
 .stations-list li:last-child {
   border-left-color: transparent;
 }
+.chip-close:hover { color: #ef4444; }
 
 .stop-dot {
   position: absolute;

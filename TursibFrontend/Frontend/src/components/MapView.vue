@@ -203,6 +203,10 @@
 
       style="height: 100%; width: 100%"
 
+      @ready="onMapReady"
+
+      @click="handleMapClick"
+
     >
 
       <!-- Layer-ul de tile-uri (harta de bază) -->
@@ -490,10 +494,16 @@ onMounted(() => {
   }, 2000)
 })
 
-// Also check when component becomes active (after navigation)
+// Also check when component becomes active (after navigation, keep-alive)
 onActivated(() => {
   console.log('🔄 MapView activated, re-checking auth status')
   checkAuthStatus()
+  // Recalculează dimensiunea hărții după reactivare (keep-alive)
+  nextTick(() => {
+    if (map.value && map.value.leafletObject) {
+      map.value.leafletObject.invalidateSize()
+    }
+  })
 })
 
 // Am scos 'leaflet/dist/leaflet.css' de aici, deoarece este deja în main.ts
@@ -611,6 +621,7 @@ const showTripHistory = ref(false)
 // State pentru afișarea/ascunderea sidebar-ului (sincronizat cu HomeView)
 const showSidebar = ref(typeof window !== 'undefined' ? window.innerWidth >= 768 : true)
 const tripMode = ref(false)
+
 
 // State pentru panoul multimodal
 const showMultimodal = ref(false)
@@ -801,6 +812,34 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
     Math.sin(dLon / 2) * Math.sin(dLon / 2)
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   return R * c // Distanța în km
+}
+
+// ========================
+// MAP READY + CLICK
+// ========================
+
+// Apelat când harta Leaflet e complet inițializată
+const onMapReady = (_mapInstance: any) => {
+  // rezervat pentru extensii viitoare
+}
+
+// Click pe hartă → setează destinație sau locație start
+const handleMapClick = (event: any) => {
+  if (!event?.latlng) return
+
+  // Ignorăm click-ul dacă e pe un marker (Leaflet propagă și el click-ul uneori)
+  const { lat, lng } = event.latlng
+
+  if (userLocation.value) {
+    // Avem locația utilizatorului → clicked point devine destinație
+    const name = `Punct selectat (${lat.toFixed(4)}, ${lng.toFixed(4)})`
+    handleAddressSelected({ lat, lon: lng, name })
+  } else {
+    // Nu avem locație → setăm clicked point ca locație temporară
+    userLocation.value = { lat, lon: lng }
+    showNearbyStations.value = true
+    centerMap(lat, lng, 15)
+  }
 }
 
 // Centrul hărții: Sibiu (Piața Mare)
