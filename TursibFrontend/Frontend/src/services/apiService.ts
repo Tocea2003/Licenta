@@ -135,5 +135,17 @@ export default {
       `/shapes/route/${routeId}/segment?fromStationId=${fromStationId}&toStationId=${toStationId}`
     )
     return response.data
+  },
+
+  // ========== ROUTING ==========
+
+  // POST /api/routing/alternatives - Calculează rute alternative între două stații
+  async getRouteAlternatives(startStationId: number, endStationId: number, departureTime?: string): Promise<any[]> {
+    const response = await apiClient.post<any[]>('/routing/alternatives', {
+      startStationId,
+      endStationId,
+      departureTime: departureTime ?? null
+    })
+    return response.data
   }
 }

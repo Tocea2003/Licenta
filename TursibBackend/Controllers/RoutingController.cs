@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using TursibBackend.Data;
 using TursibBackend.Services;
+using Microsoft.EntityFrameworkCore;
 using static TursibBackend.Services.RouteCalculatorService;
 
 namespace TursibBackend.Controllers
@@ -9,20 +11,20 @@ namespace TursibBackend.Controllers
     public class RoutingController : ControllerBase
     {
         private readonly RouteCalculatorService _routeCalculator;
+        private readonly ApplicationDbContext _context;
 
-        public RoutingController(RouteCalculatorService routeCalculator)
+        public RoutingController(RouteCalculatorService routeCalculator, ApplicationDbContext context)
         {
             _routeCalculator = routeCalculator;
+            _context = context;
         }
 
         // POST: api/routing/calculate
         [HttpPost("calculate")]
         public async Task<ActionResult<CalculatedRoute>> CalculateRoute([FromBody] RouteRequest request)
         {
-            if (request.StartStationId == request.EndStationId)
-            {
-                return BadRequest(new { message = "Start and end stations must be different" });
-            }
+            var validationError = await ValidateRouteRequest(request);
+            if (validationError != null) return validationError;
 
             try
             {
@@ -49,10 +51,8 @@ namespace TursibBackend.Controllers
         [HttpPost("alternatives")]
         public async Task<ActionResult<List<CalculatedRoute>>> CalculateAlternativeRoutes([FromBody] RouteRequest request)
         {
-            if (request.StartStationId == request.EndStationId)
-            {
-                return BadRequest(new { message = "Start and end stations must be different" });
-            }
+            var validationError = await ValidateRouteRequest(request);
+            if (validationError != null) return validationError;
 
             try
             {
@@ -73,6 +73,25 @@ namespace TursibBackend.Controllers
             {
                 return StatusCode(500, new { message = "Failed to calculate alternative routes", error = ex.Message });
             }
+        }
+
+        private async Task<ActionResult?> ValidateRouteRequest(RouteRequest request)
+        {
+            if (request.StartStationId <= 0 || request.EndStationId <= 0)
+                return BadRequest(new { message = "Station IDs must be positive integers" });
+
+            if (request.StartStationId == request.EndStationId)
+                return BadRequest(new { message = "Start and end stations must be different" });
+
+            var startExists = await _context.Stations.AnyAsync(s => s.Id == request.StartStationId);
+            if (!startExists)
+                return NotFound(new { message = $"Start station with ID {request.StartStationId} not found" });
+
+            var endExists = await _context.Stations.AnyAsync(s => s.Id == request.EndStationId);
+            if (!endExists)
+                return NotFound(new { message = $"End station with ID {request.EndStationId} not found" });
+
+            return null;
         }
     }
 

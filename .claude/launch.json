@@ -2,12 +2,14 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "TursibBackend",
       "name": "TursibBackend (.NET API)",
       "runtimeExecutable": "dotnet",
       "runtimeArgs": ["run", "--project", "TursibBackend/TursibBackend.csproj"],
       "port": 5022
     },
     {
+      "name": "TursibFrontend",
       "name": "TursibFrontend (Vue/Vite)",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "TursibFrontend/Frontend"],

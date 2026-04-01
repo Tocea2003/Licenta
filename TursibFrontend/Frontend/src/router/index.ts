@@ -1,13 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
 import { authService } from '@/services/adminService'
-
-// Lazy load pentru rute admin (nu sunt necesare imediat)
-const AdminLogin = () => import('../views/AdminLogin.vue')
-const AdminDashboard = () => import('../views/AdminDashboard.vue')
-const AdminAnalytics = () => import('../views/AdminAnalytics.vue')
-const AdminRoutes = () => import('../views/AdminRoutes.vue')
-const AdminStations = () => import('../views/AdminStations.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -15,7 +7,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: HomeView,
+      component: () => import('../views/HomeView.vue'),
     },
     {
       path: '/trip-planner',
@@ -60,11 +52,11 @@ const router = createRouter({
     {
       path: '/loginadmin',
       name: 'admin-login',
-      component: AdminLogin,
+      component: () => import('../views/AdminLogin.vue'),
     },
     {
       path: '/admin',
-      component: AdminDashboard,
+      component: () => import('../views/AdminDashboard.vue'),
       meta: { requiresAuth: true },
       children: [
         {
@@ -74,17 +66,17 @@ const router = createRouter({
         {
           path: 'analytics',
           name: 'admin-analytics',
-          component: AdminAnalytics,
+          component: () => import('../views/AdminAnalytics.vue'),
         },
         {
           path: 'routes',
           name: 'admin-routes',
-          component: AdminRoutes,
+          component: () => import('../views/AdminRoutes.vue'),
         },
         {
           path: 'stations',
           name: 'admin-stations',
-          component: AdminStations,
+          component: () => import('../views/AdminStations.vue'),
         },
       ]
     },
@@ -96,29 +88,19 @@ const router = createRouter({
   ],
 })
 
-// Navigation guard pentru rute protejate
 router.beforeEach((to, from, next) => {
-  console.log('🔀 Navigation:', from.path, '→', to.path)
-  
   if (to.meta.requiresAuth) {
     const isAuth = authService.isAuthenticated()
     const user = authService.getUser()
-    
-    console.log('🔐 Auth check:', { isAuth, user })
-    
     if (!isAuth) {
-      console.warn('⚠️ Not authenticated - redirecting to login')
       next('/loginadmin')
     } else if (user?.role !== 'admin' && user?.role !== 'Admin') {
-      console.warn('⚠️ Not admin - access denied')
       alert('Acces interzis. Ai nevoie de rol de administrator.')
       next('/')
     } else {
-      console.log('✅ Access granted')
       next()
     }
   } else if (to.path === '/loginadmin' && authService.isAuthenticated()) {
-    console.log('🔄 Already authenticated - redirecting to admin')
     next('/admin/routes')
   } else {
     next()

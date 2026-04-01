@@ -94,12 +94,12 @@ namespace TursibBackend.Controllers
         // GET: api/stations/5/routes
         // Returnează traseele care trec prin stație, verificate direct din BD
         [HttpGet("{id}/routes")]
-        public async Task<ActionResult<IEnumerable<TursibBackend.Models.Route>>> GetStationRoutes(int id)
+        public async Task<ActionResult<IEnumerable<Models.Route>>> GetStationRoutes(int id)
         {
             var stopwatch = Stopwatch.StartNew();
             var cacheKey = $"station_{id}_routes";
 
-            if (_cache.TryGetValue(cacheKey, out List<TursibBackend.Models.Route>? cachedRoutes))
+            if (_cache.TryGetValue(cacheKey, out List<Models.Route>? cachedRoutes))
             {
                 stopwatch.Stop();
                 _logger.LogInformation("✅ Cache HIT for station {StationId} routes - Response time: {ElapsedMs}ms", id, stopwatch.ElapsedMilliseconds);

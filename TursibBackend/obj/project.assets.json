@@ -5099,11 +5099,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Licenta\\TursibBackend\\TursibBackend.csproj",
+      "projectUniqueName": "D:\\Licenta\\.claude\\worktrees\\exciting-dubinsky\\TursibBackend\\TursibBackend.csproj",
       "projectName": "TursibBackend",
-      "projectPath": "D:\\Licenta\\TursibBackend\\TursibBackend.csproj",
+      "projectPath": "D:\\Licenta\\.claude\\worktrees\\exciting-dubinsky\\TursibBackend\\TursibBackend.csproj",
       "packagesPath": "C:\\Users\\crist\\.nuget\\packages\\",
-      "outputPath": "D:\\Licenta\\TursibBackend\\obj\\",
+      "outputPath": "D:\\Licenta\\.claude\\worktrees\\exciting-dubinsky\\TursibBackend\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

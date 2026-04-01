@@ -63,6 +63,22 @@ namespace TursibBackend.Controllers
         [HttpPost("routes")]
         public async Task<ActionResult<Models.Route>> CreateRoute([FromBody] Models.Route route)
         {
+            if (string.IsNullOrWhiteSpace(route.RouteNumber))
+                return BadRequest(new { message = "RouteNumber is required." });
+
+            if (string.IsNullOrWhiteSpace(route.Name))
+                return BadRequest(new { message = "Name is required." });
+
+            if (route.RouteNumber.Length > 10)
+                return BadRequest(new { message = "RouteNumber must be at most 10 characters." });
+
+            if (route.Name.Length > 200)
+                return BadRequest(new { message = "Name must be at most 200 characters." });
+
+            var duplicate = await _context.Routes.AnyAsync(r => r.RouteNumber == route.RouteNumber);
+            if (duplicate)
+                return Conflict(new { message = $"A route with number '{route.RouteNumber}' already exists." });
+
             _context.Routes.Add(route);
             await _context.SaveChangesAsync();
 
@@ -107,6 +123,18 @@ namespace TursibBackend.Controllers
         [HttpPost("stations")]
         public async Task<ActionResult<Station>> CreateStation([FromBody] Station station)
         {
+            if (string.IsNullOrWhiteSpace(station.Name))
+                return BadRequest(new { message = "Station name is required." });
+
+            if (station.Name.Length > 200)
+                return BadRequest(new { message = "Station name must be at most 200 characters." });
+
+            if (station.Latitude < -90 || station.Latitude > 90)
+                return BadRequest(new { message = "Latitude must be between -90 and 90." });
+
+            if (station.Longitude < -180 || station.Longitude > 180)
+                return BadRequest(new { message = "Longitude must be between -180 and 180." });
+
             _context.Stations.Add(station);
             await _context.SaveChangesAsync();
 
