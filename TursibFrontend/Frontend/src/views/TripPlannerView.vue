@@ -14,10 +14,26 @@
       />
     </div>
 
-    <!-- Loading -->
-    <div v-if="isLoading" class="results-loading">
-      <div class="spinner"></div>
-      <p>Se caută rute...</p>
+    <!-- Loading skeletons -->
+    <div v-if="isLoading" class="route-results">
+      <div v-for="i in 3" :key="i" class="route-card skeleton-card">
+        <div class="sk-header">
+          <div class="sk-block sk-w40"></div>
+          <div class="sk-block sk-w20"></div>
+        </div>
+        <div class="sk-segments">
+          <div class="sk-segment">
+            <div class="sk-circle"></div>
+            <div class="sk-block sk-w70"></div>
+            <div class="sk-block sk-w15"></div>
+          </div>
+          <div class="sk-segment">
+            <div class="sk-circle"></div>
+            <div class="sk-block sk-w50"></div>
+            <div class="sk-block sk-w15"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Error -->
@@ -26,7 +42,7 @@
     </div>
 
     <!-- Route Results -->
-    <div v-if="routeResults.length > 0" class="route-results">
+    <div v-if="!isLoading && routeResults.length > 0" class="route-results">
       <h2>Rute disponibile</h2>
       <div
         v-for="route in routeResults"
@@ -185,27 +201,55 @@ onMounted(() => {
   max-width: 100%;
 }
 
-.results-loading {
+/* ── Skeleton cards ── */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-card { pointer-events: none; }
+
+.sk-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.sk-segments {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+
+.sk-segment {
+  display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 32px;
-  color: var(--text-secondary);
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
 }
 
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--border-color);
-  border-top-color: var(--color-primary, #2563eb);
+.sk-block, .sk-circle {
+  background: linear-gradient(90deg, var(--border-color) 0%, var(--bg-secondary) 50%, var(--border-color) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+  height: 12px;
+}
+
+.sk-circle {
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+.sk-w15 { width: 15%; }
+.sk-w20 { width: 20%; }
+.sk-w40 { width: 40%; }
+.sk-w50 { width: 50%; }
+.sk-w70 { flex: 1; }
 
 .results-error {
   max-width: 600px;

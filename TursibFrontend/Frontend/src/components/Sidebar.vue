@@ -52,10 +52,12 @@
         </div>
       </div>
 
-      <!-- Loading -->
-      <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Se încarcă traseele...</p>
+      <!-- Loading skeletons -->
+      <div v-if="loading" class="skeleton-list">
+        <div v-for="i in 6" :key="i" class="skeleton-route-item">
+          <div class="skeleton-badge"></div>
+          <div class="skeleton-text"></div>
+        </div>
       </div>
 
       <!-- Error -->
@@ -98,9 +100,8 @@
           <span v-if="!loadingStations" class="section-count">{{ currentStations.length }}</span>
         </div>
 
-        <div v-if="loadingStations" class="loading-small">
-          <div class="spinner-sm"></div>
-          Se încarcă...
+        <div v-if="loadingStations" class="skeleton-stations">
+          <div v-for="i in 5" :key="i" class="skeleton-station-item"></div>
         </div>
 
         <ol v-else class="stations-list">
@@ -509,43 +510,62 @@ onMounted(loadRoutes)
 }
 
 /* ── States ─────────────────────────────────────────────────────────────────── */
-.loading-state, .error-state {
-  text-align: center;
-  padding: 32px 16px;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--border-color);
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto 12px;
+.skeleton-list {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.loading-small {
+.skeleton-route-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 10px 8px;
-  color: var(--text-secondary);
-  font-size: 0.82rem;
+  border-radius: 10px;
+  background: var(--bg-secondary);
 }
 
-.spinner-sm {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border-color);
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.skeleton-badge {
+  width: 36px;
+  height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--border-color) 0%, var(--bg-primary) 50%, var(--border-color) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
   flex-shrink: 0;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+.skeleton-text {
+  flex: 1;
+  height: 13px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--border-color) 0%, var(--bg-primary) 50%, var(--border-color) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  animation-delay: 0.1s;
+}
+
+.skeleton-stations {
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton-station-item {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--border-color) 0%, var(--bg-primary) 50%, var(--border-color) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  margin-left: 20px;
+}
 
 .error-state { color: #ef4444; }
 
