@@ -2,7 +2,6 @@
 import { ref, onMounted, watch, nextTick } from 'vue'
 import Sidebar from '../components/Sidebar.vue'
 import MapView from '../components/MapView.vue'
-import BottomNav from '@/components/BottomNav.vue'
 import apiService, { type Station } from '../services/apiService'
 
 // State pentru stațiile și traseul selectat
@@ -10,7 +9,7 @@ const selectedStations = ref<Station[]>([])
 const selectedRouteId = ref<number | null>(null)
 const allStations = ref<Station[]>([]) // Toate stațiile pentru search
 const tripMode = ref(false) // Trip planning mode
-const sidebarVisible = ref(true) // Sidebar visibility
+const sidebarVisible = ref(typeof window !== 'undefined' ? window.innerWidth >= 768 : true)
 // Folosim `any` pentru ref-ul componentei ca să evităm erori de tipare legate de InstanceType
 const mapRef = ref<any>(null)
 
@@ -101,9 +100,9 @@ onMounted(() => {
 <template>
   <div class="app-container">
     <!-- Sidebar cu trasee și stații - mereu vizibil -->
-    <Sidebar 
+    <Sidebar
       class="sidebar"
-      :class="{ 'sidebar-hidden': !sidebarVisible }"
+      :class="{ 'sidebar-hidden': !sidebarVisible, 'sidebar-visible': sidebarVisible }"
       @route-selected="handleRouteSelected"
       @trip-mode-changed="handleTripModeChanged"
     />
@@ -120,8 +119,6 @@ onMounted(() => {
       />
     </div>
 
-    <!-- Bottom Navigation -->
-    <BottomNav />
   </div>
 </template>
 
@@ -176,21 +173,36 @@ onMounted(() => {
     position: fixed;
     left: 0;
     top: 0;
-    width: 280px;
+    width: 300px;
+    height: 100vh;
     z-index: 1001;
     transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Override desktop width: 0 collapse */
+    min-width: 300px !important;
+    overflow: visible !important;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15) !important;
   }
-  
+
   .sidebar.sidebar-visible {
     transform: translateX(0);
   }
-  
+
+  /* Desktop sidebar-hidden has no effect on mobile */
+  .sidebar.sidebar-hidden {
+    width: 300px !important;
+    min-width: 300px !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+  }
+
   .map-wrapper {
     width: 100%;
-    padding-bottom: 70px; /* Space pentru bottom nav */
+    padding-bottom: env(safe-area-inset-bottom, 70px);
+    padding-bottom: max(70px, calc(70px + env(safe-area-inset-bottom)));
   }
-  
-  /* Overlay când sidebar e deschis pe mobile */
+
+  /* Overlay when sidebar is open on mobile */
   .app-container::before {
     content: '';
     position: fixed;
@@ -201,8 +213,8 @@ onMounted(() => {
     pointer-events: none;
     transition: opacity 0.3s;
   }
-  
-  .app-container:has(.sidebar:not(.sidebar-hidden))::before {
+
+  .app-container:has(.sidebar.sidebar-visible)::before {
     opacity: 1;
     pointer-events: auto;
   }
