@@ -17,7 +17,9 @@ onMounted(() => {
   <!-- Page Transitions -->
   <router-view v-slot="{ Component, route }">
     <Transition :name="route.meta.transition as string || 'fade'" mode="out-in">
-      <component :is="Component" :key="route.path" />
+      <keep-alive :include="['HomeView']">
+        <component :is="Component" :key="route.path" />
+      </keep-alive>
     </Transition>
   </router-view>
 </template>

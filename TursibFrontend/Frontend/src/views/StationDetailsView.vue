@@ -138,6 +138,7 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 
 let countdownInterval: number | null = null
+let scheduleRefreshInterval: number | null = null
 
 const loadStationData = async () => {
   loading.value = true
@@ -243,15 +244,24 @@ const enableNotifications = () => {
 
 onMounted(() => {
   loadStationData()
-  
-  // Update countdowns every second
+
+  // Actualizează countdown-ul la fiecare secundă
   countdownInterval = window.setInterval(updateCountdowns, 1000)
+
+  // Reîncarcă orarul la fiecare 5 minute (ore noi devin disponibile)
+  scheduleRefreshInterval = window.setInterval(async () => {
+    try {
+      const schedule = await apiService.getStationSchedule(stationId.value)
+      buildETAsFromSchedule(schedule)
+    } catch {
+      // ignorăm erori silențioase la refresh
+    }
+  }, 5 * 60 * 1000)
 })
 
 onUnmounted(() => {
-  if (countdownInterval) {
-    clearInterval(countdownInterval)
-  }
+  if (countdownInterval) clearInterval(countdownInterval)
+  if (scheduleRefreshInterval) clearInterval(scheduleRefreshInterval)
 })
 </script>
 
