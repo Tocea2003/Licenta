@@ -3,14 +3,13 @@ import { ref, onMounted, watch, nextTick } from 'vue'
 import Sidebar from '../components/Sidebar.vue'
 import MapView from '../components/MapView.vue'
 import apiService, { type Station } from '../services/apiService'
+import type { PlanResult } from '../components/Sidebar.vue'
 
-// State pentru stațiile și traseul selectat
 const selectedStations = ref<Station[]>([])
 const selectedRouteId = ref<number | null>(null)
-const allStations = ref<Station[]>([]) // Toate stațiile pentru search
-const tripMode = ref(false) // Trip planning mode
-const sidebarVisible = ref(typeof window !== 'undefined' ? window.innerWidth >= 768 : true)
-// Folosim `any` pentru ref-ul componentei ca să evităm erori de tipare legate de InstanceType
+const allStations = ref<Station[]>([])
+const sidebarVisible = ref(true)
+const activeTripPlan = ref<PlanResult | null>(null)
 const mapRef = ref<any>(null)
 
 // Mapare culori pentru fiecare traseu
@@ -20,39 +19,26 @@ const routeColors: Record<number, string> = {
   3: '#00AA00'   // Linia 2 - Verde
 }
 
-// Încarcă toate stațiile la inițializare
 const loadAllStations = async () => {
   try {
     allStations.value = await apiService.getStations()
-    console.log('✅ Toate stațiile încărcate:', allStations.value.length)
-  } catch (error) {
-    console.error('❌ Eroare la încărcarea stațiilor:', error)
-  }
+  } catch {}
 }
 
-// Handler pentru trip mode toggle
-const handleTripModeChanged = (enabled: boolean) => {
-  tripMode.value = enabled
-  console.log(`🗓️ Trip mode: ${enabled ? 'ACTIVAT' : 'DEZACTIVAT'}`)
-  
-  // Pass trip mode to MapView
-  if (mapRef.value && typeof mapRef.value.setTripMode === 'function') {
-    mapRef.value.setTripMode(enabled)
-  }
-}
-
-// Handler când un traseu este selectat din Sidebar
 const handleRouteSelected = (routeId: number, stations: Station[]) => {
-  console.log(`🚌 Traseu selectat: ${routeId}`)
   selectedStations.value = stations
   selectedRouteId.value = routeId
-  
+
   // Centrează harta pe prima stație dacă există
   if (stations.length > 0 && mapRef.value && typeof mapRef.value.centerMap === 'function') {
     const firstStation = stations[0]
     if (!firstStation) return
     mapRef.value.centerMap(firstStation.latitude, firstStation.longitude, 14)
   }
+}
+
+const handlePlanSelected = (plan: PlanResult) => {
+  activeTripPlan.value = plan
 }
 
 // Handler pentru toggle sidebar
@@ -102,18 +88,20 @@ onMounted(() => {
     <!-- Sidebar cu trasee și stații - mereu vizibil -->
     <Sidebar
       class="sidebar"
-      :class="{ 'sidebar-hidden': !sidebarVisible, 'sidebar-visible': sidebarVisible }"
+      :class="{ 'sidebar-hidden': !sidebarVisible }"
+      :all-stations="allStations"
       @route-selected="handleRouteSelected"
-      @trip-mode-changed="handleTripModeChanged"
+      @plan-selected="handlePlanSelected"
     />
     
     <!-- Harta ocupă restul ecranului -->
     <div class="map-wrapper">
-      <MapView 
+      <MapView
         ref="mapRef"
         :stations="selectedStations"
         :all-stations="allStations"
         :route-color="selectedRouteId ? routeColors[selectedRouteId] : '#2563eb'"
+        :trip-plan="activeTripPlan"
         @route-selected="handleRouteSelected"
         @sidebar-toggle="handleSidebarToggle"
       />
