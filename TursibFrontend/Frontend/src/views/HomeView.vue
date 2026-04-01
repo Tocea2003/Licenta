@@ -8,9 +8,8 @@ import apiService, { type Station } from '../services/apiService'
 // State pentru stațiile și traseul selectat
 const selectedStations = ref<Station[]>([])
 const selectedRouteId = ref<number | null>(null)
-const allStations = ref<Station[]>([]) // Toate stațiile pentru search
-const tripMode = ref(false) // Trip planning mode
-const sidebarVisible = ref(true) // Sidebar visibility
+const allStations = ref<Station[]>([])
+const sidebarVisible = ref(true)
 // Folosim `any` pentru ref-ul componentei ca să evităm erori de tipare legate de InstanceType
 const mapRef = ref<any>(null)
 
@@ -21,30 +20,13 @@ const routeColors: Record<number, string> = {
   3: '#00AA00'   // Linia 2 - Verde
 }
 
-// Încarcă toate stațiile la inițializare
 const loadAllStations = async () => {
   try {
     allStations.value = await apiService.getStations()
-    console.log('✅ Toate stațiile încărcate:', allStations.value.length)
-  } catch (error) {
-    console.error('❌ Eroare la încărcarea stațiilor:', error)
-  }
+  } catch {}
 }
 
-// Handler pentru trip mode toggle
-const handleTripModeChanged = (enabled: boolean) => {
-  tripMode.value = enabled
-  console.log(`🗓️ Trip mode: ${enabled ? 'ACTIVAT' : 'DEZACTIVAT'}`)
-  
-  // Pass trip mode to MapView
-  if (mapRef.value && typeof mapRef.value.setTripMode === 'function') {
-    mapRef.value.setTripMode(enabled)
-  }
-}
-
-// Handler când un traseu este selectat din Sidebar
 const handleRouteSelected = (routeId: number, stations: Station[]) => {
-  console.log(`🚌 Traseu selectat: ${routeId}`)
   selectedStations.value = stations
   selectedRouteId.value = routeId
   
@@ -101,11 +83,11 @@ onMounted(() => {
 <template>
   <div class="app-container">
     <!-- Sidebar cu trasee și stații - mereu vizibil -->
-    <Sidebar 
+    <Sidebar
       class="sidebar"
       :class="{ 'sidebar-hidden': !sidebarVisible }"
+      :all-stations="allStations"
       @route-selected="handleRouteSelected"
-      @trip-mode-changed="handleTripModeChanged"
     />
     
     <!-- Harta ocupă restul ecranului -->
