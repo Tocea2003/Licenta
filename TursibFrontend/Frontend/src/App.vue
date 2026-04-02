@@ -1,9 +1,17 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useOnboarding } from '@/composables/useOnboarding'
 import OnboardingTutorial from '@/components/OnboardingTutorial.vue'
+import BottomNav from '@/components/BottomNav.vue'
 
 const { showOnboarding } = useOnboarding()
+const route = useRoute()
+
+const showBottomNav = computed(() => {
+  const p = route.path
+  return !p.startsWith('/admin') && p !== '/loginadmin' && p !== '/login' && p !== '/signup'
+})
 
 onMounted(() => {
   console.log('🚀 App mounted')
@@ -13,15 +21,16 @@ onMounted(() => {
 <template>
   <!-- Onboarding Tutorial -->
   <OnboardingTutorial :show="showOnboarding" @close="showOnboarding = false" />
-  
+
   <!-- Page Transitions -->
-  <router-view v-slot="{ Component, route }">
-    <Transition :name="route.meta.transition as string || 'fade'" mode="out-in">
-      <keep-alive :include="['HomeView']">
-        <component :is="Component" :key="route.path" />
-      </keep-alive>
+  <router-view v-slot="{ Component, route: r }">
+    <Transition :name="r.meta.transition as string || 'fade'" mode="out-in">
+      <component :is="Component" :key="r.path" />
     </Transition>
   </router-view>
+
+  <!-- Bottom Navigation (all user-facing pages) -->
+  <BottomNav v-if="showBottomNav" />
 </template>
 
 <style>

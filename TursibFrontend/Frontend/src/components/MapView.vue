@@ -2605,8 +2605,8 @@ const getStationETAs = (stationId: number) => {
   background: var(--bg-primary);
   border: none;
   border-radius: 8px;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2625,7 +2625,7 @@ const getStationETAs = (stationId: number) => {
   color: var(--text-primary);
 }
 
-/* Grup de butoane din dreapta sus */
+/* Grup de butoane din dreapta sus - grid 2 rânduri × 3 coloane */
 .top-right-buttons {
   position: fixed;
   top: 16px;
@@ -2640,8 +2640,8 @@ const getStationETAs = (stationId: number) => {
   background: var(--bg-primary);
   border: none;
   border-radius: 8px;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;

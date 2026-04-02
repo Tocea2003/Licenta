@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npm install:*)",
+      "Bash(dotnet build:*)",
+      "Bash(curl -s http://localhost:5022/api/stations)",
+      "Bash(curl -v http://localhost:5022/api/routes)",
+      "Bash(curl -s http://localhost:5022/api/routes)",
+      "Bash(grep -l \"BottomNav\" \"D:/Licenta/TursibFrontend/Frontend/src/views\"/*.vue)",
+      "Bash(sqlite3 /d/Licenta/.claude/worktrees/exciting-dubinsky/TursibBackend/TursibDb.db \".tables\")",
+      "Bash(wc -l /d/Licenta/.claude/worktrees/exciting-dubinsky/tursib.gtfs_2025-10-v1/*.txt)",
+      "Bash(ls -la /d/Licenta/.claude/worktrees/exciting-dubinsky/BusSimulator/*.csproj)",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); print\\(f''''Total stations: {len\\(data\\)}''''\\); print\\(''''First 5:'''', [\\(s[''''id''''],s[''''name'''']\\) for s in data[:5]]\\)\")",
+      "Bash(curl -s \"http://localhost:5022/api/stations/1051/schedule\")",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); print\\(f''''Schedule entries: {len\\(data\\)}''''\\); print\\(''''First 3:'''', json.dumps\\(data[:3], indent=2, ensure_ascii=False\\)\\)\")",
+      "Bash(taskkill /F /PID 2480 /PID 7160)",
+      "Bash(taskkill //F //PID 2480)",
+      "Bash(taskkill //F //PID 7160)"
+    ]
+  }
+}

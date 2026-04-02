@@ -53,8 +53,8 @@ const findMyLocation = () => {
 
 <style scoped>
 .location-button {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 8px;
   background: var(--bg-primary);
   border: none;
