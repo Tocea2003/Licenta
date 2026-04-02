@@ -14,8 +14,8 @@
     </button>
     
     <!-- Enhanced Search pentru stații și adrese -->
-    <EnhancedSearch 
-      v-if="showSidebar"
+    <EnhancedSearch
+      v-if="showSidebar || isMobile"
       :stations="allStations"
       :user-location="userLocation"
       :trip-mode="tripMode"
@@ -748,7 +748,8 @@ const selectedAlternative = ref<any | null>(null)
 const showTripHistory = ref(false)
 
 // State pentru afișarea/ascunderea sidebar-ului
-const showSidebar = ref(true)
+const isMobile = ref(window.innerWidth < 768)
+const showSidebar = ref(window.innerWidth >= 768)
 const tripMode = ref(false)
 
 
@@ -2329,6 +2330,7 @@ const handleRouteSearchRequested = async (
 defineExpose({
   centerMap,
   setTripMode,
+  setSidebarOpen: (open: boolean) => { showSidebar.value = open },
   invalidateSize: () => {
     // Forțează recalcularea dimensiunii hărții
     // map.value este componenta <l-map>, leafletObject este instanța Leaflet reală
@@ -2684,6 +2686,33 @@ const getStationETAs = (stationId: number) => {
 .action-btn.admin-btn:hover {
   background: #f5f3ff;
   color: #7c3aed;
+}
+
+/* Responsive mobile */
+@media (max-width: 767px) {
+  .sidebar-toggle-btn {
+    top: 10px;
+    left: 10px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .top-right-buttons {
+    top: 10px;
+    right: 10px;
+    grid-template-columns: repeat(3, 36px);
+    gap: 6px;
+  }
+
+  .action-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .action-btn svg {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 /* Trip plan markers - modern pin style */
