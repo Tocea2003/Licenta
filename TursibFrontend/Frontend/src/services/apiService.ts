@@ -1,16 +1,35 @@
 import axios from 'axios'
 
-// URL-ul backend-ului .NET (portul pe care rulează API-ul)
-// Folosește VITE_API_URL din .env sau localhost ca fallback
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5022/api'
 
-// Configurarea instanței axios
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  headers: { 'Content-Type': 'application/json' }
 })
+
+// Cache in-memory cu TTL pentru răspunsuri statice (routes, stations, shapes)
+const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minute
+const _cache = new Map<string, { data: unknown; expires: number }>()
+
+function getCached<T>(key: string): T | null {
+  const entry = _cache.get(key)
+  if (entry && Date.now() < entry.expires) return entry.data as T
+  _cache.delete(key)
+  return null
+}
+
+function setCached<T>(key: string, data: T, ttl = CACHE_TTL_MS): T {
+  _cache.set(key, { data, expires: Date.now() + ttl })
+  return data
+}
+
+/** Șterge cache-ul (util după operații de admin) */
+export function clearApiCache(prefix?: string) {
+  if (!prefix) { _cache.clear(); return }
+  for (const key of _cache.keys()) {
+    if (key.startsWith(prefix)) _cache.delete(key)
+  }
+}
 
 // Interfețe TypeScript pentru datele din API
 export interface Route {
@@ -59,81 +78,94 @@ export interface RouteShape {
   points: ShapePoint[]
 }
 
-// Serviciu API cu toate metodele pentru comunicare cu backend-ul
 export default {
   // ========== ROUTES ==========
-  
-  // GET /api/routes - Returnează toate traseele
+
   async getRoutes(): Promise<Route[]> {
-    const response = await apiClient.get<Route[]>('/routes')
-    return response.data
+    const cached = getCached<Route[]>('routes')
+    if (cached) return cached
+    const { data } = await apiClient.get<Route[]>('/routes')
+    return setCached('routes', data)
   },
 
-  // GET /api/routes/{id} - Returnează un traseu specific
   async getRoute(id: number): Promise<Route> {
-    const response = await apiClient.get<Route>(`/routes/${id}`)
-    return response.data
+    const key = `route_${id}`
+    const cached = getCached<Route>(key)
+    if (cached) return cached
+    const { data } = await apiClient.get<Route>(`/routes/${id}`)
+    return setCached(key, data)
   },
 
-  // GET /api/routes/{id}/stations - Returnează stațiile unui traseu (ORDONATE)
   async getRouteStations(routeId: number): Promise<Station[]> {
-    const response = await apiClient.get<Station[]>(`/routes/${routeId}/stations`)
-    return response.data
+    const key = `route_stations_${routeId}`
+    const cached = getCached<Station[]>(key)
+    if (cached) return cached
+    const { data } = await apiClient.get<Station[]>(`/routes/${routeId}/stations`)
+    return setCached(key, data)
   },
 
   // ========== STATIONS ==========
-  
-  // GET /api/stations - Returnează toate stațiile
+
   async getStations(): Promise<Station[]> {
-    const response = await apiClient.get<Station[]>('/stations')
-    return response.data
+    const cached = getCached<Station[]>('stations')
+    if (cached) return cached
+    const { data } = await apiClient.get<Station[]>('/stations')
+    return setCached('stations', data)
   },
 
-  // GET /api/stations/{id} - Returnează o stație specifică
   async getStation(id: number): Promise<Station> {
-    const response = await apiClient.get<Station>(`/stations/${id}`)
-    return response.data
+    const key = `station_${id}`
+    const cached = getCached<Station>(key)
+    if (cached) return cached
+    const { data } = await apiClient.get<Station>(`/stations/${id}`)
+    return setCached(key, data)
   },
 
-  // GET /api/stations/{id}/routes - Returnează traseele care trec prin stație
   async getStationRoutes(stationId: number): Promise<Route[]> {
-    const response = await apiClient.get<Route[]>(`/stations/${stationId}/routes`)
-    return response.data
+    const key = `station_routes_${stationId}`
+    const cached = getCached<Route[]>(key)
+    if (cached) return cached
+    const { data } = await apiClient.get<Route[]>(`/stations/${stationId}/routes`)
+    return setCached(key, data)
   },
 
-  // GET /api/stations/{id}/schedule - Returnează orarul stației din BD
   async getStationSchedule(stationId: number): Promise<StationScheduleEntry[]> {
-    const response = await apiClient.get<StationScheduleEntry[]>(`/stations/${stationId}/schedule`)
-    return response.data
+    const key = `station_schedule_${stationId}`
+    const cached = getCached<StationScheduleEntry[]>(key)
+    if (cached) return cached
+    const { data } = await apiClient.get<StationScheduleEntry[]>(`/stations/${stationId}/schedule`)
+    return setCached(key, data, 2 * 60 * 1000) // 2 min (mai dinamic)
   },
 
   // ========== BUSES ==========
-  
-  // GET /api/buses - Returnează toate autobuzele
+
   async getBuses(): Promise<Bus[]> {
-    const response = await apiClient.get<Bus[]>('/buses')
-    return response.data
+    const { data } = await apiClient.get<Bus[]>('/buses')
+    return data // nu se cachează - date live
   },
 
-  // GET /api/buses/{id} - Returnează un autobuz specific
   async getBus(id: number): Promise<Bus> {
-    const response = await apiClient.get<Bus>(`/buses/${id}`)
-    return response.data
+    const { data } = await apiClient.get<Bus>(`/buses/${id}`)
+    return data
   },
 
   // ========== SHAPES (GTFS) ==========
-  
-  // GET /api/shapes/route/{routeId} - Returnează shape-ul (traseul exact pe străzi) pentru un traseu
+
   async getRouteShape(routeId: number): Promise<RouteShape> {
-    const response = await apiClient.get<RouteShape>(`/shapes/route/${routeId}`)
-    return response.data
+    const key = `shape_${routeId}`
+    const cached = getCached<RouteShape>(key)
+    if (cached) return cached
+    const { data } = await apiClient.get<RouteShape>(`/shapes/route/${routeId}`)
+    return setCached(key, data, 30 * 60 * 1000) // 30 min - shapes nu se schimbă
   },
 
-  // GET /api/shapes/route/{routeId}/segment - Returnează segmentul de traseu între două stații
   async getRouteSegment(routeId: number, fromStationId: number, toStationId: number): Promise<RouteShape> {
-    const response = await apiClient.get<RouteShape>(
+    const key = `segment_${routeId}_${fromStationId}_${toStationId}`
+    const cached = getCached<RouteShape>(key)
+    if (cached) return cached
+    const { data } = await apiClient.get<RouteShape>(
       `/shapes/route/${routeId}/segment?fromStationId=${fromStationId}&toStationId=${toStationId}`
     )
-    return response.data
+    return setCached(key, data, 30 * 60 * 1000)
   }
 }

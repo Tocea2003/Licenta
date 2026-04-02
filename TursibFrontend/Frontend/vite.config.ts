@@ -21,6 +21,9 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
+    target: 'es2020',
+    minify: 'esbuild',
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: {

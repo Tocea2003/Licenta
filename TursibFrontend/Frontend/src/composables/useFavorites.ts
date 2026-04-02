@@ -40,53 +40,48 @@ favoritesApi.interceptors.request.use(
 const favorites = ref<FavoriteLocation[]>([])
 let isInitialized = false
 
-// Verifică dacă utilizatorul este autentificat
+// Cache pentru validarea token-ului (evită parsarea JWT la fiecare operație)
+let _tokenValidUntil = 0
+let _lastCheckedToken = ''
+
+const clearToken = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+  _tokenValidUntil = 0
+  _lastCheckedToken = ''
+}
+
+// Verifică dacă utilizatorul este autentificat (cu cache)
 const isAuthenticated = () => {
   const token = localStorage.getItem('token')
-  if (!token) {
-    console.log('🔍 No token found in localStorage')
-    return false
-  }
-  
-  console.log('🔍 Token found, validating...')
-  
-  // Verifică dacă token-ul este valid (nu expirat)
+  if (!token) return false
+
+  const now = Date.now()
+
+  // Rezultat din cache dacă același token și nu a expirat
+  if (token === _lastCheckedToken && now < _tokenValidUntil) return true
+
   try {
-    const tokenParts = token.split('.')
-    if (tokenParts.length !== 3) {
-      console.warn('⚠️ Invalid token format, clearing')
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+    const parts = token.split('.')
+    if (parts.length !== 3 || !parts[1]) {
+      clearToken()
       return false
     }
-    
-    const tokenPayload = tokenParts[1]
-    if (!tokenPayload) {
-      console.warn('⚠️ Invalid token format, clearing')
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      return false
-    }
-    
-    const payload = JSON.parse(atob(tokenPayload))
-    console.log('🔍 Token payload:', payload)
-    
-    const exp = payload.exp * 1000 // Convert to milliseconds
-    const now = Date.now()
-    
+
+    const payload = JSON.parse(atob(parts[1]))
+    const exp = payload.exp * 1000
+
     if (now >= exp) {
-      console.warn('⚠️ Token expired at', new Date(exp), 'current time:', new Date(now))
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      clearToken()
       return false
     }
-    
-    console.log('✅ Token is valid')
+
+    // Cachează rezultatul până la expirarea token-ului
+    _lastCheckedToken = token
+    _tokenValidUntil = exp
     return true
-  } catch (error) {
-    console.warn('⚠️ Error validating token, clearing:', error)
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+  } catch {
+    clearToken()
     return false
   }
 }
@@ -287,6 +282,7 @@ export const useFavorites = () => {
   const refreshFavorites = async (): Promise<void> => {
     isInitialized = false
     favorites.value = []
+    _tokenValidUntil = 0 // forțează re-validare token
     await loadFavorites()
     isInitialized = true
   }

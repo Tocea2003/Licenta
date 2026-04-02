@@ -238,61 +238,53 @@ const filteredStations = computed(() => {
   return filtered
 })
 
-// Geocoding API (Nominatim - OpenStreetMap)
+// Cache pentru rezultatele Nominatim (evită cereri duplicate pentru același query)
+const _geocodeCache = new Map<string, GeocodeResult[]>()
+
+// Geocoding API (Nominatim - OpenStreetMap) - funcție comună reutilizabilă
+const fetchGeocode = async (query: string): Promise<GeocodeResult[]> => {
+  const cacheKey = query.toLowerCase().trim()
+  if (_geocodeCache.has(cacheKey)) return _geocodeCache.get(cacheKey)!
+
+  const params = new URLSearchParams({
+    format: 'json',
+    q: `${query}, Sibiu, Romania`,
+    limit: '5',
+    addressdetails: '1',
+    extratags: '1',
+    namedetails: '1',
+    'accept-language': 'ro'
+  })
+
+  const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`)
+  const data = await response.json()
+
+  const results = data.filter((result: any) => {
+    if (result.boundingbox) {
+      const bbox = result.boundingbox.map((c: string) => parseFloat(c))
+      if (Math.abs(bbox[1] - bbox[0]) > 0.01 || Math.abs(bbox[3] - bbox[2]) > 0.01) return false
+    }
+    return true
+  })
+
+  _geocodeCache.set(cacheKey, results)
+  return results
+}
+
+// Geocoding pentru câmpul de destinație
 const searchAddress = async (query: string) => {
   if (query.length < 3) {
     geocodeResults.value = []
     return
   }
-  
+
   isSearching.value = true
-  
+
   try {
-    // Adaugă "Sibiu, Romania" pentru context local
-    const searchQuery = `${query}, Sibiu, Romania`
-    
-    // Parametri îmbunătățiți pentru Nominatim:
-    // - addressdetails=1: include detalii complete adresă
-    // - extratags=1: include tag-uri suplimentare OSM
-    // - namedetails=1: include variante ale numelui
-    const params = new URLSearchParams({
-      format: 'json',
-      q: searchQuery,
-      limit: '5',
-      addressdetails: '1',
-      extratags: '1',
-      namedetails: '1',
-      'accept-language': 'ro' // Preferință pentru limba română
-    })
-    
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?${params.toString()}`
-    )
-    const data = await response.json()
-    
-    // Filtrează rezultatele pentru a exclude cele prea imprecise
-    geocodeResults.value = data.filter((result: any) => {
-      // Exclude rezultate cu bbox (bounding box) prea mare
-      // care indică o zonă largă, nu o adresă precisă
-      if (result.boundingbox) {
-        const bbox = result.boundingbox.map((coord: string) => parseFloat(coord))
-        const latDiff = Math.abs(bbox[1] - bbox[0])
-        const lonDiff = Math.abs(bbox[3] - bbox[2])
-        
-        // Dacă bbox-ul este mai mare de 0.01 grade (~1km), exclude
-        if (latDiff > 0.01 || lonDiff > 0.01) {
-          console.log('⚠️ Exclude rezultat imprecis:', result.display_name)
-          return false
-        }
-      }
-      return true
-    })
-    
-    console.log(`🔍 Găsite ${geocodeResults.value.length} rezultate precise pentru "${query}"`)
+    geocodeResults.value = await fetchGeocode(query)
   } catch (error) {
-    // Ignoră erorile de rețea temporare (network changed, fetch failed)
-    if (error instanceof TypeError && (error.message.includes('fetch') || error.message.includes('network'))) {
-      console.warn('⚠️ Eroare temporară de rețea la geocoding - se va reîncerca automat')
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.warn('⚠️ Eroare temporară de rețea la geocoding')
     } else {
       console.error('❌ Eroare la geocoding:', error)
     }
@@ -333,42 +325,16 @@ const handleOriginSearch = () => {
     .filter(s => s.name.toLowerCase().includes(query))
     .slice(0, 5)
   
-  // Geocode addresses with debounce
-  if (originSearchTimeout) {
-    clearTimeout(originSearchTimeout)
-  }
+  // Geocode addresses with debounce - reutilizează fetchGeocode cu cache
+  if (originSearchTimeout) clearTimeout(originSearchTimeout)
   originSearchTimeout = setTimeout(async () => {
     if (originQuery.value.length < 3) {
       geocodeOriginResults.value = []
       return
     }
-    
     try {
-      const searchQuery = `${originQuery.value}, Sibiu, Romania`
-      const params = new URLSearchParams({
-        format: 'json',
-        q: searchQuery,
-        limit: '5',
-        addressdetails: '1',
-        'accept-language': 'ro'
-      })
-      
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?${params.toString()}`
-      )
-      const data = await response.json()
-      
-      geocodeOriginResults.value = data.filter((result: any) => {
-        if (result.boundingbox) {
-          const bbox = result.boundingbox.map((coord: string) => parseFloat(coord))
-          const latDiff = Math.abs(bbox[1] - bbox[0])
-          const lonDiff = Math.abs(bbox[3] - bbox[2])
-          if (latDiff > 0.01 || lonDiff > 0.01) return false
-        }
-        return true
-      })
-    } catch (error) {
-      console.error('Geocoding error:', error)
+      geocodeOriginResults.value = await fetchGeocode(originQuery.value)
+    } catch {
       geocodeOriginResults.value = []
     }
   }, 500)

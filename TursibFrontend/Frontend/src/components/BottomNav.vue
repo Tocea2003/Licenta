@@ -54,13 +54,10 @@
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
-import { computed } from 'vue'
 
 const route = useRoute()
 
-const isActive = (path: string) => {
-  return computed(() => route.path === path)
-}
+const isActive = (path: string) => route.path === path
 </script>
 
 <style scoped>

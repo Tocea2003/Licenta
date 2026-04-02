@@ -38,6 +38,32 @@ app.mount('#app')
 // Export database pentru a fi folosit în componente
 export { database }
 
+// Banner non-blocant pentru actualizări SW
+function showUpdateBanner(worker: ServiceWorker) {
+  const banner = document.createElement('div')
+  banner.id = 'sw-update-banner'
+  banner.innerHTML = `
+    <span>🔄 Versiune nouă disponibilă!</span>
+    <button id="sw-update-btn" style="margin-left:12px;padding:4px 12px;border-radius:6px;border:none;background:#3b82f6;color:#fff;cursor:pointer;font-size:13px">Actualizează</button>
+    <button id="sw-dismiss-btn" style="margin-left:6px;padding:4px 8px;border-radius:6px;border:none;background:transparent;color:inherit;cursor:pointer;font-size:13px">×</button>
+  `
+  Object.assign(banner.style, {
+    position: 'fixed', bottom: '72px', left: '50%', transform: 'translateX(-50%)',
+    background: 'var(--bg-secondary,#1e293b)', color: 'var(--text-primary,#f8fafc)',
+    padding: '10px 16px', borderRadius: '10px', boxShadow: '0 4px 16px rgba(0,0,0,.3)',
+    zIndex: '9999', display: 'flex', alignItems: 'center', fontSize: '14px',
+    border: '1px solid var(--border-color,#334155)'
+  })
+  document.body.appendChild(banner)
+
+  document.getElementById('sw-update-btn')?.addEventListener('click', () => {
+    worker.postMessage({ type: 'SKIP_WAITING' })
+    banner.remove()
+    window.location.reload()
+  })
+  document.getElementById('sw-dismiss-btn')?.addEventListener('click', () => banner.remove())
+}
+
 // Handle unhandled promise rejections (especially from vue-leaflet)
 window.addEventListener('unhandledrejection', (event) => {
   // Suppress undefined promise rejections from vue-leaflet
@@ -65,19 +91,14 @@ if ('serviceWorker' in navigator) {
           }, 60000)
         }
         
-        // Listen for updates
+        // Listen for updates - banner non-blocant în loc de confirm()
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing
-          
+
           newWorker?.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               console.log('🔄 New version available! Refresh to update.')
-              
-              // Optionally show a notification to user
-              if (confirm('O versiune nouă este disponibilă! Reîmprospătați pagina?')) {
-                newWorker.postMessage({ type: 'SKIP_WAITING' })
-                window.location.reload()
-              }
+              showUpdateBanner(newWorker)
             }
           })
         })
