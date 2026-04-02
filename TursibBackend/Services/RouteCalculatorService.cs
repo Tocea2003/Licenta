@@ -1,6 +1,7 @@
 using TursibBackend.Data;
 using TursibBackend.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using RouteModel = TursibBackend.Models.Route;
 
 namespace TursibBackend.Services
@@ -12,15 +13,27 @@ namespace TursibBackend.Services
     public class RouteCalculatorService
     {
         private readonly ApplicationDbContext _context;
-        private const double WALKING_SPEED_KM_PER_HOUR = 5.0; // Viteza medie de mers pe jos
-        private const double MAX_WALKING_DISTANCE_KM = 0.5; // Distanța maximă pentru walking (500m)
-        private const int TRANSFER_PENALTY_MINUTES = 5; // Penalitate pentru fiecare transfer
-        private const int AVG_BUS_SPEED_KM_PER_HOUR = 25; // Viteza medie autobuz în oraș
-        private const int STATION_STOP_TIME_MINUTES = 1; // Timp de oprire la fiecare stație
+        private readonly IMemoryCache _cache;
+        private const string GRAPH_CACHE_KEY = "transport_graph";
+        private const int GRAPH_CACHE_MINUTES = 30;
+        private const double WALKING_SPEED_KM_PER_HOUR = 5.0;
+        private const double MAX_WALKING_DISTANCE_KM = 0.5;
+        private const int TRANSFER_PENALTY_MINUTES = 5;
+        private const int AVG_BUS_SPEED_KM_PER_HOUR = 25;
+        private const int STATION_STOP_TIME_MINUTES = 1;
 
-        public RouteCalculatorService(ApplicationDbContext context)
+        public RouteCalculatorService(ApplicationDbContext context, IMemoryCache cache)
         {
             _context = context;
+            _cache = cache;
+        }
+
+        /// <summary>
+        /// Invalidează cache-ul grafului (apelat după modificări de rute/stații).
+        /// </summary>
+        public void InvalidateGraphCache()
+        {
+            _cache.Remove(GRAPH_CACHE_KEY);
         }
 
         #region Public API Methods
@@ -42,59 +55,50 @@ namespace TursibBackend.Services
         /// cu diferite penalități pentru a obține diversitate în rezultate.
         /// </summary>
         public async Task<List<CalculatedRoute>> CalculateAlternativeRoutes(
-            int startStationId, 
+            int startStationId,
             int endStationId,
             DateTime? departureTime = null)
         {
-            var departure = departureTime ?? DateTime.Now;
             var alternativeRoutes = new List<CalculatedRoute>();
 
-            // Încarcă datele necesare
-            var allRoutes = await _context.Routes
-                .Include(r => r.RouteStations)
-                .ThenInclude(rs => rs.Station)
-                .ToListAsync();
+            // Obține graful din cache sau construiește-l
+            var (graph, allRoutes) = await GetOrBuildGraphAsync();
 
-            var allStations = await _context.Stations.ToListAsync();
-
-            if (allRoutes.Count == 0 || allStations.Count == 0)
+            if (graph == null || allRoutes.Count == 0)
             {
                 return alternativeRoutes;
             }
 
-            // Construiește graful de transport
-            var graph = BuildTransportGraph(allRoutes, allStations);
-
             // 1. Ruta optimă (minimizare timp total)
-            var optimalPath = DijkstraSearch(graph, startStationId, endStationId, 
+            var optimalPath = DijkstraSearch(graph, startStationId, endStationId,
                 transferPenalty: TRANSFER_PENALTY_MINUTES);
             if (optimalPath != null)
             {
-                var route = BuildCalculatedRoute(optimalPath, allRoutes, allStations);
+                var route = BuildCalculatedRoute(optimalPath, allRoutes);
                 route.RouteRank = 1;
                 route.RouteCategory = "Cea mai rapidă";
                 alternativeRoutes.Add(route);
             }
 
             // 2. Ruta cu penalitate mare pentru transferuri (favorează direct)
-            var directPath = DijkstraSearch(graph, startStationId, endStationId, 
+            var directPath = DijkstraSearch(graph, startStationId, endStationId,
                 transferPenalty: TRANSFER_PENALTY_MINUTES * 3);
             if (directPath != null && !PathsAreEquivalent(optimalPath, directPath))
             {
-                var route = BuildCalculatedRoute(directPath, allRoutes, allStations);
+                var route = BuildCalculatedRoute(directPath, allRoutes);
                 route.RouteRank = 2;
                 route.RouteCategory = "Mai puține transferuri";
                 alternativeRoutes.Add(route);
             }
 
             // 3. Ruta cu penalitate mică pentru walking (permite mai mult walking)
-            var walkingPath = DijkstraSearch(graph, startStationId, endStationId, 
-                transferPenalty: TRANSFER_PENALTY_MINUTES, 
+            var walkingPath = DijkstraSearch(graph, startStationId, endStationId,
+                transferPenalty: TRANSFER_PENALTY_MINUTES,
                 maxWalkingDistance: MAX_WALKING_DISTANCE_KM * 1.5);
-            if (walkingPath != null && !PathsAreEquivalent(optimalPath, walkingPath) 
+            if (walkingPath != null && !PathsAreEquivalent(optimalPath, walkingPath)
                 && !PathsAreEquivalent(directPath, walkingPath))
             {
-                var route = BuildCalculatedRoute(walkingPath, allRoutes, allStations);
+                var route = BuildCalculatedRoute(walkingPath, allRoutes);
                 route.RouteRank = 3;
                 route.RouteCategory = "Rută alternativă";
                 alternativeRoutes.Add(route);
@@ -247,6 +251,35 @@ namespace TursibBackend.Services
         #region Graph Construction
 
         /// <summary>
+        /// Returnează graful din cache sau îl construiește dacă nu există.
+        /// </summary>
+        private async Task<(TransportGraph? graph, List<RouteModel> routes)> GetOrBuildGraphAsync()
+        {
+            if (_cache.TryGetValue(GRAPH_CACHE_KEY, out (TransportGraph graph, List<RouteModel> routes) cached))
+            {
+                return cached;
+            }
+
+            var allRoutes = await _context.Routes
+                .Include(r => r.RouteStations)
+                .ThenInclude(rs => rs.Station)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var allStations = await _context.Stations
+                .AsNoTracking()
+                .ToListAsync();
+
+            if (allRoutes.Count == 0 || allStations.Count == 0)
+                return (null, allRoutes);
+
+            var graph = BuildTransportGraph(allRoutes, allStations);
+            _cache.Set(GRAPH_CACHE_KEY, (graph, allRoutes), TimeSpan.FromMinutes(GRAPH_CACHE_MINUTES));
+
+            return (graph, allRoutes);
+        }
+
+        /// <summary>
         /// Construiește graful de transport din datele despre rute și stații.
         /// Graful include muchii pentru:
         /// - Călătorii pe același traseu de autobuz
@@ -268,28 +301,23 @@ namespace TursibBackend.Services
                 };
             }
 
-            // 2. Adaugă muchii pentru fiecare traseu de autobuz
+            // 2. Adaugă muchii de autobuz pentru fiecare traseu
             foreach (var route in routes)
             {
                 var routeStations = route.RouteStations
                     .OrderBy(rs => rs.Order)
                     .ToList();
 
-                // Pentru fiecare pereche consecutivă de stații pe traseu
                 for (int i = 0; i < routeStations.Count - 1; i++)
                 {
                     var fromStation = routeStations[i].Station!;
                     var toStation = routeStations[i + 1].Station!;
 
-                    // Calculează distanța fizică
                     var distance = CalculateDistance(
                         fromStation.Latitude, fromStation.Longitude,
                         toStation.Latitude, toStation.Longitude);
-
-                    // Calculează timpul de călătorie
                     var travelTime = (distance / AVG_BUS_SPEED_KM_PER_HOUR) * 60 + STATION_STOP_TIME_MINUTES;
 
-                    // Adaugă muchie
                     graph.Nodes[fromStation.Id].Edges.Add(new GraphEdge
                     {
                         FromStationId = fromStation.Id,
@@ -301,37 +329,54 @@ namespace TursibBackend.Services
                         Type = EdgeType.Bus
                     });
                 }
+            }
 
-                // 3. Adaugă muchii pentru transferuri la aceeași stație
-                // Dacă o stație apare pe multiple trasee, poți transfera între ele
-                var stationGroups = routeStations.GroupBy(rs => rs.StationId);
-                foreach (var group in stationGroups.Where(g => g.Count() > 1))
+            // 3. Adaugă muchii de transfer la stațiile unde se intersectează mai multe trasee
+            // Construiește un index: stationId -> lista de trasee care trec prin ea
+            var stationToRoutes = new Dictionary<int, List<RouteModel>>();
+            foreach (var route in routes)
+            {
+                foreach (var rs in route.RouteStations)
                 {
-                    var stationId = group.Key;
-                    var routesAtStation = group.Select(rs => rs.RouteId).Distinct().ToList();
-
-                    foreach (var otherRoute in routes.Where(r => r.Id != route.Id))
+                    if (!stationToRoutes.TryGetValue(rs.StationId, out var list))
                     {
-                        var hasStation = otherRoute.RouteStations.Any(rs => rs.StationId == stationId);
-                        if (hasStation)
+                        list = new List<RouteModel>();
+                        stationToRoutes[rs.StationId] = list;
+                    }
+                    list.Add(route);
+                }
+            }
+
+            // Adaugă o muchie de transfer pentru fiecare pereche (routeA, routeB) la aceeași stație
+            foreach (var (stationId, routesAtStation) in stationToRoutes)
+            {
+                if (routesAtStation.Count < 2 || !graph.Nodes.ContainsKey(stationId))
+                    continue;
+
+                var addedTransfers = new HashSet<(int, int)>();
+                foreach (var routeA in routesAtStation)
+                {
+                    foreach (var routeB in routesAtStation)
+                    {
+                        if (routeA.Id == routeB.Id) continue;
+                        var key = (Math.Min(routeA.Id, routeB.Id), Math.Max(routeA.Id, routeB.Id));
+                        if (!addedTransfers.Add(key)) continue;
+
+                        graph.Nodes[stationId].Edges.Add(new GraphEdge
                         {
-                            // Adaugă muchie de transfer (cost = timp așteptare)
-                            graph.Nodes[stationId].Edges.Add(new GraphEdge
-                            {
-                                FromStationId = stationId,
-                                ToStationId = stationId, // Aceeași stație, dar alt traseu
-                                RouteId = otherRoute.Id,
-                                RouteNumber = otherRoute.RouteNumber,
-                                Distance = 0,
-                                TravelTime = TRANSFER_PENALTY_MINUTES,
-                                Type = EdgeType.Transfer
-                            });
-                        }
+                            FromStationId = stationId,
+                            ToStationId = stationId,
+                            RouteId = routeB.Id,
+                            RouteNumber = routeB.RouteNumber,
+                            Distance = 0,
+                            TravelTime = TRANSFER_PENALTY_MINUTES,
+                            Type = EdgeType.Transfer
+                        });
                     }
                 }
             }
 
-            // 4. Adaugă muchii pentru walking între stații apropiate
+            // 4. Adaugă muchii de walking între stații apropiate
             AddWalkingEdges(graph, stations);
 
             return graph;
@@ -391,9 +436,8 @@ namespace TursibBackend.Services
         /// Grupează nodurile consecutive pe același traseu în segmente.
         /// </summary>
         private CalculatedRoute BuildCalculatedRoute(
-            List<GraphNode> path, 
-            List<RouteModel> allRoutes, 
-            List<Station> allStations)
+            List<GraphNode> path,
+            List<RouteModel> allRoutes)
         {
             var segments = new List<RouteSegment>();
             var totalDuration = 0.0;

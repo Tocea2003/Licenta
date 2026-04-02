@@ -1,4 +1,3 @@
-// Controllers/StationsController.cs
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -6,6 +5,7 @@ using TursibBackend.Data;
 using TursibBackend.Models;
 using System.Diagnostics;
 using Microsoft.Data.Sqlite;
+using RouteModel = TursibBackend.Models.Route;
 
 namespace TursibBackend.Controllers
 {
@@ -94,12 +94,12 @@ namespace TursibBackend.Controllers
         // GET: api/stations/5/routes
         // Returnează traseele care trec prin stație, verificate direct din BD
         [HttpGet("{id}/routes")]
-        public async Task<ActionResult<IEnumerable<Route>>> GetStationRoutes(int id)
+        public async Task<ActionResult<IEnumerable<RouteModel>>> GetStationRoutes(int id)
         {
             var stopwatch = Stopwatch.StartNew();
             var cacheKey = $"station_{id}_routes";
 
-            if (_cache.TryGetValue(cacheKey, out List<Route>? cachedRoutes))
+            if (_cache.TryGetValue(cacheKey, out List<RouteModel>? cachedRoutes))
             {
                 stopwatch.Stop();
                 _logger.LogInformation("✅ Cache HIT for station {StationId} routes - Response time: {ElapsedMs}ms", id, stopwatch.ElapsedMilliseconds);
@@ -161,7 +161,7 @@ namespace TursibBackend.Controllers
             {
                 await conn.OpenAsync();
                 var sql = @"
-                    SELECT 
+                    SELECT
                         r.Id AS RouteId,
                         r.RouteNumber,
                         r.Name AS RouteName,
@@ -174,7 +174,8 @@ namespace TursibBackend.Controllers
                     JOIN Trips t ON st.TripId = t.TripId
                     JOIN Routes r ON t.RouteId = r.Id
                     WHERE st.StopId = @StopId
-                    ORDER BY r.RouteNumber, t.DirectionId, st.DepartureTime";
+                    ORDER BY r.RouteNumber, t.DirectionId, st.DepartureTime
+                    LIMIT 300";
 
                 using (var cmd = conn.CreateCommand())
                 {

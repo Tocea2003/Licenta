@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TursibBackend.Data;
@@ -8,6 +9,7 @@ namespace TursibBackend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class FavoritesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -17,11 +19,13 @@ namespace TursibBackend.Controllers
             _context = context;
         }
 
+        private string? GetCurrentUsername() => User.Identity?.Name;
+
         // GET: api/Favorites
         [HttpGet]
         public async Task<ActionResult<List<FavoriteLocation>>> GetFavorites()
         {
-            var username = GetUsernameFromToken();
+            var username = GetCurrentUsername();
             if (string.IsNullOrEmpty(username))
             {
                 return Unauthorized(new { message = "Invalid or missing token" });
@@ -53,7 +57,7 @@ namespace TursibBackend.Controllers
         [HttpPost]
         public async Task<ActionResult<FavoriteLocation>> AddFavorite([FromBody] FavoriteLocation favorite)
         {
-            var username = GetUsernameFromToken();
+            var username = GetCurrentUsername();
             if (string.IsNullOrEmpty(username))
             {
                 return Unauthorized(new { message = "Invalid or missing token" });
@@ -111,7 +115,7 @@ namespace TursibBackend.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteFavorite(string id)
         {
-            var username = GetUsernameFromToken();
+            var username = GetCurrentUsername();
             if (string.IsNullOrEmpty(username))
             {
                 return Unauthorized(new { message = "Invalid or missing token" });
@@ -157,7 +161,7 @@ namespace TursibBackend.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateFavorite(string id, [FromBody] FavoriteLocation updatedFavorite)
         {
-            var username = GetUsernameFromToken();
+            var username = GetCurrentUsername();
             if (string.IsNullOrEmpty(username))
             {
                 return Unauthorized(new { message = "Invalid or missing token" });
@@ -208,7 +212,7 @@ namespace TursibBackend.Controllers
         [HttpDelete]
         public async Task<IActionResult> ClearFavorites()
         {
-            var username = GetUsernameFromToken();
+            var username = GetCurrentUsername();
             if (string.IsNullOrEmpty(username))
             {
                 return Unauthorized(new { message = "Invalid or missing token" });
@@ -226,33 +230,5 @@ namespace TursibBackend.Controllers
             return NoContent();
         }
 
-        // Helper method to get username from Authorization header
-        private string? GetUsernameFromToken()
-        {
-            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
-            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
-            {
-                return null;
-            }
-
-            var token = authHeader.Substring("Bearer ".Length).Trim();
-
-            try
-            {
-                var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-                var jwtToken = handler.ReadJwtToken(token);
-                
-                // ClaimTypes.Name se mapează la "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"
-                var usernameClaim = jwtToken.Claims.FirstOrDefault(c => 
-                    c.Type == System.Security.Claims.ClaimTypes.Name || 
-                    c.Type == "unique_name" ||
-                    c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name");
-                return usernameClaim?.Value;
-            }
-            catch
-            {
-                return null;
-            }
-        }
     }
 }
