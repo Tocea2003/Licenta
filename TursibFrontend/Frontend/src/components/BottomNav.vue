@@ -154,6 +154,23 @@ const isActive = (path: string) => route.path === path
   }
 }
 
+/* Mobil mic - reduce padding și ajustează textul */
+@media (max-width: 479px) {
+  .nav-item {
+    padding: 8px 4px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .nav-item span {
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 70px;
+  }
+}
+
 /* Animație pentru tab switch */
 .nav-item {
   animation: fadeIn 0.3s ease;

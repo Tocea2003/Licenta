@@ -167,5 +167,16 @@ export default {
       `/shapes/route/${routeId}/segment?fromStationId=${fromStationId}&toStationId=${toStationId}`
     )
     return setCached(key, data, 30 * 60 * 1000)
+  },
+
+  // ========== ROUTING ==========
+
+  async getRouteAlternatives(startStationId: number, endStationId: number, departureTime?: string): Promise<any[]> {
+    const { data } = await apiClient.post<any[]>('/routing/alternatives', {
+      startStationId,
+      endStationId,
+      departureTime: departureTime ?? null
+    })
+    return data // nu se cachează - depinde de timp
   }
 }
