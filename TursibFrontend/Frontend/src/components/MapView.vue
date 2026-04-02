@@ -319,18 +319,18 @@
         :opacity="0.7"
       />
       
-      <!-- Linia VERDE - traseul complet al primului autobuz -->
+      <!-- Linia VERDE - traseul complet al primului autobuz (doar dacă nu e mod plan) -->
       <l-polyline
-        v-if="completeBusRoute1.length > 0"
+        v-if="completeBusRoute1.length > 0 && !showMultimodal && !showTransfer"
         :lat-lngs="completeBusRoute1"
         color="#10b981"
         :weight="4"
         :opacity="0.6"
       />
-      
-      <!-- Linia ALBASTRĂ - traseul complet al celui de-al doilea autobuz (dacă e transfer) -->
+
+      <!-- Linia ALBASTRĂ - traseul complet al celui de-al doilea autobuz (doar dacă nu e mod plan) -->
       <l-polyline
-        v-if="completeBusRoute2.length > 0"
+        v-if="completeBusRoute2.length > 0 && !showMultimodal && !showTransfer"
         :lat-lngs="completeBusRoute2"
         color="#3b82f6"
         :weight="4"
@@ -1682,15 +1682,9 @@ const handleAlternativeRouteSelected = async (route: any) => {
         ...actualSecondWalkingPath.value
       ]
       
-      // Încarcă traseul COMPLET al autobuzului pentru afișare în VERDE
-      try {
-        const shapeData = await apiService.getRouteShape(foundRoute.id)
-        if (shapeData && shapeData.points && shapeData.points.length > 0) {
-          completeBusRoute1.value = shapeData.points.map((p: any) => [p.latitude, p.longitude] as [number, number])
-        }
-      } catch (e) {
-      }
-      
+      // Setăm segmentul de autobuz (doar între stațiile de urcare și coborâre)
+      walkingPath.value = busPart
+
       // Afișăm panelul cu detalii
       multimodalData.value = {
         startLocation: 'Locația ta',
@@ -1814,23 +1808,10 @@ const handleAlternativeRouteSelected = async (route: any) => {
         ...actualSecondWalkingPath.value
       ]
       
-      // Încarcă traseele COMPLETE pentru ambele autobuze
-      try {
-        const shapes1 = await apiService.getRouteShape(route1.id)
-        if (shapes1 && shapes1.points && shapes1.points.length > 0) {
-          completeBusRoute1.value = shapes1.points.map((p: any) => [p.latitude, p.longitude] as [number, number])
-        }
-      } catch (e) {
-      }
-      
-      try {
-        const shapes2 = await apiService.getRouteShape(route2.id)
-        if (shapes2 && shapes2.points && shapes2.points.length > 0) {
-          completeBusRoute2.value = shapes2.points.map((p: any) => [p.latitude, p.longitude] as [number, number])
-        }
-      } catch (e) {
-      }
-      
+      // Setăm segmentele de autobuz (doar între stațiile relevante)
+      walkingPath.value = busPart1
+      secondWalkingPath.value = busPart2
+
       // Afișăm panelul de transfer
       transferData.value = {
         startName: 'Locația ta',
