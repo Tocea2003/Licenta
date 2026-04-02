@@ -8,7 +8,7 @@ import type { PlanResult } from '../components/Sidebar.vue'
 const selectedStations = ref<Station[]>([])
 const selectedRouteId = ref<number | null>(null)
 const allStations = ref<Station[]>([])
-const sidebarVisible = ref(true)
+const sidebarVisible = ref(window.innerWidth >= 768)
 const activeTripPlan = ref<PlanResult | null>(null)
 const mapRef = ref<any>(null)
 
@@ -44,6 +44,13 @@ const handlePlanSelected = (plan: PlanResult) => {
 // Handler pentru toggle sidebar
 const handleSidebarToggle = (visible: boolean) => {
   sidebarVisible.value = visible
+}
+
+const closeSidebarOnMobile = () => {
+  if (window.innerWidth < 768) {
+    sidebarVisible.value = false
+    mapRef.value?.setSidebarOpen(false)
+  }
 }
 
 // Watch pentru schimbări în vizibilitatea sidebar-ului
@@ -85,15 +92,22 @@ onMounted(() => {
 
 <template>
   <div class="app-container">
-    <!-- Sidebar cu trasee și stații - mereu vizibil -->
+    <!-- Overlay pentru închiderea sidebar-ului pe mobile -->
+    <div
+      v-if="sidebarVisible"
+      class="mobile-overlay"
+      @click="closeSidebarOnMobile"
+    />
+
+    <!-- Sidebar cu trasee și stații -->
     <Sidebar
       class="sidebar"
-      :class="{ 'sidebar-hidden': !sidebarVisible }"
+      :class="{ 'sidebar-hidden': !sidebarVisible, 'sidebar-visible': sidebarVisible }"
       :all-stations="allStations"
       @route-selected="handleRouteSelected"
       @plan-selected="handlePlanSelected"
     />
-    
+
     <!-- Harta ocupă restul ecranului -->
     <div class="map-wrapper">
       <MapView
@@ -139,6 +153,11 @@ onMounted(() => {
   overflow: hidden;
 }
 
+/* Overlay - ascuns pe desktop */
+.mobile-overlay {
+  display: none;
+}
+
 /* Map Wrapper */
 .map-wrapper {
   flex: 1;
@@ -156,7 +175,7 @@ onMounted(() => {
 }
 
 /* Mobile styles - ascunde sidebar, afișează bottom nav */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .sidebar {
     position: fixed;
     left: 0;
@@ -189,22 +208,24 @@ onMounted(() => {
     padding-bottom: env(safe-area-inset-bottom, 70px);
     padding-bottom: max(70px, calc(70px + env(safe-area-inset-bottom)));
   }
-
-  /* Overlay when sidebar is open on mobile */
-  .app-container::before {
-    content: '';
+  
+  /* Overlay când sidebar e deschis pe mobile */
+  .mobile-overlay {
+    display: block;
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
-    z-index: 1000;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
+    z-index: 1150;
+    animation: fadeIn 0.3s ease;
   }
 
-  .app-container:has(.sidebar.sidebar-visible)::before {
-    opacity: 1;
-    pointer-events: auto;
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .sidebar {
+    z-index: 1200;
   }
 }
 </style>

@@ -15,6 +15,7 @@
     
     <!-- Enhanced Search pentru stații și adrese -->
     <EnhancedSearch
+      v-if="showSidebar || isMobile"
       :stations="allStations"
       :user-location="userLocation"
       :trip-mode="tripMode"
@@ -284,27 +285,6 @@
         </l-popup>
       </l-marker>
 
-      <!-- Marker ROȘU pentru stația de transfer (schimbare autobuz) -->
-      <l-marker
-        v-if="showTransfer && transferData.transferStation"
-        :lat-lng="[transferData.transferStation.latitude, transferData.transferStation.longitude]"
-      >
-        <l-icon
-          :icon-size="[50, 50]"
-          :icon-anchor="[25, 50]"
-        >
-          <div style="font-size: 50px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-            📍
-          </div>
-        </l-icon>
-        <l-popup>
-          <div style="text-align: center; font-weight: bold; color: #ef4444;">
-            🔄 TRANSFER AICI<br>
-            {{ transferData.transferStation.name }}
-          </div>
-        </l-popup>
-      </l-marker>
-
       <!-- Markere pentru stații selectate (când e ales un traseu) - DOAR ICOANE SIMPLE -->
       <template v-if="stations && stations.length > 0">
         <l-marker
@@ -339,70 +319,152 @@
         :opacity="0.7"
       />
       
-      <!-- Linia VERDE - traseul complet al primului autobuz -->
+      <!-- Linia VERDE - traseul complet al primului autobuz (doar dacă nu e mod plan) -->
       <l-polyline
-        v-if="completeBusRoute1.length > 0"
+        v-if="completeBusRoute1.length > 0 && !showMultimodal && !showTransfer"
         :lat-lngs="completeBusRoute1"
         color="#10b981"
         :weight="4"
         :opacity="0.6"
       />
-      
-      <!-- Linia ALBASTRĂ - traseul complet al celui de-al doilea autobuz (dacă e transfer) -->
+
+      <!-- Linia ALBASTRĂ - traseul complet al celui de-al doilea autobuz (doar dacă nu e mod plan) -->
       <l-polyline
-        v-if="completeBusRoute2.length > 0"
+        v-if="completeBusRoute2.length > 0 && !showMultimodal && !showTransfer"
         :lat-lngs="completeBusRoute2"
         color="#3b82f6"
         :weight="4"
         :opacity="0.6"
       />
 
-      <!-- Mers pe jos: origine → stație urcare (portocaliu, punctat) -->
+      <!-- Mers pe jos: origine → stație urcare (roșu) -->
       <l-polyline
         v-if="actualWalkingPath.length > 0 && (showMultimodal || showTransfer)"
         :lat-lngs="actualWalkingPath"
-        color="#f97316"
+        color="#ef4444"
         :weight="4"
         :opacity="0.9"
-        :dash-array="'8, 8'"
+        :dash-array="'10, 6'"
       />
 
-      <!-- Segment autobuz 1 -->
+      <!-- Segment autobuz 1 (albastru) -->
       <l-polyline
         v-if="walkingPath.length > 0 && (showMultimodal || showTransfer)"
         :lat-lngs="walkingPath"
-        :color="showTransfer ? transferData.route1Color : multimodalData.busColor"
-        :weight="5"
-        :opacity="0.85"
+        color="#3b82f6"
+        :weight="6"
+        :opacity="0.9"
       />
 
-      <!-- Segment autobuz 2 (transfer) -->
+      <!-- Segment autobuz 2 (verde) -->
       <l-polyline
         v-if="secondWalkingPath.length > 0 && showTransfer"
         :lat-lngs="secondWalkingPath"
-        :color="transferData.route2Color"
-        :weight="5"
-        :opacity="0.85"
+        color="#10b981"
+        :weight="6"
+        :opacity="0.9"
       />
 
-      <!-- Mers pe jos: stație coborâre → destinație (portocaliu, punctat) -->
+      <!-- Mers pe jos: stație coborâre → destinație (roșu) -->
       <l-polyline
         v-if="actualSecondWalkingPath.length > 0 && (showMultimodal || showTransfer)"
         :lat-lngs="actualSecondWalkingPath"
-        color="#f97316"
+        color="#ef4444"
         :weight="4"
         :opacity="0.9"
-        :dash-array="'8, 8'"
+        :dash-array="'10, 6'"
       />
 
-      <!-- Marker origine plan (adresă sau locație) -->
+      <!-- Marker origine plan -->
       <l-marker
         v-if="(showMultimodal || showTransfer) && savedUserLocation"
         :lat-lng="[savedUserLocation.lat, savedUserLocation.lon]"
       >
-        <l-icon :icon-size="[36, 36]" :icon-anchor="[18, 36]" icon-url="/placeholder.png" />
+        <l-icon :icon-size="[28, 28]" :icon-anchor="[14, 14]">
+          <div class="trip-pin origin-pin">
+            <div class="pin-bubble">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12">
+                <circle cx="12" cy="5" r="2.5"/>
+                <path d="M9 22V12l-2-4h10l-2 4v10"/>
+                <path d="M9 16h6"/>
+              </svg>
+            </div>
+          </div>
+        </l-icon>
+        <l-popup><strong>{{ multimodalData.startLocation || transferData.startName || 'Plecare' }}</strong></l-popup>
+      </l-marker>
+
+      <!-- Marker stație îmbarcare (albastru) -->
+      <l-marker
+        v-if="(showMultimodal || showTransfer) && (showTransfer ? transferData.boardingStation : multimodalData.boardingStation)"
+        :lat-lng="showTransfer
+          ? [transferData.boardingStation!.latitude, transferData.boardingStation!.longitude]
+          : [props.allStations.find(s => s.name === multimodalData.boardingStation)?.latitude ?? 0,
+             props.allStations.find(s => s.name === multimodalData.boardingStation)?.longitude ?? 0]"
+      >
+        <l-icon :icon-size="[26, 35]" :icon-anchor="[13, 35]">
+          <div class="trip-pin boarding-pin">
+            <div class="pin-bubble">
+              <svg viewBox="0 0 24 24" fill="white" width="12" height="12">
+                <rect x="3" y="7" width="18" height="10" rx="2"/>
+                <path d="M3 11h18" stroke="#3b82f6" stroke-width="1.2" fill="none"/>
+                <circle cx="7.5" cy="19" r="1.5" fill="white"/>
+                <circle cx="16.5" cy="19" r="1.5" fill="white"/>
+                <rect x="7" y="17" width="10" height="4" fill="white" rx="1"/>
+                <rect x="7" y="4" width="2" height="3" rx="1" fill="white"/>
+                <rect x="15" y="4" width="2" height="3" rx="1" fill="white"/>
+              </svg>
+            </div>
+            <div class="pin-tail boarding-tail"></div>
+          </div>
+        </l-icon>
         <l-popup>
-          <strong>{{ multimodalData.startLocation || transferData.startName || 'Origine' }}</strong>
+          <strong style="color:#3b82f6">Urcare</strong><br>
+          {{ showTransfer ? transferData.boardingStation?.name : multimodalData.boardingStation }}
+        </l-popup>
+      </l-marker>
+
+      <!-- Marker stație transfer (distinct, portocaliu) -->
+      <l-marker
+        v-if="showTransfer && transferData.transferStation"
+        :lat-lng="[transferData.transferStation.latitude, transferData.transferStation.longitude]"
+      >
+        <l-icon :icon-size="[36, 36]" :icon-anchor="[18, 18]">
+          <div class="trip-pin transfer-pin">
+            <div class="pin-bubble">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                <path d="M7 16V4l-4 4M17 8v12l4-4"/>
+              </svg>
+            </div>
+          </div>
+        </l-icon>
+        <l-popup>
+          <strong style="color:#f97316">Transfer</strong><br>
+          {{ transferData.transferStation.name }}
+        </l-popup>
+      </l-marker>
+
+      <!-- Marker stație coborâre (verde) -->
+      <l-marker
+        v-if="(showMultimodal || showTransfer) && (showTransfer ? transferData.alightingStation : multimodalData.alightingStation)"
+        :lat-lng="showTransfer
+          ? [transferData.alightingStation!.latitude, transferData.alightingStation!.longitude]
+          : [props.allStations.find(s => s.name === multimodalData.alightingStation)?.latitude ?? 0,
+             props.allStations.find(s => s.name === multimodalData.alightingStation)?.longitude ?? 0]"
+      >
+        <l-icon :icon-size="[26, 35]" :icon-anchor="[13, 35]">
+          <div class="trip-pin alighting-pin">
+            <div class="pin-bubble">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="12" height="12">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <div class="pin-tail alighting-tail"></div>
+          </div>
+        </l-icon>
+        <l-popup>
+          <strong style="color:#10b981">Coborâre</strong><br>
+          {{ showTransfer ? transferData.alightingStation?.name : multimodalData.alightingStation }}
         </l-popup>
       </l-marker>
 
@@ -411,10 +473,18 @@
         v-if="(showMultimodal || showTransfer) && savedDestination"
         :lat-lng="[savedDestination.lat, savedDestination.lon]"
       >
-        <l-icon :icon-size="[36, 36]" :icon-anchor="[18, 36]" icon-url="/placeholder.png" />
-        <l-popup>
-          <strong>{{ savedDestination.name }}</strong>
-        </l-popup>
+        <l-icon :icon-size="[30, 41]" :icon-anchor="[15, 41]">
+          <div class="trip-pin dest-pin">
+            <div class="pin-bubble">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+                <line x1="4" y1="22" x2="4" y2="15"/>
+              </svg>
+            </div>
+            <div class="pin-tail dest-tail"></div>
+          </div>
+        </l-icon>
+        <l-popup><strong>{{ savedDestination.name }}</strong></l-popup>
       </l-marker>
 
       <!-- Markere pentru autobuze LIVE - ascunse când e afișată o rută -->
@@ -677,8 +747,9 @@ const selectedAlternative = ref<any | null>(null)
 // State pentru istoric călătorii
 const showTripHistory = ref(false)
 
-// State pentru afișarea/ascunderea sidebar-ului (sincronizat cu HomeView)
-const showSidebar = ref(typeof window !== 'undefined' ? window.innerWidth >= 768 : true)
+// State pentru afișarea/ascunderea sidebar-ului
+const isMobile = ref(window.innerWidth < 768)
+const showSidebar = ref(window.innerWidth >= 768)
 const tripMode = ref(false)
 
 
@@ -1513,6 +1584,25 @@ const fetchAlternativeRoutes = async (startStationId: number, endStationId: numb
 }
 
 // Handler pentru selectarea unei rute alternative
+// Trunchiază shape-ul rutei între două stații (backend returnează ruta completă)
+const trimShapeToStations = (
+  points: Array<{latitude: number, longitude: number}>,
+  from: {latitude: number, longitude: number},
+  to: {latitude: number, longitude: number}
+): [number, number][] => {
+  if (!points || points.length === 0) return []
+  let fromIdx = 0, fromDist = Infinity, toIdx = points.length - 1, toDist = Infinity
+  for (let i = 0; i < points.length; i++) {
+    const dFrom = Math.hypot(points[i].latitude - from.latitude, points[i].longitude - from.longitude)
+    const dTo   = Math.hypot(points[i].latitude - to.latitude,   points[i].longitude - to.longitude)
+    if (dFrom < fromDist) { fromDist = dFrom; fromIdx = i }
+    if (dTo   < toDist)   { toDist   = dTo;   toIdx   = i }
+  }
+  const start = Math.min(fromIdx, toIdx)
+  const end   = Math.max(fromIdx, toIdx)
+  return points.slice(start, end + 1).map(p => [p.latitude, p.longitude] as [number, number])
+}
+
 const handleAlternativeRouteSelected = async (route: any) => {
   selectedAlternative.value = route
   showAlternatives.value = false
@@ -1561,9 +1651,9 @@ const handleAlternativeRouteSelected = async (route: any) => {
         segment.endStation.id
       )
       
-      let busPart: [number, number][] = gtfsSegment?.points?.map(point => 
-        [point.latitude, point.longitude] as [number, number]
-      ) || []
+      let busPart: [number, number][] = gtfsSegment?.points
+        ? trimShapeToStations(gtfsSegment.points, segment.startStation, segment.endStation)
+        : []
       
       
       // Dacă GTFS nu returnează suficiente puncte, calculăm cu OSRM
@@ -1612,15 +1702,9 @@ const handleAlternativeRouteSelected = async (route: any) => {
         ...actualSecondWalkingPath.value
       ]
       
-      // Încarcă traseul COMPLET al autobuzului pentru afișare în VERDE
-      try {
-        const shapeData = await apiService.getRouteShape(foundRoute.id)
-        if (shapeData && shapeData.points && shapeData.points.length > 0) {
-          completeBusRoute1.value = shapeData.points.map((p: any) => [p.latitude, p.longitude] as [number, number])
-        }
-      } catch (e) {
-      }
-      
+      // Setăm segmentul de autobuz (doar între stațiile de urcare și coborâre)
+      walkingPath.value = busPart
+
       // Afișăm panelul cu detalii
       multimodalData.value = {
         startLocation: 'Locația ta',
@@ -1679,13 +1763,13 @@ const handleAlternativeRouteSelected = async (route: any) => {
         segment2.endStation.id
       )
       
-      let busPart1: [number, number][] = gtfsSegment1?.points?.map(point => 
-        [point.latitude, point.longitude] as [number, number]
-      ) || []
-      
-      let busPart2: [number, number][] = gtfsSegment2?.points?.map(point => 
-        [point.latitude, point.longitude] as [number, number]
-      ) || []
+      let busPart1: [number, number][] = gtfsSegment1?.points
+        ? trimShapeToStations(gtfsSegment1.points, segment1.startStation, segment1.endStation)
+        : []
+
+      let busPart2: [number, number][] = gtfsSegment2?.points
+        ? trimShapeToStations(gtfsSegment2.points, segment2.startStation, segment2.endStation)
+        : []
       
       
       // Calculăm cu OSRM dacă GTFS nu returnează suficiente puncte
@@ -1744,23 +1828,10 @@ const handleAlternativeRouteSelected = async (route: any) => {
         ...actualSecondWalkingPath.value
       ]
       
-      // Încarcă traseele COMPLETE pentru ambele autobuze
-      try {
-        const shapes1 = await apiService.getRouteShape(route1.id)
-        if (shapes1 && shapes1.points && shapes1.points.length > 0) {
-          completeBusRoute1.value = shapes1.points.map((p: any) => [p.latitude, p.longitude] as [number, number])
-        }
-      } catch (e) {
-      }
-      
-      try {
-        const shapes2 = await apiService.getRouteShape(route2.id)
-        if (shapes2 && shapes2.points && shapes2.points.length > 0) {
-          completeBusRoute2.value = shapes2.points.map((p: any) => [p.latitude, p.longitude] as [number, number])
-        }
-      } catch (e) {
-      }
-      
+      // Setăm segmentele de autobuz (doar între stațiile relevante)
+      walkingPath.value = busPart1
+      secondWalkingPath.value = busPart2
+
       // Afișăm panelul de transfer
       transferData.value = {
         startName: 'Locația ta',
@@ -1855,9 +1926,7 @@ const handleMultimodalRouteRequested = async (
         try {
           const shapeData = await apiService.getRouteSegment(route.id, startStation.id, endStation.id)
           if (shapeData && shapeData.points && shapeData.points.length > 0) {
-            multimodalBusPath.value = shapeData.points.map(point => 
-              [point.latitude, point.longitude] as [number, number]
-            )
+            multimodalBusPath.value = trimShapeToStations(shapeData.points, startStation, endStation)
           } else {
             await calculateStreetRoute(relevantStations)
             multimodalBusPath.value = routePath.value
@@ -1917,17 +1986,13 @@ const handleMultimodalRouteRequested = async (
           // Primul segment de autobuz (start → transfer)
           const segment1 = await apiService.getRouteSegment(route1.id, startStation.id, transferStation.id)
           if (segment1 && segment1.points && segment1.points.length > 0) {
-            walkingPath.value = segment1.points.map(point => 
-              [point.latitude, point.longitude] as [number, number]
-            )
+            walkingPath.value = trimShapeToStations(segment1.points, startStation, transferStation)
           }
-          
+
           // Al doilea segment de autobuz (transfer → end)
           const segment2 = await apiService.getRouteSegment(route2.id, transferStation.id, endStation.id)
           if (segment2 && segment2.points && segment2.points.length > 0) {
-            secondWalkingPath.value = segment2.points.map(point => 
-              [point.latitude, point.longitude] as [number, number]
-            )
+            secondWalkingPath.value = trimShapeToStations(segment2.points, transferStation, endStation)
           }
         } catch (error) {
         }
@@ -2161,7 +2226,7 @@ watch(() => props.tripPlan, async (plan) => {
   try {
     const seg1 = await apiService.getRouteSegment(plan.route1Id, boarding.id, busEndStation.id)
     if (seg1?.points?.length) {
-      walkingPath.value = seg1.points.map(p => [p.latitude, p.longitude] as [number, number])
+      walkingPath.value = trimShapeToStations(seg1.points, boarding, busEndStation)
       allPoints.push(...walkingPath.value)
     }
   } catch {}
@@ -2171,7 +2236,7 @@ watch(() => props.tripPlan, async (plan) => {
     try {
       const seg2 = await apiService.getRouteSegment(plan.route2Id, transfer.id, alighting.id)
       if (seg2?.points?.length) {
-        secondWalkingPath.value = seg2.points.map(p => [p.latitude, p.longitude] as [number, number])
+        secondWalkingPath.value = trimShapeToStations(seg2.points, transfer, alighting)
         allPoints.push(...secondWalkingPath.value)
       }
     } catch {}
@@ -2265,6 +2330,7 @@ const handleRouteSearchRequested = async (
 defineExpose({
   centerMap,
   setTripMode,
+  setSidebarOpen: (open: boolean) => { showSidebar.value = open },
   invalidateSize: () => {
     // Forțează recalcularea dimensiunii hărții
     // map.value este componenta <l-map>, leafletObject este instanța Leaflet reală
@@ -2566,8 +2632,8 @@ const getStationETAs = (stationId: number) => {
   right: 16px;
   z-index: 1100;
   display: grid;
-  grid-template-columns: repeat(3, 44px);
-  gap: 6px;
+  grid-template-columns: repeat(3, 40px);
+  gap: 8px;
 }
 
 .action-btn {
@@ -2620,6 +2686,106 @@ const getStationETAs = (stationId: number) => {
 .action-btn.admin-btn:hover {
   background: #f5f3ff;
   color: #7c3aed;
+}
+
+/* Responsive mobile */
+@media (max-width: 767px) {
+  .sidebar-toggle-btn {
+    top: 10px;
+    left: 10px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .top-right-buttons {
+    top: 10px;
+    right: 10px;
+    grid-template-columns: repeat(3, 36px);
+    gap: 6px;
+  }
+
+  .action-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .action-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Trip plan markers - modern pin style */
+.trip-pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.22));
+}
+
+.pin-bubble {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.95);
+}
+
+.pin-tail {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  margin-top: -1px;
+}
+
+/* Origin – slate circle, no tail */
+.origin-pin .pin-bubble {
+  width: 26px;
+  height: 26px;
+  background: #475569;
+  box-shadow: 0 1px 5px rgba(71,85,105,0.35);
+}
+
+/* Boarding – blue teardrop pin */
+.boarding-pin .pin-bubble {
+  width: 24px;
+  height: 24px;
+  background: #3b82f6;
+  box-shadow: 0 1px 5px rgba(59,130,246,0.4);
+}
+.boarding-tail {
+  border-top: 9px solid #3b82f6;
+}
+
+/* Transfer – orange circle with ring, no tail */
+.transfer-pin .pin-bubble {
+  width: 30px;
+  height: 30px;
+  background: #f97316;
+  box-shadow: 0 0 0 4px rgba(249,115,22,0.18), 0 1px 5px rgba(249,115,22,0.4);
+}
+
+/* Alighting – green teardrop pin */
+.alighting-pin .pin-bubble {
+  width: 24px;
+  height: 24px;
+  background: #10b981;
+  box-shadow: 0 1px 5px rgba(16,185,129,0.4);
+}
+.alighting-tail {
+  border-top: 9px solid #10b981;
+}
+
+/* Destination – red teardrop pin */
+.dest-pin .pin-bubble {
+  width: 28px;
+  height: 28px;
+  background: #ef4444;
+  box-shadow: 0 1px 6px rgba(239,68,68,0.45);
+}
+.dest-tail {
+  border-top: 11px solid #ef4444;
 }
 
 /* Stiluri pentru gradul de ocupare */

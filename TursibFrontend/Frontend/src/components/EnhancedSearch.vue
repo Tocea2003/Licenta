@@ -704,22 +704,21 @@ if (typeof window !== 'undefined') {
   left: 50%;
   transform: translateX(-50%);
   z-index: 700;
-  width: 440px;
-  max-width: calc(100vw - 80px);
+  width: 210px;
+  max-width: calc(100vw - 100px);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .enhanced-search-container {
-    top: 68px;       /* below the 44px top button row */
-    left: 12px;
-    right: 12px;
+    left: 54px;
     transform: none;
+    top: 10px;
     width: auto;
-    max-width: 100%;
+    max-width: calc(100vw - 54px - 130px);
   }
 }
 
-/* ── Quick Access Favorites ── */
+/* Quick Access Favorites */
 .quick-access {
   margin-bottom: 8px;
   background: var(--bg-primary);

@@ -323,12 +323,16 @@ const buildETAs = (schedule: StationScheduleEntry[]) => {
   const now = new Date()
   const currentMinutes = now.getHours() * 60 + now.getMinutes()
   const etas: ETAItem[] = []
+  const seen = new Set<string>()
   for (const entry of schedule) {
     const parts = entry.departureTime.split(':')
     if (parts.length < 2) continue
     const entryMinutes = parseInt(parts[0]) * 60 + parseInt(parts[1])
     const diffSeconds = (entryMinutes - currentMinutes) * 60
     if (diffSeconds < 0 || diffSeconds > 3600) continue
+    const dedupeKey = `${entry.routeNumber}-${entry.departureTime}`
+    if (seen.has(dedupeKey)) continue
+    seen.add(dedupeKey)
     etas.push({
       routeNumber: entry.routeNumber,
       routeName:   entry.routeName,
@@ -432,11 +436,11 @@ const haversineM = (lat1: number, lon1: number, lat2: number, lon2: number): num
 const walkMin = (lat1: number, lon1: number, lat2: number, lon2: number) =>
   Math.ceil(haversineM(lat1, lon1, lat2, lon2) * 1.3 / 83) // 5 km/h walking
 
-const nearestStation = (lat: number, lon: number): Station | null => {
-  if (!props.allStations?.length) return null
-  return props.allStations.reduce((best, s) =>
-    haversineM(lat, lon, s.latitude, s.longitude) < haversineM(lat, lon, best.latitude, best.longitude) ? s : best
-  )
+const nearestStations = (lat: number, lon: number, n: number): Station[] => {
+  if (!props.allStations?.length) return []
+  return [...props.allStations]
+    .sort((a, b) => haversineM(lat, lon, a.latitude, a.longitude) - haversineM(lat, lon, b.latitude, b.longitude))
+    .slice(0, n)
 }
 
 // Geocoding via Nominatim (debounced)
@@ -503,118 +507,149 @@ const searchRoutes = async () => {
     const nowMin = new Date().getHours() * 60 + new Date().getMinutes()
     const origin = planOrigin.value!, dest = planDest.value!
 
-    // Resolve nearest bus stations
-    const boarding: Station = origin.type === 'station'
-      ? props.allStations!.find(s => s.id === origin.stationId)!
-      : nearestStation(origin.lat, origin.lon)!
-    const alighting: Station = dest.type === 'station'
-      ? props.allStations!.find(s => s.id === dest.stationId)!
-      : nearestStation(dest.lat, dest.lon)!
+    // Candidate stations: exact if station selected, else top 5 nearest by walk distance
+    const boardingCandidates: Station[] = origin.type === 'station'
+      ? [props.allStations!.find(s => s.id === origin.stationId)!].filter(Boolean)
+      : nearestStations(origin.lat, origin.lon, 5)
+    const alightingCandidates: Station[] = dest.type === 'station'
+      ? [props.allStations!.find(s => s.id === dest.stationId)!].filter(Boolean)
+      : nearestStations(dest.lat, dest.lon, 5)
 
-    if (!boarding || !alighting) { searchDone.value = true; return }
+    if (!boardingCandidates.length || !alightingCandidates.length) { searchDone.value = true; return }
 
-    const walkStart = origin.type === 'address' ? walkMin(origin.lat, origin.lon, boarding.latitude, boarding.longitude) : undefined
-    const walkEnd   = dest.type === 'address'   ? walkMin(alighting.latitude, alighting.longitude, dest.lat, dest.lon)   : undefined
+    // Phase 1: preload schedules + route stations for all boarding candidates
+    const boardingScheduleMap = new Map<number, any[]>()
+    await Promise.all(boardingCandidates.map(async boarding => {
+      const schedule = await apiService.getStationSchedule(boarding.id)
+      const upcoming = schedule.filter(e => {
+        const p = e.departureTime.split(':')
+        return parseInt(p[0]) * 60 + parseInt(p[1]) >= targetMin
+      })
+      boardingScheduleMap.set(boarding.id, upcoming)
+      const routeIds = [...new Set(upcoming.map((e: any) => e.routeId as number))]
+      await Promise.all(routeIds.map(async rid => {
+        if (!stationsCache.has(rid)) stationsCache.set(rid, await apiService.getRouteStations(rid))
+      }))
+    }))
 
-    const commonFields = {
-      originLat: origin.lat, originLon: origin.lon, originName: origin.name,
-      destLat: dest.lat, destLon: dest.lon, destName: dest.name,
-      boardingStation: boarding, alightingStation: alighting,
-      walkToStartMinutes: walkStart, walkToEndMinutes: walkEnd,
-    }
-
-    // Schedule at boarding station
-    const schedule = await apiService.getStationSchedule(boarding.id)
-    const upcoming = schedule.filter(e => {
-      const p = e.departureTime.split(':')
-      return parseInt(p[0]) * 60 + parseInt(p[1]) >= targetMin
-    })
-    if (!upcoming.length) { searchDone.value = true; return }
-
-    const routeIdsInSchedule = [...new Set(upcoming.map(e => e.routeId))]
-
-    // Pre-load route stations
-    await Promise.all(routeIdsInSchedule.map(async rid => {
-      if (!stationsCache.has(rid)) stationsCache.set(rid, await apiService.getRouteStations(rid))
+    // Phase 2: preload routes through alighting candidates
+    const alightingRoutesMap = new Map<number, any[]>()
+    await Promise.all(alightingCandidates.map(async alighting => {
+      const routes = await apiService.getStationRoutes(alighting.id)
+      alightingRoutesMap.set(alighting.id, routes)
+      await Promise.all(routes.map(async (r: any) => {
+        if (!stationsCache.has(r.id)) stationsCache.set(r.id, await apiService.getRouteStations(r.id))
+      }))
     }))
 
     const results: PlanResult[] = []
+    const seen = new Set<string>()
 
-    // === DIRECT ROUTES ===
-    for (const routeId of routeIdsInSchedule) {
-      const stations = stationsCache.get(routeId)!
-      const oIdx = stations.findIndex(s => s.id === boarding.id)
-      const dIdx = stations.findIndex(s => s.id === alighting.id)
-      if (oIdx === -1 || dIdx === -1 || dIdx <= oIdx) continue
+    // Phase 3: try all boarding × alighting combinations
+    for (const boarding of boardingCandidates) {
+      const upcoming = boardingScheduleMap.get(boarding.id) ?? []
+      if (!upcoming.length) continue
+      const routeIdsInSchedule = [...new Set(upcoming.map((e: any) => e.routeId as number))]
 
-      const stationsBetween = dIdx - oIdx
-      for (const entry of upcoming.filter(e => e.routeId === routeId).slice(0, 5)) {
-        const depMin = parseInt(entry.departureTime.split(':')[0]) * 60 + parseInt(entry.departureTime.split(':')[1])
-        results.push({
-          type: 'direct', ...commonFields,
-          route1Id: routeId, route1Number: entry.routeNumber,
-          route1Name: entry.routeName, route1Color: entry.routeColor || '#3b82f6',
-          stationsBetween,
-          departureTime: minutesToStr(depMin), arrivalTime: minutesToStr(depMin + stationsBetween * 2),
-          minutesUntil: depMin - nowMin,
-        })
-      }
-    }
+      for (const alighting of alightingCandidates) {
+        if (boarding.id === alighting.id) continue
 
-    // === TRANSFER ROUTES ===
-    const routesThroughDest = await apiService.getStationRoutes(alighting.id)
-    await Promise.all(routesThroughDest.map(async r => {
-      if (!stationsCache.has(r.id)) stationsCache.set(r.id, await apiService.getRouteStations(r.id))
-    }))
+        const walkStart = origin.type === 'address'
+          ? walkMin(origin.lat, origin.lon, boarding.latitude, boarding.longitude) : undefined
+        const walkEnd = dest.type === 'address'
+          ? walkMin(alighting.latitude, alighting.longitude, dest.lat, dest.lon) : undefined
 
-    for (const routeAId of routeIdsInSchedule) {
-      const stationsA = stationsCache.get(routeAId)!
-      const oIdxA = stationsA.findIndex(s => s.id === boarding.id)
-      if (oIdxA === -1) continue
-      const entryA = upcoming.find(e => e.routeId === routeAId)
-      if (!entryA) continue
+        const commonFields = {
+          originLat: origin.lat, originLon: origin.lon, originName: origin.name,
+          destLat: dest.lat, destLon: dest.lon, destName: dest.name,
+          boardingStation: boarding, alightingStation: alighting,
+          walkToStartMinutes: walkStart, walkToEndMinutes: walkEnd,
+        }
 
-      for (const routeB of routesThroughDest) {
-        if (routeB.id === routeAId) continue
-        const stationsB = stationsCache.get(routeB.id)!
-        const dIdxB = stationsB.findIndex(s => s.id === alighting.id)
-        if (dIdxB === -1) continue
+        // === DIRECT ROUTES ===
+        for (const routeId of routeIdsInSchedule) {
+          const stations = stationsCache.get(routeId)!
+          const oIdx = stations.findIndex(s => s.id === boarding.id)
+          const dIdx = stations.findIndex(s => s.id === alighting.id)
+          if (oIdx === -1 || dIdx === -1 || dIdx === oIdx) continue
 
-        // Find first common station (transfer point) after boarding, before alighting
-        let transfer: Station | null = null, tIdxA = -1, tIdxB = -1
-        for (let i = oIdxA + 1; i < stationsA.length; i++) {
-          const idxB = stationsB.findIndex(s => s.id === stationsA[i]!.id)
-          if (idxB !== -1 && idxB < dIdxB) {
-            transfer = stationsA[i]!; tIdxA = i; tIdxB = idxB; break
+          const stationsBetween = Math.abs(dIdx - oIdx)
+          for (const entry of upcoming.filter((e: any) => e.routeId === routeId).slice(0, 5)) {
+            const depMin = parseInt(entry.departureTime.split(':')[0]) * 60 + parseInt(entry.departureTime.split(':')[1])
+            const key = `D-${routeId}-${boarding.id}-${alighting.id}-${entry.departureTime}`
+            if (seen.has(key)) continue; seen.add(key)
+            results.push({
+              type: 'direct', ...commonFields,
+              route1Id: routeId, route1Number: entry.routeNumber,
+              route1Name: entry.routeName, route1Color: entry.routeColor || '#3b82f6',
+              stationsBetween,
+              departureTime: minutesToStr(depMin), arrivalTime: minutesToStr(depMin + stationsBetween * 2),
+              minutesUntil: depMin - nowMin,
+            })
           }
         }
-        if (!transfer) continue
 
-        const r1Stops = tIdxA - oIdxA
-        const r2Stops = dIdxB - tIdxB
+        // === TRANSFER ROUTES ===
+        const routesThroughDest = alightingRoutesMap.get(alighting.id) ?? []
 
-        for (const entry of upcoming.filter(e => e.routeId === routeAId).slice(0, 3)) {
-          const depMin = parseInt(entry.departureTime.split(':')[0]) * 60 + parseInt(entry.departureTime.split(':')[1])
-          const arrMin = depMin + r1Stops * 2 + 5 + r2Stops * 2 // +5 min transfer wait
-          results.push({
-            type: 'transfer', ...commonFields,
-            route1Id: routeAId, route1Number: entry.routeNumber,
-            route1Name: entry.routeName, route1Color: entry.routeColor || '#3b82f6',
-            route2Id: routeB.id, route2Number: routeB.routeNumber,
-            route2Name: routeB.name, route2Color: (routeB as any).color || '#10b981',
-            route1StationsCount: r1Stops, route2StationsCount: r2Stops,
-            stationsBetween: r1Stops + r2Stops,
-            transferStation: transfer,
-            departureTime: minutesToStr(depMin), arrivalTime: minutesToStr(arrMin),
-            minutesUntil: depMin - nowMin,
-          })
+        for (const routeAId of routeIdsInSchedule) {
+          const stationsA = stationsCache.get(routeAId)!
+          const oIdxA = stationsA.findIndex(s => s.id === boarding.id)
+          if (oIdxA === -1) continue
+          if (!upcoming.find((e: any) => e.routeId === routeAId)) continue
+
+          for (const routeB of routesThroughDest) {
+            if (routeB.id === routeAId) continue
+            const stationsB = stationsCache.get(routeB.id)
+            if (!stationsB) continue
+            const dIdxB = stationsB.findIndex(s => s.id === alighting.id)
+            if (dIdxB === -1) continue
+
+            let transfer: Station | null = null, tIdxA = -1, tIdxB = -1
+            const step = oIdxA < stationsA.length - 1 ? 1 : -1
+            for (let i = oIdxA + step; i >= 0 && i < stationsA.length; i += step) {
+              const idxB = stationsB.findIndex(s => s.id === stationsA[i]!.id)
+              if (idxB !== -1 && idxB !== dIdxB) {
+                transfer = stationsA[i]!; tIdxA = i; tIdxB = idxB; break
+              }
+            }
+            if (!transfer) continue
+
+            const r1Stops = Math.abs(tIdxA - oIdxA)
+            const r2Stops = Math.abs(dIdxB - tIdxB)
+
+            for (const entry of upcoming.filter((e: any) => e.routeId === routeAId).slice(0, 3)) {
+              const depMin = parseInt(entry.departureTime.split(':')[0]) * 60 + parseInt(entry.departureTime.split(':')[1])
+              const arrMin = depMin + r1Stops * 2 + 5 + r2Stops * 2
+              const key = `T-${routeAId}-${routeB.id}-${boarding.id}-${alighting.id}-${entry.departureTime}`
+              if (seen.has(key)) continue; seen.add(key)
+              results.push({
+                type: 'transfer', ...commonFields,
+                route1Id: routeAId, route1Number: entry.routeNumber,
+                route1Name: entry.routeName, route1Color: entry.routeColor || '#3b82f6',
+                route2Id: routeB.id, route2Number: routeB.routeNumber,
+                route2Name: routeB.name, route2Color: (routeB as any).color || '#10b981',
+                route1StationsCount: r1Stops, route2StationsCount: r2Stops,
+                stationsBetween: r1Stops + r2Stops,
+                transferStation: transfer,
+                departureTime: minutesToStr(depMin), arrivalTime: minutesToStr(arrMin),
+                minutesUntil: depMin - nowMin,
+              })
+            }
+          }
         }
       }
     }
 
-    // Direct routes first, then transfer; sorted by departure within each group
-    results.sort((a, b) => a.type !== b.type ? (a.type === 'direct' ? -1 : 1) : a.departureTime.localeCompare(b.departureTime))
-    planResults.value = results
+    // Sort: direct first, then by least total walking, then by departure time
+    results.sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'direct' ? -1 : 1
+      const walkA = (a.walkToStartMinutes ?? 0) + (a.walkToEndMinutes ?? 0)
+      const walkB = (b.walkToStartMinutes ?? 0) + (b.walkToEndMinutes ?? 0)
+      if (walkA !== walkB) return walkA - walkB
+      return a.departureTime.localeCompare(b.departureTime)
+    })
+    planResults.value = results.slice(0, 8)
     searchDone.value = true
   } catch {
     searchDone.value = true
