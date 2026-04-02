@@ -667,6 +667,16 @@ if (typeof window !== 'undefined') {
   max-width: calc(100vw - 100px);
 }
 
+@media (max-width: 767px) {
+  .enhanced-search-container {
+    left: 54px;
+    transform: none;
+    top: 10px;
+    width: auto;
+    max-width: calc(100vw - 54px - 130px);
+  }
+}
+
 /* Quick Access Favorites */
 .quick-access {
   margin-bottom: 12px;
