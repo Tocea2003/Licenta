@@ -663,7 +663,7 @@ if (typeof window !== 'undefined') {
   left: 50%;
   transform: translateX(-50%);
   z-index: 700;
-  width: 420px;
+  width: 210px;
   max-width: calc(100vw - 100px);
 }
 

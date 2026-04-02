@@ -403,12 +403,16 @@ const buildETAs = (schedule: StationScheduleEntry[]) => {
   const now = new Date()
   const currentMinutes = now.getHours() * 60 + now.getMinutes()
   const etas: ETAItem[] = []
+  const seen = new Set<string>()
   for (const entry of schedule) {
     const parts = entry.departureTime.split(':')
     if (parts.length < 2) continue
     const entryMinutes = parseInt(parts[0]) * 60 + parseInt(parts[1])
     const diffSeconds = (entryMinutes - currentMinutes) * 60
     if (diffSeconds < 0 || diffSeconds > 3600) continue
+    const dedupeKey = `${entry.routeNumber}-${entry.departureTime}`
+    if (seen.has(dedupeKey)) continue
+    seen.add(dedupeKey)
     etas.push({
       routeNumber: entry.routeNumber,
       routeName:   entry.routeName,
@@ -625,9 +629,9 @@ const searchRoutes = async () => {
       const stations = stationsCache.get(routeId)!
       const oIdx = stations.findIndex(s => s.id === boarding.id)
       const dIdx = stations.findIndex(s => s.id === alighting.id)
-      if (oIdx === -1 || dIdx === -1 || dIdx <= oIdx) continue
+      if (oIdx === -1 || dIdx === -1 || dIdx === oIdx) continue
 
-      const stationsBetween = dIdx - oIdx
+      const stationsBetween = Math.abs(dIdx - oIdx)
       for (const entry of upcoming.filter(e => e.routeId === routeId).slice(0, 5)) {
         const depMin = parseInt(entry.departureTime.split(':')[0]) * 60 + parseInt(entry.departureTime.split(':')[1])
         results.push({
@@ -660,18 +664,20 @@ const searchRoutes = async () => {
         const dIdxB = stationsB.findIndex(s => s.id === alighting.id)
         if (dIdxB === -1) continue
 
-        // Find first common station (transfer point) after boarding, before alighting
+        // Find first common station (transfer point) reachable from boarding on routeA
         let transfer: Station | null = null, tIdxA = -1, tIdxB = -1
-        for (let i = oIdxA + 1; i < stationsA.length; i++) {
+        const forwardA = oIdxA < stationsA.length - 1
+        const step = forwardA ? 1 : -1
+        for (let i = oIdxA + step; i >= 0 && i < stationsA.length; i += step) {
           const idxB = stationsB.findIndex(s => s.id === stationsA[i]!.id)
-          if (idxB !== -1 && idxB < dIdxB) {
+          if (idxB !== -1 && idxB !== dIdxB) {
             transfer = stationsA[i]!; tIdxA = i; tIdxB = idxB; break
           }
         }
         if (!transfer) continue
 
-        const r1Stops = tIdxA - oIdxA
-        const r2Stops = dIdxB - tIdxB
+        const r1Stops = Math.abs(tIdxA - oIdxA)
+        const r2Stops = Math.abs(dIdxB - tIdxB)
 
         for (const entry of upcoming.filter(e => e.routeId === routeAId).slice(0, 3)) {
           const depMin = parseInt(entry.departureTime.split(':')[0]) * 60 + parseInt(entry.departureTime.split(':')[1])

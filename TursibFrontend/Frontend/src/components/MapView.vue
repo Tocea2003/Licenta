@@ -285,27 +285,6 @@
         </l-popup>
       </l-marker>
 
-      <!-- Marker ROȘU pentru stația de transfer (schimbare autobuz) -->
-      <l-marker
-        v-if="showTransfer && transferData.transferStation"
-        :lat-lng="[transferData.transferStation.latitude, transferData.transferStation.longitude]"
-      >
-        <l-icon
-          :icon-size="[50, 50]"
-          :icon-anchor="[25, 50]"
-        >
-          <div style="font-size: 50px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-            📍
-          </div>
-        </l-icon>
-        <l-popup>
-          <div style="text-align: center; font-weight: bold; color: #ef4444;">
-            🔄 TRANSFER AICI<br>
-            {{ transferData.transferStation.name }}
-          </div>
-        </l-popup>
-      </l-marker>
-
       <!-- Markere pentru stații selectate (când e ales un traseu) - DOAR ICOANE SIMPLE -->
       <template v-if="stations && stations.length > 0">
         <l-marker
@@ -358,52 +337,134 @@
         :opacity="0.6"
       />
 
-      <!-- Mers pe jos: origine → stație urcare (portocaliu, punctat) -->
+      <!-- Mers pe jos: origine → stație urcare (roșu) -->
       <l-polyline
         v-if="actualWalkingPath.length > 0 && (showMultimodal || showTransfer)"
         :lat-lngs="actualWalkingPath"
-        color="#f97316"
+        color="#ef4444"
         :weight="4"
         :opacity="0.9"
-        :dash-array="'8, 8'"
+        :dash-array="'10, 6'"
       />
 
-      <!-- Segment autobuz 1 -->
+      <!-- Segment autobuz 1 (albastru) -->
       <l-polyline
         v-if="walkingPath.length > 0 && (showMultimodal || showTransfer)"
         :lat-lngs="walkingPath"
-        :color="showTransfer ? transferData.route1Color : multimodalData.busColor"
-        :weight="5"
-        :opacity="0.85"
+        color="#3b82f6"
+        :weight="6"
+        :opacity="0.9"
       />
 
-      <!-- Segment autobuz 2 (transfer) -->
+      <!-- Segment autobuz 2 (verde) -->
       <l-polyline
         v-if="secondWalkingPath.length > 0 && showTransfer"
         :lat-lngs="secondWalkingPath"
-        :color="transferData.route2Color"
-        :weight="5"
-        :opacity="0.85"
+        color="#10b981"
+        :weight="6"
+        :opacity="0.9"
       />
 
-      <!-- Mers pe jos: stație coborâre → destinație (portocaliu, punctat) -->
+      <!-- Mers pe jos: stație coborâre → destinație (roșu) -->
       <l-polyline
         v-if="actualSecondWalkingPath.length > 0 && (showMultimodal || showTransfer)"
         :lat-lngs="actualSecondWalkingPath"
-        color="#f97316"
+        color="#ef4444"
         :weight="4"
         :opacity="0.9"
-        :dash-array="'8, 8'"
+        :dash-array="'10, 6'"
       />
 
-      <!-- Marker origine plan (adresă sau locație) -->
+      <!-- Marker origine plan -->
       <l-marker
         v-if="(showMultimodal || showTransfer) && savedUserLocation"
         :lat-lng="[savedUserLocation.lat, savedUserLocation.lon]"
       >
-        <l-icon :icon-size="[36, 36]" :icon-anchor="[18, 36]" icon-url="/placeholder.png" />
+        <l-icon :icon-size="[28, 28]" :icon-anchor="[14, 14]">
+          <div class="trip-pin origin-pin">
+            <div class="pin-bubble">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12">
+                <circle cx="12" cy="5" r="2.5"/>
+                <path d="M9 22V12l-2-4h10l-2 4v10"/>
+                <path d="M9 16h6"/>
+              </svg>
+            </div>
+          </div>
+        </l-icon>
+        <l-popup><strong>{{ multimodalData.startLocation || transferData.startName || 'Plecare' }}</strong></l-popup>
+      </l-marker>
+
+      <!-- Marker stație îmbarcare (albastru) -->
+      <l-marker
+        v-if="(showMultimodal || showTransfer) && (showTransfer ? transferData.boardingStation : multimodalData.boardingStation)"
+        :lat-lng="showTransfer
+          ? [transferData.boardingStation!.latitude, transferData.boardingStation!.longitude]
+          : [props.allStations.find(s => s.name === multimodalData.boardingStation)?.latitude ?? 0,
+             props.allStations.find(s => s.name === multimodalData.boardingStation)?.longitude ?? 0]"
+      >
+        <l-icon :icon-size="[26, 35]" :icon-anchor="[13, 35]">
+          <div class="trip-pin boarding-pin">
+            <div class="pin-bubble">
+              <svg viewBox="0 0 24 24" fill="white" width="12" height="12">
+                <rect x="3" y="7" width="18" height="10" rx="2"/>
+                <path d="M3 11h18" stroke="#3b82f6" stroke-width="1.2" fill="none"/>
+                <circle cx="7.5" cy="19" r="1.5" fill="white"/>
+                <circle cx="16.5" cy="19" r="1.5" fill="white"/>
+                <rect x="7" y="17" width="10" height="4" fill="white" rx="1"/>
+                <rect x="7" y="4" width="2" height="3" rx="1" fill="white"/>
+                <rect x="15" y="4" width="2" height="3" rx="1" fill="white"/>
+              </svg>
+            </div>
+            <div class="pin-tail boarding-tail"></div>
+          </div>
+        </l-icon>
         <l-popup>
-          <strong>{{ multimodalData.startLocation || transferData.startName || 'Origine' }}</strong>
+          <strong style="color:#3b82f6">Urcare</strong><br>
+          {{ showTransfer ? transferData.boardingStation?.name : multimodalData.boardingStation }}
+        </l-popup>
+      </l-marker>
+
+      <!-- Marker stație transfer (distinct, portocaliu) -->
+      <l-marker
+        v-if="showTransfer && transferData.transferStation"
+        :lat-lng="[transferData.transferStation.latitude, transferData.transferStation.longitude]"
+      >
+        <l-icon :icon-size="[36, 36]" :icon-anchor="[18, 18]">
+          <div class="trip-pin transfer-pin">
+            <div class="pin-bubble">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                <path d="M7 16V4l-4 4M17 8v12l4-4"/>
+              </svg>
+            </div>
+          </div>
+        </l-icon>
+        <l-popup>
+          <strong style="color:#f97316">Transfer</strong><br>
+          {{ transferData.transferStation.name }}
+        </l-popup>
+      </l-marker>
+
+      <!-- Marker stație coborâre (verde) -->
+      <l-marker
+        v-if="(showMultimodal || showTransfer) && (showTransfer ? transferData.alightingStation : multimodalData.alightingStation)"
+        :lat-lng="showTransfer
+          ? [transferData.alightingStation!.latitude, transferData.alightingStation!.longitude]
+          : [props.allStations.find(s => s.name === multimodalData.alightingStation)?.latitude ?? 0,
+             props.allStations.find(s => s.name === multimodalData.alightingStation)?.longitude ?? 0]"
+      >
+        <l-icon :icon-size="[26, 35]" :icon-anchor="[13, 35]">
+          <div class="trip-pin alighting-pin">
+            <div class="pin-bubble">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="12" height="12">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <div class="pin-tail alighting-tail"></div>
+          </div>
+        </l-icon>
+        <l-popup>
+          <strong style="color:#10b981">Coborâre</strong><br>
+          {{ showTransfer ? transferData.alightingStation?.name : multimodalData.alightingStation }}
         </l-popup>
       </l-marker>
 
@@ -412,10 +473,18 @@
         v-if="(showMultimodal || showTransfer) && savedDestination"
         :lat-lng="[savedDestination.lat, savedDestination.lon]"
       >
-        <l-icon :icon-size="[36, 36]" :icon-anchor="[18, 36]" icon-url="/placeholder.png" />
-        <l-popup>
-          <strong>{{ savedDestination.name }}</strong>
-        </l-popup>
+        <l-icon :icon-size="[30, 41]" :icon-anchor="[15, 41]">
+          <div class="trip-pin dest-pin">
+            <div class="pin-bubble">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+                <line x1="4" y1="22" x2="4" y2="15"/>
+              </svg>
+            </div>
+            <div class="pin-tail dest-tail"></div>
+          </div>
+        </l-icon>
+        <l-popup><strong>{{ savedDestination.name }}</strong></l-popup>
       </l-marker>
 
       <!-- Markere pentru autobuze LIVE - ascunse când e afișată o rută -->
@@ -2566,9 +2635,9 @@ const getStationETAs = (stationId: number) => {
   top: 16px;
   right: 16px;
   z-index: 1100;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 40px);
   gap: 8px;
-  align-items: center;
 }
 
 .action-btn {
@@ -2621,6 +2690,79 @@ const getStationETAs = (stationId: number) => {
 .action-btn.admin-btn:hover {
   background: #f5f3ff;
   color: #7c3aed;
+}
+
+/* Trip plan markers - modern pin style */
+.trip-pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.22));
+}
+
+.pin-bubble {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.95);
+}
+
+.pin-tail {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  margin-top: -1px;
+}
+
+/* Origin – slate circle, no tail */
+.origin-pin .pin-bubble {
+  width: 26px;
+  height: 26px;
+  background: #475569;
+  box-shadow: 0 1px 5px rgba(71,85,105,0.35);
+}
+
+/* Boarding – blue teardrop pin */
+.boarding-pin .pin-bubble {
+  width: 24px;
+  height: 24px;
+  background: #3b82f6;
+  box-shadow: 0 1px 5px rgba(59,130,246,0.4);
+}
+.boarding-tail {
+  border-top: 9px solid #3b82f6;
+}
+
+/* Transfer – orange circle with ring, no tail */
+.transfer-pin .pin-bubble {
+  width: 30px;
+  height: 30px;
+  background: #f97316;
+  box-shadow: 0 0 0 4px rgba(249,115,22,0.18), 0 1px 5px rgba(249,115,22,0.4);
+}
+
+/* Alighting – green teardrop pin */
+.alighting-pin .pin-bubble {
+  width: 24px;
+  height: 24px;
+  background: #10b981;
+  box-shadow: 0 1px 5px rgba(16,185,129,0.4);
+}
+.alighting-tail {
+  border-top: 9px solid #10b981;
+}
+
+/* Destination – red teardrop pin */
+.dest-pin .pin-bubble {
+  width: 28px;
+  height: 28px;
+  background: #ef4444;
+  box-shadow: 0 1px 6px rgba(239,68,68,0.45);
+}
+.dest-tail {
+  border-top: 11px solid #ef4444;
 }
 
 /* Stiluri pentru gradul de ocupare */
