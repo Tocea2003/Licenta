@@ -1583,6 +1583,25 @@ const fetchAlternativeRoutes = async (startStationId: number, endStationId: numb
 }
 
 // Handler pentru selectarea unei rute alternative
+// Trunchiază shape-ul rutei între două stații (backend returnează ruta completă)
+const trimShapeToStations = (
+  points: Array<{latitude: number, longitude: number}>,
+  from: {latitude: number, longitude: number},
+  to: {latitude: number, longitude: number}
+): [number, number][] => {
+  if (!points || points.length === 0) return []
+  let fromIdx = 0, fromDist = Infinity, toIdx = points.length - 1, toDist = Infinity
+  for (let i = 0; i < points.length; i++) {
+    const dFrom = Math.hypot(points[i].latitude - from.latitude, points[i].longitude - from.longitude)
+    const dTo   = Math.hypot(points[i].latitude - to.latitude,   points[i].longitude - to.longitude)
+    if (dFrom < fromDist) { fromDist = dFrom; fromIdx = i }
+    if (dTo   < toDist)   { toDist   = dTo;   toIdx   = i }
+  }
+  const start = Math.min(fromIdx, toIdx)
+  const end   = Math.max(fromIdx, toIdx)
+  return points.slice(start, end + 1).map(p => [p.latitude, p.longitude] as [number, number])
+}
+
 const handleAlternativeRouteSelected = async (route: any) => {
   selectedAlternative.value = route
   showAlternatives.value = false
@@ -1631,9 +1650,9 @@ const handleAlternativeRouteSelected = async (route: any) => {
         segment.endStation.id
       )
       
-      let busPart: [number, number][] = gtfsSegment?.points?.map(point => 
-        [point.latitude, point.longitude] as [number, number]
-      ) || []
+      let busPart: [number, number][] = gtfsSegment?.points
+        ? trimShapeToStations(gtfsSegment.points, segment.startStation, segment.endStation)
+        : []
       
       
       // Dacă GTFS nu returnează suficiente puncte, calculăm cu OSRM
@@ -1743,13 +1762,13 @@ const handleAlternativeRouteSelected = async (route: any) => {
         segment2.endStation.id
       )
       
-      let busPart1: [number, number][] = gtfsSegment1?.points?.map(point => 
-        [point.latitude, point.longitude] as [number, number]
-      ) || []
-      
-      let busPart2: [number, number][] = gtfsSegment2?.points?.map(point => 
-        [point.latitude, point.longitude] as [number, number]
-      ) || []
+      let busPart1: [number, number][] = gtfsSegment1?.points
+        ? trimShapeToStations(gtfsSegment1.points, segment1.startStation, segment1.endStation)
+        : []
+
+      let busPart2: [number, number][] = gtfsSegment2?.points
+        ? trimShapeToStations(gtfsSegment2.points, segment2.startStation, segment2.endStation)
+        : []
       
       
       // Calculăm cu OSRM dacă GTFS nu returnează suficiente puncte
@@ -1906,9 +1925,7 @@ const handleMultimodalRouteRequested = async (
         try {
           const shapeData = await apiService.getRouteSegment(route.id, startStation.id, endStation.id)
           if (shapeData && shapeData.points && shapeData.points.length > 0) {
-            multimodalBusPath.value = shapeData.points.map(point => 
-              [point.latitude, point.longitude] as [number, number]
-            )
+            multimodalBusPath.value = trimShapeToStations(shapeData.points, startStation, endStation)
           } else {
             await calculateStreetRoute(relevantStations)
             multimodalBusPath.value = routePath.value
@@ -1968,17 +1985,13 @@ const handleMultimodalRouteRequested = async (
           // Primul segment de autobuz (start → transfer)
           const segment1 = await apiService.getRouteSegment(route1.id, startStation.id, transferStation.id)
           if (segment1 && segment1.points && segment1.points.length > 0) {
-            walkingPath.value = segment1.points.map(point => 
-              [point.latitude, point.longitude] as [number, number]
-            )
+            walkingPath.value = trimShapeToStations(segment1.points, startStation, transferStation)
           }
-          
+
           // Al doilea segment de autobuz (transfer → end)
           const segment2 = await apiService.getRouteSegment(route2.id, transferStation.id, endStation.id)
           if (segment2 && segment2.points && segment2.points.length > 0) {
-            secondWalkingPath.value = segment2.points.map(point => 
-              [point.latitude, point.longitude] as [number, number]
-            )
+            secondWalkingPath.value = trimShapeToStations(segment2.points, transferStation, endStation)
           }
         } catch (error) {
         }
@@ -2212,7 +2225,7 @@ watch(() => props.tripPlan, async (plan) => {
   try {
     const seg1 = await apiService.getRouteSegment(plan.route1Id, boarding.id, busEndStation.id)
     if (seg1?.points?.length) {
-      walkingPath.value = seg1.points.map(p => [p.latitude, p.longitude] as [number, number])
+      walkingPath.value = trimShapeToStations(seg1.points, boarding, busEndStation)
       allPoints.push(...walkingPath.value)
     }
   } catch {}
@@ -2222,7 +2235,7 @@ watch(() => props.tripPlan, async (plan) => {
     try {
       const seg2 = await apiService.getRouteSegment(plan.route2Id, transfer.id, alighting.id)
       if (seg2?.points?.length) {
-        secondWalkingPath.value = seg2.points.map(p => [p.latitude, p.longitude] as [number, number])
+        secondWalkingPath.value = trimShapeToStations(seg2.points, transfer, alighting)
         allPoints.push(...secondWalkingPath.value)
       }
     } catch {}
