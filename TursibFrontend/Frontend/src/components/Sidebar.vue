@@ -405,9 +405,8 @@ const buildETAs = (schedule: StationScheduleEntry[]) => {
   const etas: ETAItem[] = []
   const seen = new Set<string>()
   for (const entry of schedule) {
-    const parts = entry.departureTime.split(':')
-    if (parts.length < 2) continue
-    const entryMinutes = parseInt(parts[0]) * 60 + parseInt(parts[1])
+    const entryMinutes = parseTimeToMinutes(entry.departureTime)
+    if (entryMinutes === null) continue
     const diffSeconds = (entryMinutes - currentMinutes) * 60
     if (diffSeconds < 0 || diffSeconds > 3600) continue
     const dedupeKey = `${entry.routeNumber}-${entry.departureTime}`
@@ -575,6 +574,15 @@ const selectDest   = (s: Suggestion) => { planDest.value = s;   planDestQuery.va
 const clearOrigin  = () => { planOrigin.value = null; planOriginQuery.value = ''; originSuggestions.value = [] }
 const clearDest    = () => { planDest.value = null;   planDestQuery.value = '';   destSuggestions.value = [] }
 
+const parseTimeToMinutes = (time: string): number | null => {
+  const [hh, mm] = time.split(':')
+  if (hh === undefined || mm === undefined) return null
+  const h = Number(hh)
+  const m = Number(mm)
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null
+  return h * 60 + m
+}
+
 const minutesToStr = (m: number) => `${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`
 
 const searchRoutes = async () => {
@@ -582,8 +590,8 @@ const searchRoutes = async () => {
   isSearching.value = true; searchDone.value = false; planResults.value = []
 
   try {
-    const [hh, mm] = planTime.value.split(':').map(Number)
-    const targetMin = hh * 60 + mm
+    const targetMin = parseTimeToMinutes(planTime.value)
+    if (targetMin === null) { searchDone.value = true; return }
     const nowMin = new Date().getHours() * 60 + new Date().getMinutes()
     const origin = planOrigin.value!, dest = planDest.value!
 
@@ -602,8 +610,8 @@ const searchRoutes = async () => {
     await Promise.all(boardingCandidates.map(async boarding => {
       const schedule = await apiService.getStationSchedule(boarding.id)
       const upcoming = schedule.filter(e => {
-        const p = e.departureTime.split(':')
-        return parseInt(p[0]) * 60 + parseInt(p[1]) >= targetMin
+        const minutes = parseTimeToMinutes(e.departureTime)
+        return minutes !== null && minutes >= targetMin
       })
       boardingScheduleMap.set(boarding.id, upcoming)
       const routeIds = [...new Set(upcoming.map((e: any) => e.routeId as number))]
@@ -655,7 +663,8 @@ const searchRoutes = async () => {
 
           const stationsBetween = Math.abs(dIdx - oIdx)
           for (const entry of upcoming.filter((e: any) => e.routeId === routeId).slice(0, 5)) {
-            const depMin = parseInt(entry.departureTime.split(':')[0]) * 60 + parseInt(entry.departureTime.split(':')[1])
+            const depMin = parseTimeToMinutes(entry.departureTime)
+            if (depMin === null) continue
             const key = `D-${routeId}-${boarding.id}-${alighting.id}-${entry.departureTime}`
             if (seen.has(key)) continue; seen.add(key)
             results.push({
@@ -699,7 +708,8 @@ const searchRoutes = async () => {
             const r2Stops = Math.abs(dIdxB - tIdxB)
 
             for (const entry of upcoming.filter((e: any) => e.routeId === routeAId).slice(0, 3)) {
-              const depMin = parseInt(entry.departureTime.split(':')[0]) * 60 + parseInt(entry.departureTime.split(':')[1])
+              const depMin = parseTimeToMinutes(entry.departureTime)
+              if (depMin === null) continue
               const arrMin = depMin + r1Stops * 2 + 5 + r2Stops * 2
               const key = `T-${routeAId}-${routeB.id}-${boarding.id}-${alighting.id}-${entry.departureTime}`
               if (seen.has(key)) continue; seen.add(key)
