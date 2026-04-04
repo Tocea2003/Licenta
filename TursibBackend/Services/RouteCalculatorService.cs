@@ -163,6 +163,22 @@ namespace TursibBackend.Services
 
                 foreach (var edge in graph.Nodes[currentStationId].Edges)
                 {
+                    if (edge.Type == EdgeType.Walking)
+                    {
+                        // Walking edge: resetăm contextul rutei (0 = nu suntem pe nicio linie)
+                        if (edge.Distance > maxWalkingDistance) continue;
+                        long walkNeighborState = EncodeState(edge.ToStationId, 0);
+                        if (visited.Contains(walkNeighborState)) continue;
+                        double walkNewDist = distances.GetValueOrDefault(state, double.MaxValue) + edge.TravelTime;
+                        if (walkNewDist < distances.GetValueOrDefault(walkNeighborState, double.MaxValue))
+                        {
+                            distances[walkNeighborState] = walkNewDist;
+                            predecessors[walkNeighborState] = (currentStationId, currentRouteId, edge);
+                            queue.Enqueue(walkNeighborState, walkNewDist);
+                        }
+                        continue;
+                    }
+
                     if (edge.Type != EdgeType.Bus) continue;
 
                     int edgeRouteId   = edge.RouteId ?? 0;
@@ -310,6 +326,9 @@ namespace TursibBackend.Services
             // continua pe orice linie disponibilă la acea stație fără muchie explicită,
             // deoarece fiecare linie are propriile muchii Bus care pleacă din nod.
 
+            // 4. Adaugă muchii de walking între stații apropiate
+            AddWalkingEdges(graph, stations);
+
             return graph;
         }
 
@@ -382,6 +401,21 @@ namespace TursibBackend.Services
 
                 if (edge == null)
                 {
+                    i++;
+                    continue;
+                }
+
+                if (edge.Type == EdgeType.Walking)
+                {
+                    segments.Add(new RouteSegment
+                    {
+                        Type = "walk",
+                        StartStation = currentNode.Station,
+                        EndStation = path[i + 1].Station,
+                        Duration = (int)Math.Ceiling(edge.TravelTime),
+                        Distance = edge.Distance
+                    });
+                    totalDuration += edge.TravelTime;
                     i++;
                     continue;
                 }

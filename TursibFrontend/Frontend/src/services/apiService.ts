@@ -138,8 +138,17 @@ export default {
   },
 
   // POST /api/routing/alternatives - Calculează rute alternative cu Dijkstra
-  async calculateRouteAlternatives(startStationId: number, endStationId: number): Promise<any[]> {
-    const response = await apiClient.post('/routing/alternatives', { startStationId, endStationId })
+  async calculateRouteAlternatives(
+    startStationId: number,
+    endStationId: number,
+    departureTime?: string
+  ): Promise<any[]> {
+    const payload: Record<string, unknown> = { startStationId, endStationId }
+    if (departureTime) {
+      payload.departureTime = departureTime
+    }
+
+    const response = await apiClient.post('/routing/alternatives', payload)
     return response.data
   }
 }

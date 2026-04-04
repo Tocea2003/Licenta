@@ -1,11 +1,11 @@
 <template>
   <div class="analytics-dashboard">
     <div class="page-header">
-      <h2>📊 Dashboard Analytics</h2>
-      <p class="subtitle">Statistici în timp real pentru sistemul de transport public</p>
+      <h2>📊 {{ t('analyticsDashboard') }}</h2>
+      <p class="subtitle">{{ t('analyticsSubtitle') }}</p>
     </div>
 
-    <div v-if="isLoading" class="loading">Se încarcă datele...</div>
+    <div v-if="isLoading" class="loading">{{ t('loadingData') }}</div>
 
     <div v-else class="analytics-content">
       <!-- Statistici rapide -->
@@ -14,7 +14,7 @@
           <div class="stat-icon">🚌</div>
           <div class="stat-content">
             <div class="stat-value">{{ stats.activeBuses }}</div>
-            <div class="stat-label">Autobuze Active</div>
+            <div class="stat-label">{{ t('activeBusesLabel') }}</div>
           </div>
         </div>
 
@@ -22,7 +22,7 @@
           <div class="stat-icon">👥</div>
           <div class="stat-content">
             <div class="stat-value">{{ stats.avgOccupancy }}%</div>
-            <div class="stat-label">Ocupare Medie</div>
+            <div class="stat-label">{{ t('avgOccupancyLabel') }}</div>
           </div>
         </div>
 
@@ -30,7 +30,7 @@
           <div class="stat-icon">🗺️</div>
           <div class="stat-content">
             <div class="stat-value">{{ stats.totalRoutes }}</div>
-            <div class="stat-label">Trasee Totale</div>
+            <div class="stat-label">{{ t('totalRoutesLabel') }}</div>
           </div>
         </div>
 
@@ -38,7 +38,7 @@
           <div class="stat-icon">📍</div>
           <div class="stat-content">
             <div class="stat-value">{{ stats.totalStations }}</div>
-            <div class="stat-label">Stații Totale</div>
+            <div class="stat-label">{{ t('totalStationsLabel') }}</div>
           </div>
         </div>
       </div>
@@ -47,32 +47,32 @@
       <div class="charts-grid">
         <!-- Ocupare pe traseu -->
         <div class="chart-card">
-          <h3>Ocupare Medie pe Traseu</h3>
+          <h3>{{ t('avgOccupancyByRoute') }}</h3>
           <canvas ref="occupancyChartCanvas"></canvas>
         </div>
 
         <!-- Autobuze active pe oră -->
         <div class="chart-card">
-          <h3>Autobuze Active în Timp Real</h3>
+          <h3>{{ t('activeBusesRealtime') }}</h3>
           <canvas ref="busesChartCanvas"></canvas>
         </div>
 
         <!-- Distribuție ocupare -->
         <div class="chart-card">
-          <h3>Distribuție Nivel Ocupare</h3>
+          <h3>{{ t('occupancyDistribution') }}</h3>
           <canvas ref="distributionChartCanvas"></canvas>
         </div>
 
         <!-- Stații cu trafic mare -->
         <div class="chart-card">
-          <h3>Top Stații Tranzitate</h3>
+          <h3>{{ t('topStationsTraffic') }}</h3>
           <canvas ref="stationsChartCanvas"></canvas>
         </div>
       </div>
 
       <!-- Detalii autobuze live -->
       <div class="live-buses-section">
-        <h3>🔴 Autobuze Live</h3>
+        <h3>🔴 {{ t('liveBuses') }}</h3>
         <div class="live-buses-grid">
           <div 
             v-for="bus in liveBuses" 
@@ -82,7 +82,7 @@
           >
             <div class="bus-header">
               <span class="bus-route">{{ bus.route }}</span>
-              <span class="bus-status">● LIVE</span>
+              <span class="bus-status">● {{ t('live') }}</span>
             </div>
             <div class="bus-details">
               <div class="bus-stat">
@@ -90,15 +90,15 @@
                 <span class="value">{{ bus.id }}</span>
               </div>
               <div class="bus-stat">
-                <span class="label">Viteză:</span>
+                <span class="label">{{ t('speed') }}:</span>
                 <span class="value">{{ bus.speed }} km/h</span>
               </div>
               <div class="bus-stat">
-                <span class="label">Ocupare:</span>
+                <span class="label">{{ t('occupancy') }}:</span>
                 <span class="value occupancy-value">{{ bus.occupancy }}%</span>
               </div>
               <div class="bus-stat">
-                <span class="label">Poziție:</span>
+                <span class="label">{{ t('position') }}:</span>
                 <span class="value coords">
                   {{ bus.latitude.toFixed(4) }}, {{ bus.longitude.toFixed(4) }}
                 </span>
@@ -116,8 +116,10 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { database } from '@/main'
 import { ref as dbRef, onValue, off } from 'firebase/database'
+import { useLanguage } from '@/composables/useLanguage'
 
 Chart.register(...registerables)
+const { t } = useLanguage()
 
 interface Bus {
   id: string
@@ -258,7 +260,7 @@ const updateCharts = (buses: Bus[]) => {
     data: {
       labels: routes,
       datasets: [{
-        label: 'Ocupare Medie (%)',
+        label: t('occupancyAvgPercent'),
         data: avgOccupancies,
         backgroundColor: avgOccupancies.map(occ => {
           if (occ < 40) return 'rgba(34, 197, 94, 0.7)'
@@ -300,7 +302,7 @@ const updateCharts = (buses: Bus[]) => {
     data: {
       labels: Object.keys(busesPerRoute),
       datasets: [{
-        label: 'Autobuze Active',
+        label: t('activeBusesLabel'),
         data: Object.values(busesPerRoute),
         borderColor: 'rgb(59, 130, 246)',
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -331,7 +333,7 @@ const updateCharts = (buses: Bus[]) => {
   distributionChart = new Chart(distributionChartCanvas.value, {
     type: 'doughnut',
     data: {
-      labels: ['Scăzută (<40%)', 'Medie (40-70%)', 'Ridicată (>70%)'],
+      labels: [t('occupancyLow'), t('occupancyMedium'), t('occupancyHigh')],
       datasets: [{
         data: [lowOccupancy, mediumOccupancy, highOccupancy],
         backgroundColor: [
@@ -360,7 +362,7 @@ const updateCharts = (buses: Bus[]) => {
     data: {
       labels: ['Piața Mare', 'Gara CFR', 'Autogării', 'Strand', 'Kaufland'],
       datasets: [{
-        label: 'Număr treceri',
+        label: t('passCount'),
         data: [156, 142, 128, 98, 87],
         backgroundColor: 'rgba(139, 92, 246, 0.7)',
         borderColor: 'rgb(139, 92, 246)',

@@ -1,24 +1,24 @@
 <template>
   <div class="settings-page">
     <div class="header">
-      <h1>⚙️ Setări</h1>
-      <p class="subtitle">Personalizează experiența ta</p>
+      <h1>⚙️ {{ t('settings') }}</h1>
+      <p class="subtitle">{{ t('personalizeExperience') }}</p>
     </div>
 
     <div class="content">
       <!-- Dark Mode Section -->
       <div class="setting-section">
-        <h2>🎨 Aspect</h2>
+        <h2>🎨 {{ t('appearance') }}</h2>
         <div class="setting-item">
           <div class="setting-info">
-            <h3>Mod Întunecat</h3>
-            <p>Schimbă tema aplicației</p>
+            <h3>{{ t('darkMode') }}</h3>
+            <p>{{ t('darkModeDesc') }}</p>
           </div>
           <button 
             @click="toggleDarkMode" 
             class="toggle-btn"
             :class="{ active: isDarkMode }"
-            :aria-label="isDarkMode ? 'Dezactivează modul întunecat' : 'Activează modul întunecat'"
+            :aria-label="isDarkMode ? t('disableDarkMode') : t('enableDarkMode')"
           >
             <span class="toggle-slider"></span>
           </button>
@@ -27,11 +27,11 @@
 
       <!-- Notifications Section -->
       <div class="setting-section">
-        <h2>🔔 Notificări</h2>
+        <h2>🔔 {{ t('notifications') }}</h2>
         <div class="setting-item">
           <div class="setting-info">
-            <h3>Notificări Push</h3>
-            <p>Primește alertes despre autobuze</p>
+            <h3>{{ t('pushNotifications') }}</h3>
+            <p>{{ t('pushNotificationsDesc') }}</p>
           </div>
           <button 
             @click="toggleNotifications" 
@@ -43,13 +43,36 @@
         </div>
       </div>
 
+      <!-- Language Section -->
+      <div class="setting-section">
+        <h2>🌐 {{ t('language') }}</h2>
+        <div class="setting-item language-item">
+          <div class="setting-info">
+            <h3>{{ languageName }}</h3>
+            <p>{{ t('switchToLanguage', 'Switch the app to {language}', { language: nextLanguageName }) }}</p>
+          </div>
+          <div class="language-buttons" role="group" :aria-label="t('language')">
+            <button
+              v-for="language in languageOptions"
+              :key="language"
+              @click="setLanguage(language)"
+              class="lang-btn"
+              :class="{ active: currentLanguage === language }"
+              :aria-label="t('switchLanguageAria', 'Switch language to {language}', { language: getLanguageDisplay(language) })"
+            >
+              {{ getLanguageDisplay(language) }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Statistics Section -->
       <div class="setting-section">
-        <h2>📊 Statistici</h2>
+        <h2>📊 {{ t('statistics') }}</h2>
         <router-link to="/statistics" class="setting-link">
           <div class="setting-info">
-            <h3>Statisticile Mele</h3>
-            <p>Vezi statisticile de utilizare</p>
+            <h3>{{ t('myStatistics') }}</h3>
+            <p>{{ t('usageStatisticsDesc') }}</p>
           </div>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -59,11 +82,11 @@
 
       <!-- Account Section -->
       <div class="setting-section">
-        <h2>👤 Cont</h2>
+        <h2>👤 {{ t('account') }}</h2>
         <router-link to="/login" class="setting-link">
           <div class="setting-info">
-            <h3>Autentificare</h3>
-            <p>Conectează-te la cont</p>
+            <h3>{{ t('authentication') }}</h3>
+            <p>{{ t('signInAccountDesc') }}</p>
           </div>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -73,20 +96,20 @@
 
       <!-- About Section -->
       <div class="setting-section">
-        <h2>ℹ️ Informații</h2>
+        <h2>ℹ️ {{ t('information') }}</h2>
         <div class="info-items">
           <div class="info-item">
-            <span class="label">Versiune</span>
+            <span class="label">{{ t('version') }}</span>
             <span class="value">1.0.0</span>
           </div>
           <div class="info-item">
-            <span class="label">Build</span>
+            <span class="label">{{ t('build') }}</span>
             <span class="value">2026.01.15</span>
           </div>
           <router-link to="/about" class="setting-link">
             <div class="setting-info">
-              <h3>Despre Aplicație</h3>
-              <p>Informații și dezvoltatori</p>
+              <h3>{{ t('aboutApp') }}</h3>
+              <p>{{ t('aboutAppDesc') }}</p>
             </div>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -99,11 +122,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useDarkMode } from '@/composables/useDarkMode'
+import { useLanguage, type Language } from '@/composables/useLanguage'
 
 const { isDarkMode, toggleDarkMode } = useDarkMode()
+const { currentLanguage, setLanguage, t } = useLanguage()
 const notificationsEnabled = ref(false)
+const languageOptions: Language[] = ['ro', 'en', 'de']
+
+const getLanguageDisplay = (language: Language) => {
+  if (language === 'ro') return t('romanian')
+  if (language === 'en') return t('english')
+  return t('german')
+}
+
+const languageName = computed(() => getLanguageDisplay(currentLanguage.value))
+
+const nextLanguageName = computed(() => {
+  if (currentLanguage.value === 'ro') return getLanguageDisplay('en')
+  if (currentLanguage.value === 'en') return getLanguageDisplay('de')
+  return getLanguageDisplay('ro')
+})
 
 const toggleNotifications = () => {
   notificationsEnabled.value = !notificationsEnabled.value
@@ -212,6 +252,37 @@ const toggleNotifications = () => {
 
 .toggle-btn.active {
   background: #3b82f6;
+}
+
+.language-item {
+  align-items: center;
+}
+
+.language-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.lang-btn {
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lang-btn:hover {
+  border-color: #3b82f6;
+}
+
+.lang-btn.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
 }
 
 .toggle-slider {

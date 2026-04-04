@@ -27,17 +27,17 @@
     <div v-if="activeTab === 'routes'" class="tab-content">
       <div v-if="loading" class="center-state">
         <div class="spinner"></div>
-        <p>Se încarcă traseele...</p>
+        <p>{{ t('loadingRoutes') }}</p>
       </div>
 
       <div v-else-if="error" class="center-state error-state">
         <span class="state-icon">⚠️</span>
         <p>{{ error }}</p>
-        <button @click="loadRoutes" class="btn-retry">Reîncearcă</button>
+        <button @click="loadRoutes" class="btn-retry">{{ t('retry') }}</button>
       </div>
 
       <div v-else class="routes-section">
-        <p class="section-hint">Selectează un traseu pentru a-l vedea pe hartă</p>
+        <p class="section-hint">{{ t('selectRouteHint') }}</p>
 
         <button
           v-for="route in routes"
@@ -59,11 +59,11 @@
       <transition name="slide-down">
         <div v-if="selectedRouteId && (loadingStations || currentStations.length > 0)" class="stations-section">
           <div class="stations-header">
-            <span>📍 Stații pe traseu</span>
+            <span>📍 {{ t('routeStations') }}</span>
             <span class="stations-count" v-if="!loadingStations">{{ currentStations.length }}</span>
           </div>
           <div v-if="loadingStations" class="loading-small">
-            <div class="spinner-small"></div> Se încarcă...
+            <div class="spinner-small"></div> {{ t('loading') }}
           </div>
           <div v-else class="stations-list">
             <div
@@ -90,7 +90,7 @@
           <input
             v-model="scheduleQuery"
             @input="onScheduleInput"
-            placeholder="Caută stație... (ex: Gara)"
+            :placeholder="t('searchStationPlaceholder')"
             class="search-input"
             autocomplete="off"
           />
@@ -149,8 +149,8 @@
       <!-- Stare inițială -->
       <div v-else-if="!scheduleQuery" class="empty-hero">
         <div class="empty-hero-icon">🕐</div>
-        <h3>Orar în timp real</h3>
-        <p>Caută o stație pentru a vedea autobuzele care urmează să sosească.</p>
+        <h3>{{ t('realtimeSchedule') }}</h3>
+        <p>{{ t('searchStationScheduleHint') }}</p>
       </div>
     </div>
 
@@ -160,7 +160,7 @@
       <div class="plan-form">
         <!-- Plecare -->
         <div class="form-group">
-          <label class="form-label">📍 Plecare din</label>
+          <label class="form-label">📍 {{ t('departure') }} {{ t('from') }}</label>
           <div v-if="planOrigin" class="selected-station-chip">
             <span>{{ planOrigin.type === 'station' ? '🚏' : '📍' }} {{ planOrigin.name }}</span>
             <button @click="clearOrigin" class="chip-close">✕</button>
@@ -168,7 +168,7 @@
           <div v-else>
             <div class="search-input-wrap">
               <input v-model="planOriginQuery" @input="debouncedOriginInput"
-                placeholder="Stație sau adresă de plecare..." class="search-input" autocomplete="off" />
+                :placeholder="t('originPlaceholder')" class="search-input" autocomplete="off" />
               <button v-if="planOriginQuery" @click="clearOrigin" class="clear-btn">✕</button>
             </div>
             <div v-if="originSuggestions.length > 0" class="autocomplete">
@@ -182,7 +182,7 @@
 
         <!-- Destinație -->
         <div class="form-group">
-          <label class="form-label">🎯 Destinație</label>
+          <label class="form-label">🎯 {{ t('destination') }}</label>
           <div v-if="planDest" class="selected-station-chip">
             <span>{{ planDest.type === 'station' ? '🚏' : '📍' }} {{ planDest.name }}</span>
             <button @click="clearDest" class="chip-close">✕</button>
@@ -190,7 +190,7 @@
           <div v-else>
             <div class="search-input-wrap">
               <input v-model="planDestQuery" @input="debouncedDestInput"
-                placeholder="Stație sau adresă destinație..." class="search-input" autocomplete="off" />
+                :placeholder="t('destinationPlaceholder')" class="search-input" autocomplete="off" />
               <button v-if="planDestQuery" @click="clearDest" class="clear-btn">✕</button>
             </div>
             <div v-if="destSuggestions.length > 0" class="autocomplete">
@@ -204,20 +204,20 @@
 
         <!-- Ora plecării -->
         <div class="form-group">
-          <label class="form-label">🕐 Plecare după ora</label>
+          <label class="form-label">🕐 {{ t('departureAfter') }}</label>
           <input v-model="planTime" type="time" class="time-input" required />
         </div>
 
-        <button @click="searchRoutes" :disabled="!planOrigin || !planDest || !planTime || isSearching" class="btn-search-routes">
-          <span v-if="isSearching">⏳ Se caută...</span>
-          <span v-else>🔍 Caută curse</span>
+        <button @click="searchRoutes" :disabled="(!planOrigin && !planOriginQuery.trim()) || (!planDest && !planDestQuery.trim()) || !planTime || isSearching" class="btn-search-routes">
+          <span v-if="isSearching">⏳ {{ t('searching') }}</span>
+          <span v-else>🔍 {{ t('searchTrips') }}</span>
         </button>
       </div>
 
       <!-- Rezultate -->
       <div v-if="planResults.length > 0" class="plan-results">
         <div class="results-header">
-          <strong>{{ planResults.length }} rezultate</strong>
+          <strong>{{ planResults.length }} {{ t('selectedResults') }}</strong>
           <span class="results-sub">{{ planOrigin?.name }} → {{ planDest?.name }}</span>
         </div>
 
@@ -244,45 +244,53 @@
 
           <div class="result-times">
             <div class="time-block">
-              <span class="time-label">Plecare</span>
+              <span class="time-label">{{ t('departure') }}</span>
               <span class="time-value">{{ result.departureTime }}</span>
             </div>
             <div class="time-arrow">→</div>
             <div class="time-block">
-              <span class="time-label">Sosire est.</span>
+              <span class="time-label">{{ currentLanguage === 'ro' ? 'Sosire est.' : 'Est. arrival' }}</span>
               <span class="time-value arrival">{{ result.arrivalTime }}</span>
             </div>
           </div>
 
           <div v-if="result.walkToStartMinutes || result.walkToEndMinutes" class="walking-info">
-            <span v-if="result.walkToStartMinutes">🚶 {{ result.walkToStartMinutes }} min →</span>
+            <span v-if="result.walkToStartMinutes">🚶 {{ result.walkToStartMinutes }} {{ t('minutes') }} →</span>
             🚌
-            <span v-if="result.walkToEndMinutes">→ 🚶 {{ result.walkToEndMinutes }} min</span>
+            <span v-if="result.walkToEndMinutes">→ 🚶 {{ result.walkToEndMinutes }} {{ t('minutes') }}</span>
+          </div>
+
+          <div v-if="result.walkToStartMinutes" class="walk-instruction">
+            {{ currentLanguage === 'ro' ? 'Mergi pe jos până la stația' : 'Walk to station' }} <strong>{{ result.boardingStation.name }}</strong> ({{ result.walkToStartMinutes }} {{ t('minutes') }}).
+          </div>
+
+          <div v-if="result.walkToEndMinutes" class="walk-instruction">
+            {{ currentLanguage === 'ro' ? 'După coborâre la' : 'After getting off at' }} <strong>{{ result.alightingStation.name }}</strong>, {{ currentLanguage === 'ro' ? 'mai mergi pe jos' : 'walk' }} {{ result.walkToEndMinutes }} {{ t('minutes') }} {{ currentLanguage === 'ro' ? 'până la destinație.' : 'to your destination.' }}
           </div>
 
           <div class="result-meta">
             <span class="result-countdown" :class="{ urgent: result.minutesUntil < 5 }">
-              {{ result.minutesUntil <= 0 ? 'Acum' : `în ${result.minutesUntil} min` }}
+              {{ result.minutesUntil <= 0 ? t('now') : t('inMinutes', 'in {n} min', { n: result.minutesUntil }) }}
             </span>
             <span>•</span>
             <span v-if="result.type === 'transfer'">
-              {{ result.route1StationsCount }}+{{ result.route2StationsCount }} stații • transfer
+              {{ result.route1StationsCount }}+{{ result.route2StationsCount }} {{ t('stations') }} • {{ t('transfer') }}
             </span>
-            <span v-else>{{ result.stationsBetween }} stații</span>
+            <span v-else>{{ result.stationsBetween }} {{ t('stations') }}</span>
           </div>
         </div>
       </div>
 
       <div v-else-if="searchDone" class="center-state">
         <span class="state-icon">🔎</span>
-        <p>Nu s-au găsit curse în intervalul selectat.</p>
-        <p class="hint-text">Încearcă o altă oră sau locații diferite.</p>
+        <p>{{ t('noTripsFound') }}</p>
+        <p class="hint-text">{{ t('tryDifferentTime') }}</p>
       </div>
 
       <div v-else-if="!planOrigin && !planDest" class="empty-hero">
         <div class="empty-hero-icon">🧭</div>
-        <h3>Planifică o călătorie</h3>
-        <p>Caută orice adresă sau stație, alege ora și găsim cel mai bun traseu — direct sau cu transfer.</p>
+        <h3>{{ t('tripPlanningTitle') }}</h3>
+        <p>{{ t('tripPlanningHint') }}</p>
       </div>
     </div>
 
@@ -290,13 +298,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import apiService, { type Route, type Station, type StationScheduleEntry } from '@/services/apiService'
+import { useLanguage } from '@/composables/useLanguage'
 
 // Props
 const props = defineProps<{
   allStations?: Station[]
 }>()
+
+const { currentLanguage, t } = useLanguage()
 
 // Emits
 const emit = defineEmits<{
@@ -307,11 +318,11 @@ const emit = defineEmits<{
 // ===================== TABS =====================
 type TabId = 'routes' | 'schedule' | 'plan'
 const activeTab = ref<TabId>('routes')
-const tabs: { id: TabId; icon: string; label: string }[] = [
-  { id: 'routes',   icon: '🗺️', label: 'Trasee' },
-  { id: 'schedule', icon: '🕐', label: 'Orar' },
-  { id: 'plan',     icon: '🧭', label: 'Planificare' },
-]
+const tabs = computed(() => [
+  { id: 'routes' as TabId, icon: '🗺️', label: t('routes') },
+  { id: 'schedule' as TabId, icon: '🕐', label: t('schedule') },
+  { id: 'plan' as TabId, icon: '🧭', label: t('planning') },
+])
 
 // ===================== TAB: TRASEE =====================
 const routes = ref<Route[]>([])
@@ -522,32 +533,132 @@ const nearestStations = (lat: number, lon: number, n: number): Station[] => {
     .slice(0, n)
 }
 
-// Geocoding via Nominatim (debounced)
+const normalizeText = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+
+const normalizeAddressInput = (value: string) => {
+  let normalized = value.trim()
+  // Corecteaza cateva greseli uzuale de tastare pentru adrese.
+  normalized = normalized.replace(/\bstarfa\b/gi, 'strada')
+  normalized = normalized.replace(/\bstarda\b/gi, 'strada')
+  normalized = normalized.replace(/\bstr\.?\b/gi, 'strada')
+  return normalized
+}
+
+const looksLikeAddress = (value: string) => {
+  const v = normalizeText(value)
+  const hasRoadWord = /\b(strada|str|bulevard|bd|aleea|piata|calea|nr)\b/.test(v)
+  const hasHouseNumber = /\b\d+[a-z]?\b/.test(v)
+  return hasRoadWord || hasHouseNumber
+}
+
+const extractHouseNumber = (value: string) => {
+  const match = normalizeText(value).match(/\b\d+[a-z]?\b/)
+  return match ? match[0] : null
+}
+
+const rankAddressSuggestion = (query: string, candidateName: string) => {
+  const qNorm = normalizeText(query)
+  const cNorm = normalizeText(candidateName)
+  const tokens = qNorm.split(/[^a-z0-9]+/).filter(token => token.length >= 3)
+  const houseNumber = extractHouseNumber(query)
+
+  let score = 0
+
+  if (houseNumber && cNorm.includes(houseNumber)) score += 60
+
+  for (const token of tokens) {
+    if (cNorm.includes(token)) score += token.length >= 5 ? 12 : 8
+  }
+
+  if (cNorm.includes('strada') || cNorm.includes('street') || /\b\d+[a-z]?\b/.test(cNorm)) {
+    score += 15
+  }
+
+  return score
+}
+
+const sortByAddressRelevance = (query: string, suggestions: Suggestion[]) =>
+  [...suggestions].sort((a, b) => rankAddressSuggestion(query, b.name) - rankAddressSuggestion(query, a.name))
+
+// Geocoding via Google (if API key exists) + Nominatim fallback
 let geocodeAbort: AbortController | null = null
+const GOOGLE_GEOCODING_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
+
+const geocodeWithGoogle = async (query: string): Promise<Suggestion[]> => {
+  if (!GOOGLE_GEOCODING_KEY) return []
+
+  try {
+    const cleanedQuery = normalizeAddressInput(query)
+    const addressQuery = /romania/i.test(cleanedQuery) ? cleanedQuery : `${cleanedQuery}, Romania`
+    const params = new URLSearchParams({
+      address: addressQuery,
+      key: GOOGLE_GEOCODING_KEY
+    })
+    const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`)
+    const data = await response.json()
+    const results: any[] = Array.isArray(data?.results) ? data.results : []
+
+    const mapped = results
+      .slice(0, 4)
+      .map(result => ({
+        type: 'address' as const,
+        name: result.formatted_address,
+        lat: result.geometry?.location?.lat,
+        lon: result.geometry?.location?.lng
+      }))
+      .filter(item => Number.isFinite(item.lat) && Number.isFinite(item.lon)) as Suggestion[]
+
+    return sortByAddressRelevance(query, mapped)
+  } catch {
+    return []
+  }
+}
+
 const geocode = async (query: string): Promise<Suggestion[]> => {
   if (geocodeAbort) geocodeAbort.abort()
   geocodeAbort = new AbortController()
+
   try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=4&countrycodes=ro&viewbox=23.9,45.65,24.45,46.0&bounded=0`
+    const cleanedQuery = normalizeAddressInput(query)
+    const googleResults = await geocodeWithGoogle(cleanedQuery)
+    if (googleResults.length > 0) {
+      return googleResults
+    }
+
+    const normalizedQuery = /romania/i.test(cleanedQuery) ? cleanedQuery : `${cleanedQuery}, Romania`
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(normalizedQuery)}&format=json&limit=8&addressdetails=1&countrycodes=ro&viewbox=23.9,45.65,24.45,46.0&bounded=0`
     const res = await fetch(url, { signal: geocodeAbort.signal, headers: { 'Accept-Language': 'ro' } })
     const data: any[] = await res.json()
-    return data.map(d => ({
+    const mapped: Suggestion[] = data.map(d => ({
       type: 'address' as const,
-      name: d.display_name.split(',').slice(0, 2).join(', '),
+      name: d.display_name,
       lat: parseFloat(d.lat),
       lon: parseFloat(d.lon),
     }))
+
+    return sortByAddressRelevance(cleanedQuery, mapped)
   } catch { return [] }
 }
 
 const getSuggestions = async (query: string): Promise<Suggestion[]> => {
-  const q = query.toLowerCase().trim()
+  const cleanedQuery = normalizeAddressInput(query)
+  const q = cleanedQuery.toLowerCase().trim()
   if (q.length < 2) return []
+
+  const geocoded = await geocode(cleanedQuery)
   const stationMatches: Suggestion[] = (props.allStations || [])
     .filter(s => s.name.toLowerCase().includes(q))
     .slice(0, 4)
     .map(s => ({ type: 'station', name: s.name, lat: s.latitude, lon: s.longitude, stationId: s.id }))
-  const geocoded = await geocode(query)
+
+  if (looksLikeAddress(cleanedQuery)) {
+    return [...geocoded.slice(0, 6)]
+  }
+
   return [...stationMatches, ...geocoded.slice(0, Math.max(0, 6 - stationMatches.length))]
 }
 
@@ -574,6 +685,56 @@ const selectDest   = (s: Suggestion) => { planDest.value = s;   planDestQuery.va
 const clearOrigin  = () => { planOrigin.value = null; planOriginQuery.value = ''; originSuggestions.value = [] }
 const clearDest    = () => { planDest.value = null;   planDestQuery.value = '';   destSuggestions.value = [] }
 
+const resolveTextQueryToLocation = async (query: string): Promise<Suggestion | null> => {
+  const q = normalizeAddressInput(query)
+  if (!q) return null
+
+  // Daca seamana cu adresa, geocodam direct in lat/lon si folosim acea locatie.
+  if (looksLikeAddress(q)) {
+    const geocoded = await geocode(q)
+    const firstGeocoded = geocoded[0]
+    if (firstGeocoded) {
+      return firstGeocoded
+    }
+  }
+
+  const exactStation = (props.allStations || []).find(station => station.name.toLowerCase() === q.toLowerCase())
+  if (exactStation) {
+    return {
+      type: 'station',
+      name: exactStation.name,
+      lat: exactStation.latitude,
+      lon: exactStation.longitude,
+      stationId: exactStation.id
+    }
+  }
+
+  const suggestions = await getSuggestions(q)
+  return suggestions[0] || null
+}
+
+const ensurePlanLocationsResolved = async (): Promise<boolean> => {
+  if (!planOrigin.value && planOriginQuery.value.trim()) {
+    const originResolved = await resolveTextQueryToLocation(planOriginQuery.value)
+    if (originResolved) {
+      planOrigin.value = originResolved
+      planOriginQuery.value = ''
+      originSuggestions.value = []
+    }
+  }
+
+  if (!planDest.value && planDestQuery.value.trim()) {
+    const destResolved = await resolveTextQueryToLocation(planDestQuery.value)
+    if (destResolved) {
+      planDest.value = destResolved
+      planDestQuery.value = ''
+      destSuggestions.value = []
+    }
+  }
+
+  return Boolean(planOrigin.value && planDest.value)
+}
+
 const parseTimeToMinutes = (time: string): number | null => {
   const [hh, mm] = time.split(':')
   if (hh === undefined || mm === undefined) return null
@@ -585,114 +746,168 @@ const parseTimeToMinutes = (time: string): number | null => {
 
 const minutesToStr = (m: number) => `${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`
 
+const buildDepartureDateTime = (time: string) => {
+  const [hoursRaw, minutesRaw] = time.split(':')
+  const hours = Number(hoursRaw)
+  const minutes = Number(minutesRaw)
+  const now = new Date()
+  const departure = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0)
+  return departure.toISOString()
+}
+
 const searchRoutes = async () => {
-  if (!planOrigin.value || !planDest.value) return
+  const hasLocations = await ensurePlanLocationsResolved()
+  if (!hasLocations) return
+
   isSearching.value = true; searchDone.value = false; planResults.value = []
 
   try {
     const origin = planOrigin.value!, dest = planDest.value!
     const now = new Date()
     const nowMin = now.getHours() * 60 + now.getMinutes()
+    const baseMin = parseTimeToMinutes(planTime.value) ?? nowMin
+    const maxWalkMinutes = 120
 
-    // Stații candidate: exactă dacă user a selectat stație, altfel cele mai apropiate 5
-    // (5 stații acoperă și stații de pe cealaltă parte a străzii sau din apropiere)
-    const boardingCandidates: Station[] = origin.type === 'station'
+    const originLat = origin.type === 'station'
+      ? (props.allStations!.find(s => s.id === origin.stationId)?.latitude ?? origin.lat)
+      : origin.lat
+    const originLon = origin.type === 'station'
+      ? (props.allStations!.find(s => s.id === origin.stationId)?.longitude ?? origin.lon)
+      : origin.lon
+
+    // Căutare extinsă: adresele folosesc până la 20 stații apropiate,
+    // apoi extindere progresivă (6 -> 12 -> 20) până găsim variante viabile.
+    const boardingRaw: Station[] = origin.type === 'station'
       ? [props.allStations!.find(s => s.id === origin.stationId)!].filter(Boolean)
-      : nearestStations(origin.lat, origin.lon, 5)
-    const alightingCandidates: Station[] = dest.type === 'station'
+      : nearestStations(originLat, originLon, 20)
+    const alightingRaw: Station[] = dest.type === 'station'
       ? [props.allStations!.find(s => s.id === dest.stationId)!].filter(Boolean)
-      : nearestStations(dest.lat, dest.lon, 5)
+      : nearestStations(dest.lat, dest.lon, 20)
 
-    if (!boardingCandidates.length || !alightingCandidates.length) { searchDone.value = true; return }
+    const boardingCandidates = origin.type === 'station'
+      ? boardingRaw
+      : boardingRaw.filter(station => walkMin(originLat, originLon, station.latitude, station.longitude) <= maxWalkMinutes)
+    const alightingCandidates = dest.type === 'station'
+      ? alightingRaw
+      : alightingRaw.filter(station => walkMin(dest.lat, dest.lon, station.latitude, station.longitude) <= maxWalkMinutes)
+
+    const finalBoardingCandidates = boardingCandidates.length > 0 ? boardingCandidates : boardingRaw.slice(0, 8)
+    const finalAlightingCandidates = alightingCandidates.length > 0 ? alightingCandidates : alightingRaw.slice(0, 8)
+
+    if (!finalBoardingCandidates.length || !finalAlightingCandidates.length) { searchDone.value = true; return }
 
     // Map: cheie_ruta → cel mai bun rezultat (walking minim)
     const bestByRoute = new Map<string, PlanResult>()
+    const attemptedPairs = new Set<string>()
+    const expansionStages = origin.type === 'station' || dest.type === 'station' ? [6, 12] : [6, 12, 20]
 
-    // Încearcă toate combinațiile boarding × alighting prin Dijkstra backend
-    await Promise.all(boardingCandidates.flatMap(boarding =>
-      alightingCandidates.map(async alighting => {
-        if (boarding.id === alighting.id) return
+    for (const stageSize of expansionStages) {
+      const stageBoarding = origin.type === 'station'
+        ? finalBoardingCandidates
+        : finalBoardingCandidates.slice(0, Math.min(stageSize, finalBoardingCandidates.length))
+      const stageAlighting = dest.type === 'station'
+        ? finalAlightingCandidates
+        : finalAlightingCandidates.slice(0, Math.min(stageSize, finalAlightingCandidates.length))
 
-        const walkStart = origin.type === 'address'
-          ? walkMin(origin.lat, origin.lon, boarding.latitude, boarding.longitude) : undefined
-        const walkEnd = dest.type === 'address'
-          ? walkMin(alighting.latitude, alighting.longitude, dest.lat, dest.lon) : undefined
+      await Promise.all(stageBoarding.flatMap(boarding =>
+        stageAlighting.map(async alighting => {
+          if (boarding.id === alighting.id) return
+          const pairKey = `${boarding.id}-${alighting.id}`
+          if (attemptedPairs.has(pairKey)) return
+          attemptedPairs.add(pairKey)
 
-        try {
-          const routes = await apiService.calculateRouteAlternatives(boarding.id, alighting.id)
+          const walkStart = origin.type === 'address'
+            ? walkMin(originLat, originLon, boarding.latitude, boarding.longitude)
+            : 0
+          const walkEnd = dest.type === 'address'
+            ? walkMin(alighting.latitude, alighting.longitude, dest.lat, dest.lon)
+            : 0
 
-          for (const route of routes) {
-            const busSegments = (route.segments as any[]).filter(s => s.type === 'bus')
-            if (!busSegments.length) continue
+          // Permitem adrese mai îndepărtate pentru a găsi totuși o rută posibilă
+          // (explicația de walking apare în rezultat).
 
-            const firstBus = busSegments[0]
-            const lastBus = busSegments[busSegments.length - 1]
-            const isDirect = busSegments.length === 1
+          try {
+            const departureTime = buildDepartureDateTime(planTime.value)
+            const routes = await apiService.calculateRouteAlternatives(boarding.id, alighting.id, departureTime)
 
-            const depMin = nowMin + (walkStart ?? 0)
-            const arrMin = depMin + route.totalDuration + (walkEnd ?? 0)
-            const totalWalk = (walkStart ?? 0) + (walkEnd ?? 0)
+            for (const route of routes) {
+              const busSegments = (route.segments as any[]).filter(s => s.type === 'bus')
+              if (!busSegments.length) continue
 
-            // Cheia de deduplicare: bazată pe rutele folosite + stația de transfer
-            // (nu pe stația de urcare/coborâre - poate fi aceeași rută dar stații diferite)
-            const transferKey = isDirect ? '' : (firstBus.endStation?.name ?? '')
-            const key = isDirect
-              ? `D-${firstBus.routeNumber}`
-              : `T-${firstBus.routeNumber}-${lastBus.routeNumber}-${transferKey}`
+              const firstBus = busSegments[0]
+              const lastBus = busSegments[busSegments.length - 1]
+              const isDirect = busSegments.length === 1
 
-            const result: PlanResult = {
-              type: isDirect ? 'direct' : 'transfer',
-              route1Id: firstBus.routeId ?? 0,
-              route1Number: firstBus.routeNumber ?? '',
-              route1Name: firstBus.routeName ?? '',
-              route1Color: firstBus.color ?? '#3b82f6',
-              stationsBetween: busSegments.reduce((sum: number, s: any) => sum + (s.stationCount ?? 0), 0),
-              boardingStation: boarding,
-              alightingStation: alighting,
-              originLat: origin.lat, originLon: origin.lon, originName: origin.name,
-              destLat: dest.lat, destLon: dest.lon, destName: dest.name,
-              walkToStartMinutes: walkStart,
-              walkToEndMinutes: walkEnd,
-              departureTime: minutesToStr(depMin),
-              arrivalTime: minutesToStr(arrMin),
-              minutesUntil: walkStart ?? 0,
+              const depMin = baseMin + walkStart
+              const arrMin = depMin + route.totalDuration + walkEnd
+              const totalWalk = walkStart + walkEnd
+              const minutesUntil = Math.max(0, depMin - nowMin)
+
+              const transferKey = isDirect ? '' : (firstBus.endStation?.name ?? '')
+              const key = isDirect
+                ? `D-${firstBus.routeNumber}`
+                : `T-${firstBus.routeNumber}-${lastBus.routeNumber}-${transferKey}`
+
+              const result: PlanResult = {
+                type: isDirect ? 'direct' : 'transfer',
+                route1Id: firstBus.routeId ?? 0,
+                route1Number: firstBus.routeNumber ?? '',
+                route1Name: firstBus.routeName ?? '',
+                route1Color: firstBus.color ?? '#3b82f6',
+                stationsBetween: busSegments.reduce((sum: number, s: any) => sum + (s.stationCount ?? 0), 0),
+                boardingStation: boarding,
+                alightingStation: alighting,
+                originLat: origin.lat,
+                originLon: origin.lon,
+                originName: origin.name,
+                destLat: dest.lat,
+                destLon: dest.lon,
+                destName: dest.name,
+                walkToStartMinutes: walkStart > 0 ? walkStart : undefined,
+                walkToEndMinutes: walkEnd > 0 ? walkEnd : undefined,
+                departureTime: minutesToStr(depMin),
+                arrivalTime: minutesToStr(arrMin),
+                minutesUntil,
+              }
+
+              if (!isDirect && busSegments.length >= 2) {
+                const secondBus = busSegments[1]
+                result.route2Id = secondBus.routeId ?? 0
+                result.route2Number = secondBus.routeNumber ?? ''
+                result.route2Name = secondBus.routeName ?? ''
+                result.route2Color = secondBus.color ?? '#10b981'
+                result.route1StationsCount = firstBus.stationCount ?? 0
+                result.route2StationsCount = lastBus.stationCount ?? 0
+                result.transferStation = firstBus.endStation
+              }
+
+              const existing = bestByRoute.get(key)
+              if (!existing) {
+                bestByRoute.set(key, result)
+              } else {
+                const existingWalk = (existing.walkToStartMinutes ?? 0) + (existing.walkToEndMinutes ?? 0)
+                if (totalWalk < existingWalk) bestByRoute.set(key, result)
+              }
             }
-
-            if (!isDirect && busSegments.length >= 2) {
-              const secondBus = busSegments[1]
-              result.route2Id = secondBus.routeId ?? 0
-              result.route2Number = secondBus.routeNumber ?? ''
-              result.route2Name = secondBus.routeName ?? ''
-              result.route2Color = secondBus.color ?? '#10b981'
-              result.route1StationsCount = firstBus.stationCount ?? 0
-              result.route2StationsCount = lastBus.stationCount ?? 0
-              result.transferStation = firstBus.endStation
-            }
-
-            // Păstrează varianta cu cel mai puțin walking pentru aceeași rută
-            const existing = bestByRoute.get(key)
-            if (!existing) {
-              bestByRoute.set(key, result)
-            } else {
-              const existingWalk = (existing.walkToStartMinutes ?? 0) + (existing.walkToEndMinutes ?? 0)
-              if (totalWalk < existingWalk) bestByRoute.set(key, result)
-            }
+          } catch {
+            // Skip combinații fără rută
           }
-        } catch {
-          // Skip combinații fără rută
-        }
-      })
-    ))
+        })
+      ))
+
+      if (bestByRoute.size >= 6) break
+    }
 
     const results = [...bestByRoute.values()]
 
-    // Sortare: direct primul, apoi walking minim, apoi durată totală
+    // Sortare: direct primul, apoi walking minim, apoi plecare mai rapidă
     results.sort((a, b) => {
       if (a.type !== b.type) return a.type === 'direct' ? -1 : 1
       const walkA = (a.walkToStartMinutes ?? 0) + (a.walkToEndMinutes ?? 0)
       const walkB = (b.walkToStartMinutes ?? 0) + (b.walkToEndMinutes ?? 0)
       if (walkA !== walkB) return walkA - walkB
-      return a.departureTime.localeCompare(b.departureTime)
+      if (a.minutesUntil !== b.minutesUntil) return a.minutesUntil - b.minutesUntil
+      return a.arrivalTime.localeCompare(b.arrivalTime)
     })
     planResults.value = results.slice(0, 8)
     searchDone.value = true
@@ -1251,6 +1466,16 @@ defineExpose({ openPlanTab })
   padding: 4px 8px;
   background: var(--bg-tertiary);
   border-radius: 6px;
+}
+
+.walk-instruction {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  background: rgba(16, 185, 129, 0.10);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  border-radius: 6px;
+  padding: 6px 8px;
 }
 
 .result-meta {

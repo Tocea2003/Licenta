@@ -4,23 +4,23 @@
       <div class="signup-header">
         <div class="logo-container">
           <div class="logo-icon">🚌</div>
-          <h1>Creare Cont Tursib</h1>
+          <h1>{{ t('signupTitle') }}</h1>
         </div>
-        <p class="subtitle">Creează un cont pentru a salva favoritele tale</p>
+        <p class="subtitle">{{ t('signupSubtitle') }}</p>
       </div>
 
       <form @submit.prevent="handleSignUp" class="signup-form">
         <div class="form-group">
           <label for="username">
             <span class="label-icon">👤</span>
-            Utilizator
+            {{ t('username') }}
           </label>
           <div class="input-wrapper">
             <input
               id="username"
               v-model="credentials.username"
               type="text"
-              placeholder="Alege un username"
+              :placeholder="t('chooseUsername')"
               required
               autocomplete="username"
               :disabled="isLoading"
@@ -34,20 +34,20 @@
               {{ usernameValid ? '✓' : '✗' }}
             </span>
           </div>
-          <small class="helper-text">Minim 3 caractere</small>
+          <small class="helper-text">{{ t('min3Chars') }}</small>
         </div>
 
         <div class="form-group">
           <label for="password">
             <span class="label-icon">🔒</span>
-            Parolă
+            {{ t('password') }}
           </label>
           <div class="input-wrapper">
             <input
               id="password"
               v-model="credentials.password"
               :type="showPassword ? 'text' : 'password'"
-              placeholder="Alege o parolă"
+              :placeholder="t('choosePassword')"
               required
               autocomplete="new-password"
               :disabled="isLoading"
@@ -61,7 +61,7 @@
               type="button" 
               class="toggle-password"
               @click="togglePasswordVisibility"
-              :aria-label="showPassword ? 'Ascunde parola' : 'Arată parola'"
+              :aria-label="showPassword ? t('hidePassword') : t('showPassword')"
             >
               {{ showPassword ? '👁️' : '👁️‍🗨️' }}
             </button>
@@ -85,20 +85,20 @@
               {{ passwordStrength?.label ?? '' }}
             </small>
           </div>
-          <small class="helper-text">Minim 6 caractere (recomandăm: litere, cifre, simboluri)</small>
+          <small class="helper-text">{{ t('min6Chars') }}</small>
         </div>
 
         <div class="form-group">
           <label for="confirmPassword">
             <span class="label-icon">🔒</span>
-            Confirmă Parola
+            {{ t('confirmPassword') }}
           </label>
           <div class="input-wrapper">
             <input
               id="confirmPassword"
               v-model="confirmPassword"
               :type="showConfirmPassword ? 'text' : 'password'"
-              placeholder="Confirmă parola"
+              :placeholder="t('confirmYourPassword')"
               required
               autocomplete="new-password"
               :disabled="isLoading"
@@ -111,13 +111,13 @@
               type="button" 
               class="toggle-password"
               @click="toggleConfirmPasswordVisibility"
-              :aria-label="showConfirmPassword ? 'Ascunde parola' : 'Arată parola'"
+              :aria-label="showConfirmPassword ? t('hidePassword') : t('showPassword')"
             >
               {{ showConfirmPassword ? '👁️' : '👁️‍🗨️' }}
             </button>
           </div>
           <small v-if="confirmPassword && !isPasswordMatch" class="error-text">
-            Parolele nu coincid
+            {{ t('passwordsDoNotMatch') }}
           </small>
         </div>
 
@@ -138,21 +138,21 @@
         <button type="submit" class="btn-signup" :disabled="isLoading || !isPasswordMatch || !credentials.username || !credentials.password">
           <span v-if="isLoading" class="spinner"></span>
           <span v-else class="signup-icon">✓</span>
-          {{ isLoading ? 'Se creează contul...' : 'Creare Cont' }}
+          {{ isLoading ? t('creatingAccount') : t('createAccount') }}
         </button>
 
         <div class="signup-info">
-          <small>💡 Contul îți permite să salvezi locațiile favorite</small>
+          <small>💡 {{ t('accountHint') }}</small>
         </div>
       </form>
 
       <div class="signup-footer">
         <router-link to="/login" class="login-link">
-          Ai deja cont? <strong>Autentifică-te</strong>
+          {{ t('alreadyHaveAccount') }} <strong>{{ t('loginNow') }}</strong>
         </router-link>
         <router-link to="/" class="back-link">
           <span>←</span>
-          Înapoi la hartă
+          {{ t('backToMap') }}
         </router-link>
       </div>
     </div>
@@ -169,8 +169,10 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '@/services/adminService'
+import { useLanguage } from '@/composables/useLanguage'
 
 const router = useRouter()
+const { t } = useLanguage()
 
 const credentials = ref({
   username: '',
@@ -203,11 +205,11 @@ const passwordStrength = computed(() => {
   
   const levels = [
     { score: 0, label: '', color: '' },
-    { score: 1, label: 'Foarte slabă', color: '#f56565' },
-    { score: 2, label: 'Slabă', color: '#ed8936' },
-    { score: 3, label: 'Medie', color: '#ecc94b' },
-    { score: 4, label: 'Bună', color: '#48bb78' },
-    { score: 5, label: 'Excelentă', color: '#38a169' }
+    { score: 1, label: t('veryWeak'), color: '#f56565' },
+    { score: 2, label: t('weak'), color: '#ed8936' },
+    { score: 3, label: t('medium'), color: '#ecc94b' },
+    { score: 4, label: t('good'), color: '#48bb78' },
+    { score: 5, label: t('excellent'), color: '#38a169' }
   ]
   
   return levels[score]
@@ -249,17 +251,17 @@ const handleSignUp = async () => {
 
   // Validare parolă
   if (credentials.value.password !== confirmPassword.value) {
-    errorMessage.value = 'Parolele nu coincid'
+    errorMessage.value = t('passwordsDoNotMatch')
     return
   }
 
   if (credentials.value.password.length < 6) {
-    errorMessage.value = 'Parola trebuie să aibă minim 6 caractere'
+    errorMessage.value = t('min6Chars')
     return
   }
 
   if (credentials.value.username.length < 3) {
-    errorMessage.value = 'Username-ul trebuie să aibă minim 3 caractere'
+    errorMessage.value = t('min3Chars')
     return
   }
 
@@ -270,7 +272,7 @@ const handleSignUp = async () => {
     await authService.register(credentials.value)
     
     console.log('✅ Registration successful')
-    successMessage.value = 'Cont creat cu succes! Te redirecționăm...'
+    successMessage.value = t('accountCreatedRedirect')
 
     // Auto-login după înregistrare
     setTimeout(async () => {
@@ -296,7 +298,7 @@ const handleSignUp = async () => {
   } catch (error: any) {
     console.error('❌ Registration error:', error)
     console.error('Error details:', error.response?.data)
-    errorMessage.value = error.response?.data?.message || 'Eroare la crearea contului. Username-ul ar putea fi deja folosit.'
+    errorMessage.value = error.response?.data?.message || t('signupGenericError')
   } finally {
     isLoading.value = false
   }
