@@ -405,9 +405,8 @@ const buildETAs = (schedule: StationScheduleEntry[]) => {
   const etas: ETAItem[] = []
   const seen = new Set<string>()
   for (const entry of schedule) {
-    const parts = entry.departureTime.split(':')
-    if (parts.length < 2) continue
-    const entryMinutes = parseInt(parts[0]) * 60 + parseInt(parts[1])
+    const entryMinutes = parseTimeToMinutes(entry.departureTime)
+    if (entryMinutes === null) continue
     const diffSeconds = (entryMinutes - currentMinutes) * 60
     if (diffSeconds < 0 || diffSeconds > 3600) continue
     const dedupeKey = `${entry.routeNumber}-${entry.departureTime}`
@@ -574,6 +573,15 @@ const selectOrigin = (s: Suggestion) => { planOrigin.value = s; planOriginQuery.
 const selectDest   = (s: Suggestion) => { planDest.value = s;   planDestQuery.value = '';   destSuggestions.value = [] }
 const clearOrigin  = () => { planOrigin.value = null; planOriginQuery.value = ''; originSuggestions.value = [] }
 const clearDest    = () => { planDest.value = null;   planDestQuery.value = '';   destSuggestions.value = [] }
+
+const parseTimeToMinutes = (time: string): number | null => {
+  const [hh, mm] = time.split(':')
+  if (hh === undefined || mm === undefined) return null
+  const h = Number(hh)
+  const m = Number(mm)
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null
+  return h * 60 + m
+}
 
 const minutesToStr = (m: number) => `${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`
 
