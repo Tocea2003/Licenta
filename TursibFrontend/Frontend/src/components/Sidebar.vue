@@ -590,12 +590,12 @@ const searchRoutes = async () => {
   isSearching.value = true; searchDone.value = false; planResults.value = []
 
   try {
-    const targetMin = parseTimeToMinutes(planTime.value)
-    if (targetMin === null) { searchDone.value = true; return }
-    const nowMin = new Date().getHours() * 60 + new Date().getMinutes()
     const origin = planOrigin.value!, dest = planDest.value!
+    const now = new Date()
+    const nowMin = now.getHours() * 60 + now.getMinutes()
 
-    // Candidate stations: exact if station selected, else top 5 nearest by walk distance
+    // Stații candidate: exactă dacă user a selectat stație, altfel cele mai apropiate 5
+    // (5 stații acoperă și stații de pe cealaltă parte a străzii sau din apropiere)
     const boardingCandidates: Station[] = origin.type === 'station'
       ? [props.allStations!.find(s => s.id === origin.stationId)!].filter(Boolean)
       : nearestStations(origin.lat, origin.lon, 5)
@@ -605,133 +605,88 @@ const searchRoutes = async () => {
 
     if (!boardingCandidates.length || !alightingCandidates.length) { searchDone.value = true; return }
 
-    // Phase 1: preload schedules + route stations for all boarding candidates
-    const boardingScheduleMap = new Map<number, any[]>()
-    await Promise.all(boardingCandidates.map(async boarding => {
-      const schedule = await apiService.getStationSchedule(boarding.id)
-      const upcoming = schedule.filter(e => {
-        const minutes = parseTimeToMinutes(e.departureTime)
-        return minutes !== null && minutes >= targetMin
-      })
-      boardingScheduleMap.set(boarding.id, upcoming)
-      const routeIds = [...new Set(upcoming.map((e: any) => e.routeId as number))]
-      await Promise.all(routeIds.map(async rid => {
-        if (!stationsCache.has(rid)) stationsCache.set(rid, await apiService.getRouteStations(rid))
-      }))
-    }))
+    // Map: cheie_ruta → cel mai bun rezultat (walking minim)
+    const bestByRoute = new Map<string, PlanResult>()
 
-    // Phase 2: preload routes through alighting candidates
-    const alightingRoutesMap = new Map<number, any[]>()
-    await Promise.all(alightingCandidates.map(async alighting => {
-      const routes = await apiService.getStationRoutes(alighting.id)
-      alightingRoutesMap.set(alighting.id, routes)
-      await Promise.all(routes.map(async (r: any) => {
-        if (!stationsCache.has(r.id)) stationsCache.set(r.id, await apiService.getRouteStations(r.id))
-      }))
-    }))
-
-    const results: PlanResult[] = []
-    const seen = new Set<string>()
-
-    // Phase 3: try all boarding × alighting combinations
-    for (const boarding of boardingCandidates) {
-      const upcoming = boardingScheduleMap.get(boarding.id) ?? []
-      if (!upcoming.length) continue
-      const routeIdsInSchedule = [...new Set(upcoming.map((e: any) => e.routeId as number))]
-
-      for (const alighting of alightingCandidates) {
-        if (boarding.id === alighting.id) continue
+    // Încearcă toate combinațiile boarding × alighting prin Dijkstra backend
+    await Promise.all(boardingCandidates.flatMap(boarding =>
+      alightingCandidates.map(async alighting => {
+        if (boarding.id === alighting.id) return
 
         const walkStart = origin.type === 'address'
           ? walkMin(origin.lat, origin.lon, boarding.latitude, boarding.longitude) : undefined
         const walkEnd = dest.type === 'address'
           ? walkMin(alighting.latitude, alighting.longitude, dest.lat, dest.lon) : undefined
 
-        const commonFields = {
-          originLat: origin.lat, originLon: origin.lon, originName: origin.name,
-          destLat: dest.lat, destLon: dest.lon, destName: dest.name,
-          boardingStation: boarding, alightingStation: alighting,
-          walkToStartMinutes: walkStart, walkToEndMinutes: walkEnd,
-        }
+        try {
+          const routes = await apiService.calculateRouteAlternatives(boarding.id, alighting.id)
 
-        // === DIRECT ROUTES ===
-        for (const routeId of routeIdsInSchedule) {
-          const stations = stationsCache.get(routeId)!
-          const oIdx = stations.findIndex(s => s.id === boarding.id)
-          const dIdx = stations.findIndex(s => s.id === alighting.id)
-          if (oIdx === -1 || dIdx === -1 || dIdx === oIdx) continue
+          for (const route of routes) {
+            const busSegments = (route.segments as any[]).filter(s => s.type === 'bus')
+            if (!busSegments.length) continue
 
-          const stationsBetween = Math.abs(dIdx - oIdx)
-          for (const entry of upcoming.filter((e: any) => e.routeId === routeId).slice(0, 5)) {
-            const depMin = parseTimeToMinutes(entry.departureTime)
-            if (depMin === null) continue
-            const key = `D-${routeId}-${boarding.id}-${alighting.id}-${entry.departureTime}`
-            if (seen.has(key)) continue; seen.add(key)
-            results.push({
-              type: 'direct', ...commonFields,
-              route1Id: routeId, route1Number: entry.routeNumber,
-              route1Name: entry.routeName, route1Color: entry.routeColor || '#3b82f6',
-              stationsBetween,
-              departureTime: minutesToStr(depMin), arrivalTime: minutesToStr(depMin + stationsBetween * 2),
-              minutesUntil: depMin - nowMin,
-            })
-          }
-        }
+            const firstBus = busSegments[0]
+            const lastBus = busSegments[busSegments.length - 1]
+            const isDirect = busSegments.length === 1
 
-        // === TRANSFER ROUTES ===
-        const routesThroughDest = alightingRoutesMap.get(alighting.id) ?? []
+            const depMin = nowMin + (walkStart ?? 0)
+            const arrMin = depMin + route.totalDuration + (walkEnd ?? 0)
+            const totalWalk = (walkStart ?? 0) + (walkEnd ?? 0)
 
-        for (const routeAId of routeIdsInSchedule) {
-          const stationsA = stationsCache.get(routeAId)!
-          const oIdxA = stationsA.findIndex(s => s.id === boarding.id)
-          if (oIdxA === -1) continue
-          if (!upcoming.find((e: any) => e.routeId === routeAId)) continue
+            // Cheia de deduplicare: bazată pe rutele folosite + stația de transfer
+            // (nu pe stația de urcare/coborâre - poate fi aceeași rută dar stații diferite)
+            const transferKey = isDirect ? '' : (firstBus.endStation?.name ?? '')
+            const key = isDirect
+              ? `D-${firstBus.routeNumber}`
+              : `T-${firstBus.routeNumber}-${lastBus.routeNumber}-${transferKey}`
 
-          for (const routeB of routesThroughDest) {
-            if (routeB.id === routeAId) continue
-            const stationsB = stationsCache.get(routeB.id)
-            if (!stationsB) continue
-            const dIdxB = stationsB.findIndex(s => s.id === alighting.id)
-            if (dIdxB === -1) continue
-
-            let transfer: Station | null = null, tIdxA = -1, tIdxB = -1
-            const step = oIdxA < stationsA.length - 1 ? 1 : -1
-            for (let i = oIdxA + step; i >= 0 && i < stationsA.length; i += step) {
-              const idxB = stationsB.findIndex(s => s.id === stationsA[i]!.id)
-              if (idxB !== -1 && idxB !== dIdxB) {
-                transfer = stationsA[i]!; tIdxA = i; tIdxB = idxB; break
-              }
+            const result: PlanResult = {
+              type: isDirect ? 'direct' : 'transfer',
+              route1Id: firstBus.routeId ?? 0,
+              route1Number: firstBus.routeNumber ?? '',
+              route1Name: firstBus.routeName ?? '',
+              route1Color: firstBus.color ?? '#3b82f6',
+              stationsBetween: busSegments.reduce((sum: number, s: any) => sum + (s.stationCount ?? 0), 0),
+              boardingStation: boarding,
+              alightingStation: alighting,
+              originLat: origin.lat, originLon: origin.lon, originName: origin.name,
+              destLat: dest.lat, destLon: dest.lon, destName: dest.name,
+              walkToStartMinutes: walkStart,
+              walkToEndMinutes: walkEnd,
+              departureTime: minutesToStr(depMin),
+              arrivalTime: minutesToStr(arrMin),
+              minutesUntil: walkStart ?? 0,
             }
-            if (!transfer) continue
 
-            const r1Stops = Math.abs(tIdxA - oIdxA)
-            const r2Stops = Math.abs(dIdxB - tIdxB)
+            if (!isDirect && busSegments.length >= 2) {
+              const secondBus = busSegments[1]
+              result.route2Id = secondBus.routeId ?? 0
+              result.route2Number = secondBus.routeNumber ?? ''
+              result.route2Name = secondBus.routeName ?? ''
+              result.route2Color = secondBus.color ?? '#10b981'
+              result.route1StationsCount = firstBus.stationCount ?? 0
+              result.route2StationsCount = lastBus.stationCount ?? 0
+              result.transferStation = firstBus.endStation
+            }
 
-            for (const entry of upcoming.filter((e: any) => e.routeId === routeAId).slice(0, 3)) {
-              const depMin = parseTimeToMinutes(entry.departureTime)
-              if (depMin === null) continue
-              const arrMin = depMin + r1Stops * 2 + 5 + r2Stops * 2
-              const key = `T-${routeAId}-${routeB.id}-${boarding.id}-${alighting.id}-${entry.departureTime}`
-              if (seen.has(key)) continue; seen.add(key)
-              results.push({
-                type: 'transfer', ...commonFields,
-                route1Id: routeAId, route1Number: entry.routeNumber,
-                route1Name: entry.routeName, route1Color: entry.routeColor || '#3b82f6',
-                route2Id: routeB.id, route2Number: routeB.routeNumber,
-                route2Name: routeB.name, route2Color: (routeB as any).color || '#10b981',
-                route1StationsCount: r1Stops, route2StationsCount: r2Stops,
-                stationsBetween: r1Stops + r2Stops,
-                transferStation: transfer,
-                departureTime: minutesToStr(depMin), arrivalTime: minutesToStr(arrMin),
-                minutesUntil: depMin - nowMin,
-              })
+            // Păstrează varianta cu cel mai puțin walking pentru aceeași rută
+            const existing = bestByRoute.get(key)
+            if (!existing) {
+              bestByRoute.set(key, result)
+            } else {
+              const existingWalk = (existing.walkToStartMinutes ?? 0) + (existing.walkToEndMinutes ?? 0)
+              if (totalWalk < existingWalk) bestByRoute.set(key, result)
             }
           }
+        } catch {
+          // Skip combinații fără rută
         }
-      }
-    }
+      })
+    ))
 
-    // Sort: direct first, then by least total walking, then by departure time
+    const results = [...bestByRoute.values()]
+
+    // Sortare: direct primul, apoi walking minim, apoi durată totală
     results.sort((a, b) => {
       if (a.type !== b.type) return a.type === 'direct' ? -1 : 1
       const walkA = (a.walkToStartMinutes ?? 0) + (a.walkToEndMinutes ?? 0)
@@ -755,6 +710,9 @@ const selectPlanResult = (result: PlanResult) => {
 // ===================== LIFECYCLE =====================
 onMounted(loadRoutes)
 onUnmounted(() => { if (countdownTimer) clearInterval(countdownTimer) })
+
+const openPlanTab = () => { activeTab.value = 'plan' }
+defineExpose({ openPlanTab })
 </script>
 
 <style scoped>

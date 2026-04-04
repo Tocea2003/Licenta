@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import Sidebar from '../components/Sidebar.vue'
 import MapView from '../components/MapView.vue'
 import BottomNav from '@/components/BottomNav.vue'
@@ -12,6 +13,20 @@ const allStations = ref<Station[]>([])
 const sidebarVisible = ref(window.innerWidth >= 768)
 const activeTripPlan = ref<PlanResult | null>(null)
 const mapRef = ref<any>(null)
+const sidebarRef = ref<any>(null)
+
+const vueRoute = useRoute()
+const router = useRouter()
+
+watch(() => vueRoute.query.tab, (tab) => {
+  if (tab === 'plan') {
+    sidebarVisible.value = true
+    nextTick(() => {
+      sidebarRef.value?.openPlanTab()
+      router.replace({ query: {} })
+    })
+  }
+}, { immediate: true })
 
 // Mapare culori pentru fiecare traseu
 const routeColors: Record<number, string> = {
@@ -102,6 +117,7 @@ onMounted(() => {
 
     <!-- Sidebar cu trasee și stații -->
     <Sidebar
+      ref="sidebarRef"
       class="sidebar"
       :class="{ 'sidebar-hidden': !sidebarVisible, 'sidebar-visible': sidebarVisible }"
       :all-stations="allStations"
