@@ -1,8 +1,8 @@
 <template>
   <div class="favorites-view">
     <div class="header">
-      <h1>Locații Favorite</h1>
-      <p class="subtitle">Salvează locațiile tale frecvente pentru acces rapid</p>
+      <h1>{{ t('favLocationsTitle') }}</h1>
+      <p class="subtitle">{{ t('favLocationsSubtitle') }}</p>
     </div>
 
     <!-- Quick Add Buttons -->
@@ -13,7 +13,7 @@
         class="quick-btn home"
       >
         <span class="icon">🏠</span>
-        <span class="text">Adaugă Casă</span>
+        <span class="text">{{ t('addHome') }}</span>
       </button>
       <button 
         v-if="!workFavorite" 
@@ -21,14 +21,14 @@
         class="quick-btn work"
       >
         <span class="icon">💼</span>
-        <span class="text">Adaugă Serviciu</span>
+        <span class="text">{{ t('addWork') }}</span>
       </button>
       <button 
         @click="openAddDialog('custom')"
         class="quick-btn custom"
       >
         <span class="icon">➕</span>
-        <span class="text">Locație Nouă</span>
+        <span class="text">{{ t('addNewLocation') }}</span>
       </button>
     </div>
 
@@ -117,31 +117,31 @@
     <!-- Empty State -->
     <div v-if="favorites.length === 0" class="empty-state">
       <div class="empty-icon">📍</div>
-      <h3>Nicio locație salvată</h3>
-      <p>Adaugă locațiile tale frecvente pentru a le accesa rapid</p>
+      <h3>{{ t('noSavedLocations') }}</h3>
+      <p>{{ t('addFrequentLocations') }}</p>
     </div>
 
     <!-- Add/Edit Dialog -->
     <div v-if="showDialog" class="dialog-overlay" @click="closeDialog">
       <div class="dialog" @click.stop>
-        <h2>{{ editingFavorite ? 'Editează Locație' : 'Adaugă Locație' }}</h2>
+        <h2>{{ editingFavorite ? t('editLocation') : t('addLocation') }}</h2>
         
         <div class="form-group">
-          <label>Nume locație</label>
+          <label>{{ t('locationName') }}</label>
           <input 
             v-model="form.name" 
             type="text" 
-            placeholder="ex: Casă, Serviciu, Sală sport"
+            :placeholder="`ex: ${t('homeName')}, ${t('workName')}, Gym`"
             maxlength="50"
           />
         </div>
 
         <div class="form-group">
-          <label>Adresă</label>
+          <label>{{ t('locationAddress') }}</label>
           <input 
             v-model="form.address" 
             type="text" 
-            placeholder="Caută adresa..."
+            :placeholder="`${t('geoSearchPlaceholder')}...`"
             @input="searchAddress"
           />
           
@@ -160,7 +160,7 @@
         </div>
 
         <div class="form-group">
-          <label>Icon</label>
+          <label>{{ t('icon') }}</label>
           <div class="icon-picker">
             <button 
               v-for="icon in availableIcons" 
@@ -175,9 +175,9 @@
         </div>
 
         <div class="dialog-actions">
-          <button @click="closeDialog" class="btn-cancel">Anulează</button>
+          <button @click="closeDialog" class="btn-cancel">{{ t('cancel') }}</button>
           <button @click="saveFavorite" class="btn-save" :disabled="!canSave">
-            {{ editingFavorite ? 'Salvează' : 'Adaugă' }}
+            {{ editingFavorite ? t('save') : t('add') }}
           </button>
         </div>
       </div>
@@ -188,6 +188,9 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useFavorites, type FavoriteLocation } from '@/composables/useFavorites'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 const {
   favorites,
@@ -225,7 +228,7 @@ const canSave = computed(() => {
 const openAddDialog = (type: 'home' | 'work' | 'custom') => {
   editingFavorite.value = null
   form.value = {
-    name: type === 'home' ? 'Casă' : type === 'work' ? 'Serviciu' : '',
+    name: type === 'home' ? t('homeName') : type === 'work' ? t('workName') : '',
     address: '',
     lat: 0,
     lon: 0,
@@ -317,7 +320,7 @@ const saveFavorite = async () => {
 }
 
 const confirmDelete = async (favorite: FavoriteLocation) => {
-  if (confirm(`Ștergi locația "${favorite.name}"?`)) {
+  if (confirm(t('deleteLocationConfirm', 'Delete location?', { name: favorite.name }))) {
     await removeFavorite(favorite.id)
   }
 }

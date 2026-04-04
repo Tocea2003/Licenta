@@ -7,8 +7,8 @@
         </svg>
       </button>
       <div class="header-info">
-        <h1>📊 Statisticile Mele</h1>
-        <p>Utilizarea aplicației</p>
+        <h1>📊 {{ t('statsMyTitle') }}</h1>
+        <p>{{ t('appUsage') }}</p>
       </div>
     </div>
 
@@ -18,38 +18,38 @@
         <div class="stat-card primary">
           <div class="stat-icon">🔍</div>
           <div class="stat-value">{{ statistics.totalSearches }}</div>
-          <div class="stat-label">Căutări Total</div>
+          <div class="stat-label">{{ t('totalSearches') }}</div>
         </div>
         
         <div class="stat-card success">
           <div class="stat-icon">🚌</div>
           <div class="stat-value">{{ statistics.totalTrips }}</div>
-          <div class="stat-label">Călătorii</div>
+          <div class="stat-label">{{ t('totalTrips') }}</div>
         </div>
         
         <div class="stat-card warning">
           <div class="stat-icon">⏱️</div>
           <div class="stat-value">{{ formatTime(statistics.totalTimeUsed) }}</div>
-          <div class="stat-label">Timp Folosit</div>
+          <div class="stat-label">{{ t('timeUsed') }}</div>
         </div>
         
         <div class="stat-card info">
           <div class="stat-icon">📈</div>
           <div class="stat-value">{{ averageSearchesPerDay }}</div>
-          <div class="stat-label">Medie/Zi</div>
+          <div class="stat-label">{{ t('avgPerDay') }}</div>
         </div>
       </div>
 
       <!-- Search Activity Chart -->
       <div class="section">
-        <h2>📅 Activitate Ultimele 7 Zile</h2>
+        <h2>📅 {{ t('last7Days') }}</h2>
         <div class="activity-chart">
           <div 
             v-for="(entry, index) in last7Days" 
             :key="entry.date || index"
             class="chart-bar"
             :style="{ height: getBarHeight(entry.count) + 'px' }"
-            :title="`${entry.count} căutări`"
+            :title="`${entry.count} ${t('searches')}`"
           >
             <div class="bar-value">{{ entry.count }}</div>
             <div class="bar-label">{{ formatDay(entry.date, index) }}</div>
@@ -59,9 +59,9 @@
 
       <!-- Top Routes -->
       <div class="section">
-        <h2>🚌 Trasee Preferate</h2>
+        <h2>🚌 {{ t('topRoutes') }}</h2>
         <div v-if="statistics.favoriteRoutes.length === 0" class="empty-state">
-          <p>Nu ai folosit încă niciun traseu</p>
+          <p>{{ t('noRouteUsed') }}</p>
         </div>
         <div v-else class="list-items">
           <div 
@@ -71,8 +71,8 @@
           >
             <div class="rank">{{ index + 1 }}</div>
             <div class="item-info">
-              <h3>Linia {{ route.routeId }}</h3>
-              <p>{{ route.count }} utilizări</p>
+              <h3>{{ t('lineLabel') }} {{ route.routeId }}</h3>
+              <p>{{ route.count }} {{ t('usages') }}</p>
             </div>
             <div class="progress-bar">
               <div 
@@ -86,9 +86,9 @@
 
       <!-- Top Stations -->
       <div class="section">
-        <h2>🚏 Stații Preferate</h2>
+        <h2>🚏 {{ t('topStations') }}</h2>
         <div v-if="statistics.favoriteStations.length === 0" class="empty-state">
-          <p>Nu ai căutat încă nicio stație</p>
+          <p>{{ t('noStationSearched') }}</p>
         </div>
         <div v-else class="list-items">
           <div 
@@ -98,8 +98,8 @@
           >
             <div class="rank">{{ index + 1 }}</div>
             <div class="item-info">
-              <h3>Stația #{{ station.stationId }}</h3>
-              <p>{{ station.count }} accesări</p>
+              <h3>{{ t('stationLabel') }} #{{ station.stationId }}</h3>
+              <p>{{ station.count }} {{ t('accesses') }}</p>
             </div>
             <div class="progress-bar">
               <div 
@@ -114,7 +114,7 @@
       <!-- Reset Button -->
       <div class="section">
         <button @click="confirmReset" class="reset-btn">
-          🗑️ Resetează Statisticile
+          🗑️ {{ t('resetStatistics') }}
         </button>
       </div>
     </div>
@@ -125,9 +125,11 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStatistics } from '@/composables/useStatistics'
+import { useLanguage } from '@/composables/useLanguage'
 
 const router = useRouter()
 const { statistics, averageSearchesPerDay, resetStatistics } = useStatistics()
+const { t, currentLanguage } = useLanguage()
 
 const last7Days = computed(() => {
   const result = []
@@ -157,10 +159,12 @@ const formatDay = (dateString: string | undefined, index: number): string => {
   if (!dateString) return '?'
   
   const date = new Date(dateString)
-  const days = ['Dum', 'Lun', 'Mar', 'Mie', 'Joi', 'Vin', 'Sâm']
+  const daysRo = ['Dum', 'Lun', 'Mar', 'Mie', 'Joi', 'Vin', 'Sam']
+  const daysEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const days = currentLanguage.value === 'ro' ? daysRo : daysEn
   
-  if (index === 6) return 'Azi'
-  if (index === 5) return 'Ieri'
+  if (index === 6) return t('today')
+  if (index === 5) return t('yesterday')
   
   return days[date.getDay()] || '?'
 }
@@ -182,9 +186,9 @@ const goBack = () => {
 }
 
 const confirmReset = () => {
-  if (confirm('Ești sigur că vrei să resetezi toate statisticile? Această acțiune nu poate fi anulată.')) {
+  if (confirm(t('confirmResetStats'))) {
     resetStatistics()
-    alert('✅ Statisticile au fost resetate!')
+    alert(`✅ ${t('statsResetDone')}`)
   }
 }
 </script>
