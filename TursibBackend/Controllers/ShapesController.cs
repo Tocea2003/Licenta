@@ -141,27 +141,29 @@ namespace TursibBackend.Controllers
             }
 
             // Cache MISS - interogare database
-            // Găsește trip-ul pentru traseu
+            // Găsește un trip care conține AMBELE stații (nu LIMIT 1 arbitrar)
             var trip = await _context.Database
                 .SqlQueryRaw<TripDto>(@"
-                    SELECT TripId, ShapeId, DirectionId 
-                    FROM Trips 
-                    WHERE RouteId = {0}
-                    LIMIT 1", routeId)
+                    SELECT t.TripId, t.ShapeId, t.DirectionId
+                    FROM Trips t
+                    INNER JOIN StopTimes st1 ON st1.TripId = t.TripId AND st1.StopId = {1}
+                    INNER JOIN StopTimes st2 ON st2.TripId = t.TripId AND st2.StopId = {2}
+                    WHERE t.RouteId = {0}
+                    LIMIT 1", routeId, fromStationId, toStationId)
                 .FirstOrDefaultAsync();
 
             if (trip == null || string.IsNullOrEmpty(trip.ShapeId))
             {
                 stopwatch.Stop();
-                _logger.LogWarning("❌ Trip not found for route {RouteId} - Response time: {ElapsedMs}ms", routeId, stopwatch.ElapsedMilliseconds);
+                _logger.LogWarning("❌ Trip not found for route {RouteId} with stations {From}->{To} - Response time: {ElapsedMs}ms", routeId, fromStationId, toStationId, stopwatch.ElapsedMilliseconds);
                 return NotFound("Trip not found for route");
             }
 
             // Găsește secvența stațiilor în trip
             var stopSequences = await _context.Database
                 .SqlQueryRaw<StopSequenceDto>(@"
-                    SELECT StopId, StopSequence 
-                    FROM StopTimes 
+                    SELECT StopId, StopSequence
+                    FROM StopTimes
                     WHERE TripId = {0} AND (StopId = {1} OR StopId = {2})
                     ORDER BY StopSequence", trip.TripId, fromStationId, toStationId)
                 .ToListAsync();

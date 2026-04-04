@@ -12,11 +12,13 @@ namespace TursibBackend.Models
         // Cheia străină pentru Traseu
         public int RouteId { get; set; }
         [ForeignKey("RouteId")]
+        [System.Text.Json.Serialization.JsonIgnore]
         public Route Route { get; set; }
 
         // Cheia străină pentru Stație
         public int StationId { get; set; }
         [ForeignKey("StationId")]
+        [System.Text.Json.Serialization.JsonIgnore]
         public Station Station { get; set; }
 
         // Câmpul crucial: ordinea stației pe traseu (ex: 1, 2, 3...)

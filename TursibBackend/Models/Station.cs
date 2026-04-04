@@ -1,5 +1,6 @@
 // Models/Station.cs
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace TursibBackend.Models
 {
@@ -13,6 +14,7 @@ namespace TursibBackend.Models
 
         // Relație: O stație poate aparține mai multor trasee
         // Aceasta este colecția de legături din tabelul RouteStation
+        [JsonIgnore]
         public ICollection<RouteStation> RouteStations { get; set; }
     }
 }

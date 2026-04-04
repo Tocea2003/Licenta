@@ -100,8 +100,9 @@ namespace TursibBackend.Services
                 alternativeRoutes.Add(route);
             }
 
-            // Limitează la top 3 și sortează după durată
+            // Păstrează doar rute cu max 2 transferuri (3 segmente bus) și sortează după durată
             alternativeRoutes = alternativeRoutes
+                .Where(r => r.Segments.Count(s => s.Type == "bus") <= 3)
                 .OrderBy(r => r.TotalDuration)
                 .Take(3)
                 .ToList();
@@ -119,127 +120,116 @@ namespace TursibBackend.Services
 
         #region Dijkstra Algorithm Implementation
 
+        // Encodează starea (stationId, routeId) ca long unic.
+        // routeId = 0 înseamnă "nu suntem încă pe niciun autobuz" (starea de start).
+        private static long EncodeState(int stationId, int routeId) =>
+            (long)stationId * 10_000_000L + routeId;
+
         /// <summary>
-        /// Implementare algoritm Dijkstra adaptat pentru rețele de transport public.
-        /// Găsește drumul cu costul minim (timp) între două stații.
+        /// Dijkstra cu stare (stație, linie) pentru a penaliza corect transferurile.
+        /// Fiecare schimbare de linie la o stație adaugă transferPenalty minute.
         /// </summary>
         private List<GraphNode>? DijkstraSearch(
-            TransportGraph graph, 
-            int startStationId, 
+            TransportGraph graph,
+            int startStationId,
             int endStationId,
             int transferPenalty = TRANSFER_PENALTY_MINUTES,
             double maxWalkingDistance = MAX_WALKING_DISTANCE_KM)
         {
-            // Inițializare: distanțe infinite, precedent null
-            var distances = new Dictionary<int, double>();
-            var predecessors = new Dictionary<int, (GraphNode node, GraphEdge edge)>();
-            var visited = new HashSet<int>();
-            
-            // Priority queue (min-heap) pentru nodurile de explorat
-            var queue = new PriorityQueue<int, double>();
+            var distances    = new Dictionary<long, double>();
+            var predecessors = new Dictionary<long, (int stationId, int routeId, GraphEdge edge)>();
+            var visited      = new HashSet<long>();
+            var queue        = new PriorityQueue<long, double>();
 
-            // Inițializare distanțe
-            foreach (var nodeId in graph.Nodes.Keys)
-            {
-                distances[nodeId] = double.MaxValue;
-            }
-            distances[startStationId] = 0;
-            queue.Enqueue(startStationId, 0);
+            // Starea inițială: suntem la stația de start, pe nicio linie (routeId=0)
+            var startState = EncodeState(startStationId, 0);
+            distances[startState] = 0;
+            queue.Enqueue(startState, 0);
 
             while (queue.Count > 0)
             {
-                var currentId = queue.Dequeue();
-                
-                // Dacă am ajuns la destinație, reconstruim path-ul
-                if (currentId == endStationId)
+                var state = queue.Dequeue();
+                if (visited.Contains(state)) continue;
+                visited.Add(state);
+
+                var currentStationId = (int)(state / 10_000_000L);
+                var currentRouteId   = (int)(state % 10_000_000L);
+
+                // Am ajuns la destinație
+                if (currentStationId == endStationId)
+                    return ReconstructPath(predecessors, startStationId, endStationId, state, graph);
+
+                if (!graph.Nodes.ContainsKey(currentStationId)) continue;
+
+                foreach (var edge in graph.Nodes[currentStationId].Edges)
                 {
-                    return ReconstructPath(predecessors, startStationId, endStationId, graph);
-                }
+                    if (edge.Type != EdgeType.Bus) continue;
 
-                // Skip dacă deja vizitat
-                if (visited.Contains(currentId))
-                    continue;
+                    int edgeRouteId   = edge.RouteId ?? 0;
+                    int neighborId    = edge.ToStationId;
+                    var neighborState = EncodeState(neighborId, edgeRouteId);
 
-                visited.Add(currentId);
+                    if (visited.Contains(neighborState)) continue;
 
-                // Explorează vecinii
-                if (!graph.Nodes.ContainsKey(currentId))
-                    continue;
+                    // Penalitate pentru schimbarea liniei (transfer)
+                    double cost = edge.TravelTime;
+                    if (currentRouteId != 0 && currentRouteId != edgeRouteId)
+                        cost += transferPenalty;
 
-                var currentNode = graph.Nodes[currentId];
-
-                foreach (var edge in currentNode.Edges)
-                {
-                    // Skip walking edges care depășesc distanța maximă
-                    if (edge.Type == EdgeType.Walking && edge.Distance > maxWalkingDistance)
-                        continue;
-
-                    var neighborId = edge.ToStationId;
-
-                    if (visited.Contains(neighborId))
-                        continue;
-
-                    // Calculează costul pentru această muchie
-                    double edgeCost = edge.TravelTime;
-
-                    // Aplică penalitate pentru transfer
-                    if (edge.Type == EdgeType.Transfer)
+                    var newDist = distances.GetValueOrDefault(state, double.MaxValue) + cost;
+                    if (newDist < distances.GetValueOrDefault(neighborState, double.MaxValue))
                     {
-                        edgeCost += transferPenalty;
-                    }
-
-                    // Calculează distanța totală prin acest drum
-                    var newDistance = distances[currentId] + edgeCost;
-
-                    // Actualizează dacă am găsit un drum mai bun
-                    if (newDistance < distances[neighborId])
-                    {
-                        distances[neighborId] = newDistance;
-                        predecessors[neighborId] = (currentNode, edge);
-                        queue.Enqueue(neighborId, newDistance);
+                        distances[neighborState] = newDist;
+                        predecessors[neighborState] = (currentStationId, currentRouteId, edge);
+                        queue.Enqueue(neighborState, newDist);
                     }
                 }
             }
 
-            // Nu s-a găsit niciun drum
             return null;
         }
 
-        /// <summary>
-        /// Reconstruiește path-ul de la start la end folosind dicționarul de predecesori.
-        /// </summary>
         private List<GraphNode> ReconstructPath(
-            Dictionary<int, (GraphNode node, GraphEdge edge)> predecessors,
+            Dictionary<long, (int stationId, int routeId, GraphEdge edge)> predecessors,
             int startStationId,
             int endStationId,
+            long endState,
             TransportGraph graph)
         {
-            var path = new List<GraphNode>();
-            var current = endStationId;
+            var path = new List<(int stationId, GraphEdge? edge)>();
+            var current = endState;
 
-            // Construiește path-ul de la end la start
-            while (current != startStationId)
+            while (true)
             {
+                var stationId = (int)(current / 10_000_000L);
+                if (stationId == startStationId && !predecessors.ContainsKey(current)) break;
+
                 if (!predecessors.ContainsKey(current))
-                    return new List<GraphNode>(); // Path invalid
+                    return new List<GraphNode>();
 
-                var (node, edge) = predecessors[current];
-                
-                // Adaugă nodul curent cu muchia prin care am ajuns la el
-                var currentNode = graph.Nodes[current];
-                currentNode.IncomingEdge = edge;
-                path.Add(currentNode);
-
-                current = node.StationId;
+                var (prevStationId, prevRouteId, edge) = predecessors[current];
+                path.Add((stationId, edge));
+                current = EncodeState(prevStationId, prevRouteId);
             }
-
-            // Adaugă nodul de start
-            path.Add(graph.Nodes[startStationId]);
-
-            // Inversează pentru a avea path-ul de la start la end
+            path.Add((startStationId, null));
             path.Reverse();
 
-            return path;
+            // Construiește lista de GraphNode cu IncomingEdge setat pe copii
+            var result = new List<GraphNode>();
+            foreach (var (sid, inEdge) in path)
+            {
+                if (!graph.Nodes.ContainsKey(sid)) return new List<GraphNode>();
+                var orig = graph.Nodes[sid];
+                var copy = new GraphNode
+                {
+                    StationId    = orig.StationId,
+                    Station      = orig.Station,
+                    Edges        = orig.Edges,
+                    IncomingEdge = inEdge
+                };
+                result.Add(copy);
+            }
+            return result;
         }
 
         #endregion
@@ -281,15 +271,12 @@ namespace TursibBackend.Services
                     var fromStation = routeStations[i].Station!;
                     var toStation = routeStations[i + 1].Station!;
 
-                    // Calculează distanța fizică
                     var distance = CalculateDistance(
                         fromStation.Latitude, fromStation.Longitude,
                         toStation.Latitude, toStation.Longitude);
 
-                    // Calculează timpul de călătorie
                     var travelTime = (distance / AVG_BUS_SPEED_KM_PER_HOUR) * 60 + STATION_STOP_TIME_MINUTES;
 
-                    // Adaugă muchie
                     graph.Nodes[fromStation.Id].Edges.Add(new GraphEdge
                     {
                         FromStationId = fromStation.Id,
@@ -301,38 +288,27 @@ namespace TursibBackend.Services
                         Type = EdgeType.Bus
                     });
                 }
-
-                // 3. Adaugă muchii pentru transferuri la aceeași stație
-                // Dacă o stație apare pe multiple trasee, poți transfera între ele
-                var stationGroups = routeStations.GroupBy(rs => rs.StationId);
-                foreach (var group in stationGroups.Where(g => g.Count() > 1))
-                {
-                    var stationId = group.Key;
-                    var routesAtStation = group.Select(rs => rs.RouteId).Distinct().ToList();
-
-                    foreach (var otherRoute in routes.Where(r => r.Id != route.Id))
-                    {
-                        var hasStation = otherRoute.RouteStations.Any(rs => rs.StationId == stationId);
-                        if (hasStation)
-                        {
-                            // Adaugă muchie de transfer (cost = timp așteptare)
-                            graph.Nodes[stationId].Edges.Add(new GraphEdge
-                            {
-                                FromStationId = stationId,
-                                ToStationId = stationId, // Aceeași stație, dar alt traseu
-                                RouteId = otherRoute.Id,
-                                RouteNumber = otherRoute.RouteNumber,
-                                Distance = 0,
-                                TravelTime = TRANSFER_PENALTY_MINUTES,
-                                Type = EdgeType.Transfer
-                            });
-                        }
-                    }
-                }
             }
 
-            // 4. Adaugă muchii pentru walking între stații apropiate
-            AddWalkingEdges(graph, stations);
+            // 3. Transferuri la stații comune între trasee diferite.
+            // La o stație servită de mai multe linii, Dijkstra poate comuta
+            // linia în mod natural prin muchiile Bus. Adăugăm o muchie explicită
+            // de transfer (cu penalitate) pentru a modela timpul de așteptare.
+            // Folosim noduri virtuale per-rută pentru a evita blocarea prin visited-set.
+            var stationToRoutes = new Dictionary<int, List<RouteModel>>();
+            foreach (var route in routes)
+            {
+                foreach (var rs in route.RouteStations)
+                {
+                    if (!stationToRoutes.ContainsKey(rs.StationId))
+                        stationToRoutes[rs.StationId] = new List<RouteModel>();
+                    if (!stationToRoutes[rs.StationId].Any(r => r.Id == route.Id))
+                        stationToRoutes[rs.StationId].Add(route);
+                }
+            }
+            // Stațiile cu 2+ trasee sunt puncte de transfer. Dijkstra va putea
+            // continua pe orice linie disponibilă la acea stație fără muchie explicită,
+            // deoarece fiecare linie are propriile muchii Bus care pleacă din nod.
 
             return graph;
         }
@@ -412,8 +388,8 @@ namespace TursibBackend.Services
 
                 if (edge.Type == EdgeType.Bus)
                 {
-                    // Găsește toate nodurile consecutive pe același traseu
                     var routeId = edge.RouteId;
+                    // Stația curentă este și stația de urcare (boarding / transfer)
                     var segmentNodes = new List<GraphNode> { currentNode };
                     var segmentDuration = 0.0;
 
@@ -428,11 +404,11 @@ namespace TursibBackend.Services
                         i++;
                     }
 
-                    // Creează segment de autobuz
                     var route = allRoutes.First(r => r.Id == routeId);
                     segments.Add(new RouteSegment
                     {
                         Type = "bus",
+                        RouteId = route.Id,
                         RouteNumber = route.RouteNumber,
                         RouteName = route.Name,
                         Color = route.Color,
@@ -443,41 +419,25 @@ namespace TursibBackend.Services
                     });
 
                     totalDuration += segmentDuration;
-                }
-                else if (edge.Type == EdgeType.Walking)
-                {
-                    // Segment de walking
-                    segments.Add(new RouteSegment
-                    {
-                        Type = "walk",
-                        StartStation = currentNode.Station,
-                        EndStation = path[i + 1].Station,
-                        Duration = (int)Math.Ceiling(edge.TravelTime),
-                        Distance = edge.Distance
-                    });
 
-                    totalDuration += edge.TravelTime;
-                }
-                else if (edge.Type == EdgeType.Transfer)
-                {
-                    // Segment de transfer
-                    segments.Add(new RouteSegment
+                    // Adaugă penalitate de transfer la durata totală dacă urmează un alt segment de bus
+                    if (i < path.Count - 1)
                     {
-                        Type = "transfer",
-                        StartStation = currentNode.Station,
-                        EndStation = path[i + 1].Station,
-                        Duration = (int)Math.Ceiling(edge.TravelTime)
-                    });
+                        var lookAhead = path[i + 1].IncomingEdge;
+                        if (lookAhead?.Type == EdgeType.Bus && lookAhead.RouteId != routeId)
+                            totalDuration += TRANSFER_PENALTY_MINUTES;
+                    }
 
-                    totalDuration += edge.TravelTime;
+                    // NU incrementăm i — stația curentă (i) devine stația de urcare
+                    // pentru segmentul următor (dacă există transfer).
+                    continue;
                 }
 
                 i++;
             }
 
-            // Determină tipul rutei
-            var routeType = segments.Count == 1 ? "direct" : 
-                           segments.Any(s => s.Type == "transfer") ? "transfer" : "multi-segment";
+            var busCount = segments.Count(s => s.Type == "bus");
+            var routeType = busCount <= 1 ? "direct" : "transfer";
 
             return new CalculatedRoute
             {
@@ -626,7 +586,10 @@ namespace TursibBackend.Services
     {
         /// <summary>Tipul segmentului: "bus", "walk", "transfer"</summary>
         public string Type { get; set; } = "bus";
-        
+
+        /// <summary>ID-ul traseului (pentru segmente de tip "bus")</summary>
+        public int? RouteId { get; set; }
+
         /// <summary>Numărul traseului (pentru segmente de tip "bus")</summary>
         public string? RouteNumber { get; set; }
         

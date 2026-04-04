@@ -1,5 +1,6 @@
 // Models/Route.cs
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace TursibBackend.Models
 {
@@ -13,6 +14,7 @@ namespace TursibBackend.Models
 
         // Relație: Un traseu are o listă de opriri (stații în ordine)
         // Aceasta este colecția de legături din tabelul RouteStation
+        [JsonIgnore]
         public ICollection<RouteStation> RouteStations { get; set; }
     }
 }
