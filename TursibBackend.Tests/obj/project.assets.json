@@ -4416,11 +4416,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Licenta\\TursibBackend.Tests\\TursibBackend.Tests.csproj",
+      "projectUniqueName": "D:\\licenta2\\Licenta\\TursibBackend.Tests\\TursibBackend.Tests.csproj",
       "projectName": "TursibBackend.Tests",
-      "projectPath": "D:\\Licenta\\TursibBackend.Tests\\TursibBackend.Tests.csproj",
+      "projectPath": "D:\\licenta2\\Licenta\\TursibBackend.Tests\\TursibBackend.Tests.csproj",
       "packagesPath": "C:\\Users\\crist\\.nuget\\packages\\",
-      "outputPath": "D:\\Licenta\\TursibBackend.Tests\\obj\\",
+      "outputPath": "D:\\licenta2\\Licenta\\TursibBackend.Tests\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -4442,8 +4442,8 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "D:\\Licenta\\TursibBackend\\TursibBackend.csproj": {
-              "projectPath": "D:\\Licenta\\TursibBackend\\TursibBackend.csproj"
+            "D:\\licenta2\\Licenta\\TursibBackend\\TursibBackend.csproj": {
+              "projectPath": "D:\\licenta2\\Licenta\\TursibBackend\\TursibBackend.csproj"
             }
           }
         }
