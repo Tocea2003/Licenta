@@ -135,5 +135,11 @@ export default {
       `/shapes/route/${routeId}/segment?fromStationId=${fromStationId}&toStationId=${toStationId}`
     )
     return response.data
+  },
+
+  // POST /api/routing/alternatives - Calculează rute alternative cu Dijkstra
+  async calculateRouteAlternatives(startStationId: number, endStationId: number): Promise<any[]> {
+    const response = await apiClient.post('/routing/alternatives', { startStationId, endStationId })
+    return response.data
   }
 }
