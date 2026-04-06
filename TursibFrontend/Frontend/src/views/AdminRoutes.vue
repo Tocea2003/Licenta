@@ -1,23 +1,23 @@
 <template>
   <div class="routes-management">
     <div class="page-header">
-      <h2>Gestionare Trasee</h2>
+      <h2>{{ t('manageRoutes') }}</h2>
       <button @click="showCreateModal = true" class="btn-primary">
-        + Adaugă Traseu Nou
+        + {{ t('addNewRoute') }}
       </button>
     </div>
 
-    <div v-if="isLoading" class="loading">Se încarcă...</div>
+    <div v-if="isLoading" class="loading">{{ t('loading') }}</div>
 
     <div v-else class="routes-table-container">
       <table class="routes-table">
         <thead>
           <tr>
             <th>ID</th>
-            <th>Număr Traseu</th>
-            <th>Nume</th>
-            <th>Culoare</th>
-            <th>Acțiuni</th>
+            <th>{{ t('routeNumber') }}</th>
+            <th>{{ t('name') }}</th>
+            <th>{{ t('color') }}</th>
+            <th>{{ t('actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -36,13 +36,13 @@
             </td>
             <td>
               <div class="action-buttons">
-                <button @click="editRoute(route)" class="btn-edit" title="Editează">
+                <button @click="editRoute(route)" class="btn-edit" :title="t('edit')">
                   ✏️
                 </button>
-                <button @click="editColor(route)" class="btn-color" title="Schimbă culoare">
+                <button @click="editColor(route)" class="btn-color" :title="t('changeColor')">
                   🎨
                 </button>
-                <button @click="deleteRoute(route)" class="btn-delete" title="Șterge">
+                <button @click="deleteRoute(route)" class="btn-delete" :title="t('delete')">
                   🗑️
                 </button>
               </div>
@@ -55,23 +55,23 @@
     <!-- Modal Create/Edit Route -->
     <div v-if="showCreateModal || showEditModal" class="modal-overlay" @click.self="closeModals">
       <div class="modal">
-        <h3>{{ showEditModal ? 'Editează Traseu' : 'Adaugă Traseu Nou' }}</h3>
+        <h3>{{ showEditModal ? t('editRouteTitle') : t('createRouteTitle') }}</h3>
         <form @submit.prevent="handleSubmit">
           <div class="form-group">
-            <label>Număr Traseu:</label>
+            <label>{{ t('routeNumber') }}:</label>
             <input v-model="currentRoute.routeNumber" required />
           </div>
           <div class="form-group">
-            <label>Nume:</label>
+            <label>{{ t('name') }}:</label>
             <input v-model="currentRoute.name" required />
           </div>
           <div class="form-group">
-            <label>Culoare (hex):</label>
+            <label>{{ t('colorHex') }}:</label>
             <input v-model="currentRoute.color" type="color" />
           </div>
           <div class="modal-actions">
-            <button type="button" @click="closeModals" class="btn-secondary">Anulează</button>
-            <button type="submit" class="btn-primary">{{ showEditModal ? 'Salvează' : 'Creează' }}</button>
+            <button type="button" @click="closeModals" class="btn-secondary">{{ t('cancel') }}</button>
+            <button type="submit" class="btn-primary">{{ showEditModal ? t('save') : t('create') }}</button>
           </div>
         </form>
       </div>
@@ -80,15 +80,15 @@
     <!-- Modal Edit Color -->
     <div v-if="showColorModal" class="modal-overlay" @click.self="closeModals">
       <div class="modal modal-small">
-        <h3>Schimbă Culoarea</h3>
+        <h3>{{ t('changeColorTitle') }}</h3>
         <form @submit.prevent="handleColorUpdate">
           <div class="form-group">
-            <label>Culoare nouă:</label>
+            <label>{{ t('newColor') }}:</label>
             <input v-model="newColor" type="color" required />
           </div>
           <div class="modal-actions">
-            <button type="button" @click="closeModals" class="btn-secondary">Anulează</button>
-            <button type="submit" class="btn-primary">Salvează</button>
+            <button type="button" @click="closeModals" class="btn-secondary">{{ t('cancel') }}</button>
+            <button type="submit" class="btn-primary">{{ t('save') }}</button>
           </div>
         </form>
       </div>
@@ -99,6 +99,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { adminRoutesService, type Route } from '@/services/adminService'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 const routes = ref<Route[]>([])
 const isLoading = ref(true)
@@ -125,8 +128,8 @@ const loadRoutes = async () => {
   } catch (error: any) {
     console.error('❌ Error loading routes:', error)
     console.error('Error details:', error.response?.data)
-    const errorMsg = error.response?.data?.message || error.message || 'Eroare la încărcarea traseelor'
-    alert(`Eroare la încărcarea traseelor: ${errorMsg}`)
+    const errorMsg = error.response?.data?.message || error.message || t('routesLoadError')
+    alert(t('routesLoadErrorWithMessage', 'Error loading routes: {message}', { message: errorMsg }))
   } finally {
     isLoading.value = false
   }
@@ -144,14 +147,14 @@ const editColor = (route: Route) => {
 }
 
 const deleteRoute = async (route: Route) => {
-  if (!confirm(`Sigur vrei să ștergi traseul ${route.routeNumber}?`)) return
+  if (!confirm(t('confirmDeleteRoute', 'Are you sure you want to delete route {route}?', { route: route.routeNumber }))) return
 
   try {
     await adminRoutesService.deleteRoute(route.id)
     await loadRoutes()
   } catch (error) {
     console.error('Error deleting route:', error)
-    alert('Eroare la ștergerea traseului')
+    alert(t('routeDeleteError'))
   }
 }
 
@@ -166,7 +169,7 @@ const handleSubmit = async () => {
     closeModals()
   } catch (error) {
     console.error('Error saving route:', error)
-    alert('Eroare la salvarea traseului')
+    alert(t('routeSaveError'))
   }
 }
 
@@ -179,7 +182,7 @@ const handleColorUpdate = async () => {
     closeModals()
   } catch (error) {
     console.error('Error updating color:', error)
-    alert('Eroare la actualizarea culorii')
+    alert(t('routeColorUpdateError'))
   }
 }
 

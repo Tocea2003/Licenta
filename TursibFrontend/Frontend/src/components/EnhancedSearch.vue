@@ -601,7 +601,11 @@ const selectFavorite = (favorite: FavoriteLocation) => {
     if (props.userLocation) {
       const nearestStation = findNearestStation(location.lat, location.lon)
       if (nearestStation) {
-        emit('walkingDirectionsRequested', props.userLocation, nearestStation)
+        emit(
+          'walkingDirectionsRequested',
+          { lat: props.userLocation.lat, lon: props.userLocation.lon, name: 'My location' },
+          nearestStation
+        )
       }
     }
   }

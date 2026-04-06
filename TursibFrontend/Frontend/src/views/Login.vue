@@ -4,23 +4,23 @@
       <div class="login-header">
         <div class="logo-container">
           <div class="logo-icon">🚌</div>
-          <h1>Autentificare Tursib</h1>
+          <h1>{{ t('loginTitle') }}</h1>
         </div>
-        <p class="subtitle">Conectează-te pentru a accesa favoritele tale</p>
+        <p class="subtitle">{{ t('loginSubtitle') }}</p>
       </div>
 
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="form-group">
           <label for="username">
             <span class="label-icon">👤</span>
-            Utilizator
+            {{ t('username') }}
           </label>
           <div class="input-wrapper">
             <input
               id="username"
               v-model="credentials.username"
               type="text"
-              placeholder="Introdu username-ul"
+              :placeholder="t('chooseUsername')"
               required
               autocomplete="username"
               :disabled="isLoading"
@@ -38,14 +38,14 @@
         <div class="form-group">
           <label for="password">
             <span class="label-icon">🔒</span>
-            Parolă
+            {{ t('password') }}
           </label>
           <div class="input-wrapper">
             <input
               id="password"
               v-model="credentials.password"
               :type="showPassword ? 'text' : 'password'"
-              placeholder="Introdu parola"
+              :placeholder="t('choosePassword')"
               required
               autocomplete="current-password"
               :disabled="isLoading"
@@ -58,7 +58,7 @@
               type="button" 
               class="toggle-password"
               @click="togglePasswordVisibility"
-              :aria-label="showPassword ? 'Ascunde parola' : 'Arată parola'"
+              :aria-label="showPassword ? t('hidePassword') : t('showPassword')"
             >
               {{ showPassword ? '👁️' : '👁️‍🗨️' }}
             </button>
@@ -73,7 +73,7 @@
               class="remember-checkbox"
             />
             <span class="checkbox-custom"></span>
-            <span>Ține-mă minte</span>
+            <span>{{ t('rememberMe') }}</span>
           </label>
         </div>
 
@@ -87,16 +87,16 @@
         <button type="submit" class="btn-login" :disabled="isLoading || !credentials.username || !credentials.password">
           <span v-if="isLoading" class="spinner"></span>
           <span v-else class="login-icon">→</span>
-          {{ isLoading ? 'Se conectează...' : 'Autentificare' }}
+          {{ isLoading ? t('connecting') : t('loginButton') }}
         </button>
 
         <div class="login-info">
-          <small>💡 Autentifică-te pentru a salva locațiile favorite</small>
+          <small>💡 {{ t('loginHint') }}</small>
         </div>
       </form>
 
       <div class="divider">
-        <span>SAU</span>
+        <span>{{ t('or') }}</span>
       </div>
 
       <GoogleSignIn 
@@ -106,11 +106,11 @@
 
       <div class="login-footer">
         <router-link to="/signup" class="signup-link">
-          Nu ai cont? <strong>Creează unul</strong>
+          {{ t('noAccount') }} <strong>{{ t('createOne') }}</strong>
         </router-link>
         <router-link to="/" class="back-link">
           <span>←</span>
-          Înapoi la hartă
+          {{ t('backToMap') }}
         </router-link>
       </div>
     </div>
@@ -128,8 +128,10 @@ import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '@/services/adminService'
 import GoogleSignIn from '@/components/GoogleSignIn.vue'
+import { useLanguage } from '@/composables/useLanguage'
 
 const router = useRouter()
+const { t } = useLanguage()
 
 const credentials = ref({
   username: '',
@@ -201,7 +203,7 @@ const handleLogin = async () => {
   } catch (error: any) {
     console.error('❌ Login error:', error)
     console.error('Error details:', error.response?.data)
-    errorMessage.value = error.response?.data?.message || 'Username sau parolă incorectă'
+    errorMessage.value = error.response?.data?.message || t('wrongCredentials')
   } finally {
     isLoading.value = false
   }
@@ -229,7 +231,7 @@ const handleGoogleSuccess = (userData: any) => {
 
 const handleGoogleError = (error: string) => {
   console.error('❌ Google login error:', error)
-  errorMessage.value = error || 'Eroare la autentificarea cu Google'
+  errorMessage.value = error || t('googleLoginError')
 }
 </script>
 

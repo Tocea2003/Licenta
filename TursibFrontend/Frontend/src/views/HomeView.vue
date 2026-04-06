@@ -57,6 +57,17 @@ const handlePlanSelected = (plan: PlanResult) => {
   activeTripPlan.value = plan
 }
 
+const handleLocationSelected = (location: { lat: number; lon: number; name: string }) => {
+  if (mapRef.value && typeof mapRef.value.showAddressLocation === 'function') {
+    mapRef.value.showAddressLocation(location)
+    return
+  }
+
+  if (mapRef.value && typeof mapRef.value.centerMap === 'function') {
+    mapRef.value.centerMap(location.lat, location.lon, 17)
+  }
+}
+
 // Handler pentru toggle sidebar
 const handleSidebarToggle = (visible: boolean) => {
   sidebarVisible.value = visible
@@ -123,6 +134,7 @@ onMounted(() => {
       :all-stations="allStations"
       @route-selected="handleRouteSelected"
       @plan-selected="handlePlanSelected"
+      @location-selected="handleLocationSelected"
     />
 
     <!-- Harta ocupă restul ecranului -->

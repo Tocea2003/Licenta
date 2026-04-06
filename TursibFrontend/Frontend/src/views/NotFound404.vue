@@ -16,29 +16,29 @@
         <div class="road"></div>
       </div>
       
-      <h1>Autobuzul s-a rătăcit! 🚌</h1>
-      <p>Pagina pe care o cauți nu există sau a fost mutată.</p>
+      <h1>{{ t('lostBusTitle') }} 🚌</h1>
+      <p>{{ t('pageNotFoundHint') }}</p>
       
       <div class="actions">
         <button @click="goHome" class="btn-primary">
-          🏠 Înapoi la Prima Pagină
+          🏠 {{ t('backHome') }}
         </button>
         <button @click="goBack" class="btn-secondary">
-          ← Înapoi
+          ← {{ t('back') }}
         </button>
       </div>
       
       <div class="suggestions">
-        <h3>Ai încercat să accesezi:</h3>
+        <h3>{{ t('triedAccessing') }}</h3>
         <ul>
           <li>
-            <router-link to="/trip-planner">🗺️ Planificator de Rute</router-link>
+            <router-link to="/">🗺️ {{ t('planning') }}</router-link>
           </li>
           <li>
-            <router-link to="/favorites">⭐ Favorite</router-link>
+            <router-link to="/favorites">⭐ {{ t('favorites') }}</router-link>
           </li>
           <li>
-            <router-link to="/settings">⚙️ Setări</router-link>
+            <router-link to="/settings">⚙️ {{ t('settings') }}</router-link>
           </li>
         </ul>
       </div>
@@ -48,8 +48,10 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { useLanguage } from '@/composables/useLanguage'
 
 const router = useRouter()
+const { t } = useLanguage()
 
 const goHome = () => {
   router.push('/')

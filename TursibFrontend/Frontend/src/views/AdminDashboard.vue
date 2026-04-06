@@ -12,15 +12,15 @@
       <nav class="sidebar-nav">
         <router-link to="/admin/analytics" class="nav-item">
           <span class="nav-icon">📊</span>
-          <span class="nav-text">Analytics</span>
+          <span class="nav-text">{{ t('analytics') }}</span>
         </router-link>
         <router-link to="/admin/routes" class="nav-item">
           <span class="nav-icon">🗺️</span>
-          <span class="nav-text">Trasee</span>
+          <span class="nav-text">{{ t('routes') }}</span>
         </router-link>
         <router-link to="/admin/stations" class="nav-item">
           <span class="nav-icon">📍</span>
-          <span class="nav-text">Stații</span>
+          <span class="nav-text">{{ t('stations') }}</span>
         </router-link>
       </nav>
 
@@ -35,7 +35,7 @@
           </div>
         </div>
         <button @click="handleLogout" class="btn-logout">
-          <span>🚪</span> Logout
+          <span>🚪</span> {{ t('logout') }}
         </button>
       </div>
     </aside>
@@ -43,8 +43,8 @@
     <!-- Main Content -->
     <div class="admin-main">
       <header class="admin-header">
-        <h1 class="page-title">Panou de Administrare</h1>
-        <p class="page-subtitle">Gestionați traseele și stațiile de transport public Sibiu</p>
+        <h1 class="page-title">{{ t('adminPanel') }}</h1>
+        <p class="page-subtitle">{{ t('adminPanelSubtitle') }}</p>
       </header>
 
       <div class="admin-content">
@@ -58,8 +58,10 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '@/services/adminService'
+import { useLanguage } from '@/composables/useLanguage'
 
 const router = useRouter()
+const { t } = useLanguage()
 const user = computed(() => authService.getUser())
 
 const handleLogout = () => {
