@@ -88,7 +88,7 @@
       <input
         v-model="searchQuery"
         type="text"
-        :placeholder="tripMode ? '🔍 Caută adresă sau stație de destinație...' : '🔍 Caută stație sau adresă...'"
+        :placeholder="tripMode ? '🔍 Destinație...' : '🔍 Caută stație...'"
         class="search-input"
         @input="handleSearch"
         @focus="showResults = true"
