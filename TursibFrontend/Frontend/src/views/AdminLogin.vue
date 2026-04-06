@@ -279,9 +279,9 @@ const handleLogin = async () => {
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--accent-primary);
   background: var(--bg-primary);
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
 .form-group input:disabled {
@@ -294,10 +294,10 @@ const handleLogin = async () => {
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  background: #fee2e2;
-  border: 1px solid #fca5a5;
+  background: var(--color-danger-soft);
+  border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 10px;
-  color: #dc2626;
+  color: var(--color-danger);
   font-size: 14px;
   font-weight: 500;
 }
@@ -308,7 +308,7 @@ const handleLogin = async () => {
 
 .btn-login {
   padding: 16px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   color: white;
   border: none;
   border-radius: 12px;
@@ -361,7 +361,7 @@ const handleLogin = async () => {
 }
 
 .login-info small {
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
@@ -369,14 +369,14 @@ const handleLogin = async () => {
   margin-top: 24px;
   text-align: center;
   padding-top: 24px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border-primary);
 }
 
 .back-link {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #667eea;
+  color: var(--accent-primary);
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
