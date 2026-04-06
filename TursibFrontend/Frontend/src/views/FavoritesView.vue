@@ -359,37 +359,38 @@ const confirmDelete = async (favorite: FavoriteLocation) => {
 
 .quick-btn {
   background: var(--bg-primary);
-  border: 2px dashed var(--border-color);
-  border-radius: 12px;
-  padding: 20px;
+  border: 1.5px dashed var(--border-secondary);
+  border-radius: var(--radius-lg, 14px);
+  padding: 20px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-xs);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .quick-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
   border-style: solid;
 }
 
 .quick-btn.home:hover {
-  border-color: #ef4444;
-  background: #fef2f2;
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
 }
 
 .quick-btn.work:hover {
-  border-color: #3b82f6;
-  background: #eff6ff;
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-soft);
 }
 
 .quick-btn.custom:hover {
-  border-color: #8b5cf6;
-  background: #f5f3ff;
+  border-color: var(--accent-secondary);
+  background: var(--accent-secondary-soft);
 }
 
 .quick-btn .icon {
@@ -429,20 +430,13 @@ const confirmDelete = async (favorite: FavoriteLocation) => {
   top: 0;
   bottom: 0;
   width: 4px;
-  background: #d1d5db;
+  background: var(--border-secondary);
+  border-radius: 4px 0 0 4px;
 }
 
-.favorite-item.home::before {
-  background: #ef4444;
-}
-
-.favorite-item.work::before {
-  background: #3b82f6;
-}
-
-.favorite-item.custom::before {
-  background: #8b5cf6;
-}
+.favorite-item.home::before { background: var(--color-danger); }
+.favorite-item.work::before { background: var(--accent-primary); }
+.favorite-item.custom::before { background: var(--accent-secondary); }
 
 .favorite-item:hover {
   box-shadow: var(--shadow-md);
@@ -461,17 +455,9 @@ const confirmDelete = async (favorite: FavoriteLocation) => {
   flex-shrink: 0;
 }
 
-.favorite-item.home .favorite-icon {
-  background: #fef2f2;
-}
-
-.favorite-item.work .favorite-icon {
-  background: #eff6ff;
-}
-
-.favorite-item.custom .favorite-icon {
-  background: #f5f3ff;
-}
+.favorite-item.home .favorite-icon { background: var(--color-danger-soft); }
+.favorite-item.work .favorite-icon { background: var(--accent-primary-soft); }
+.favorite-item.custom .favorite-icon { background: var(--accent-secondary-soft); }
 
 .favorite-info {
   flex: 1;
@@ -522,13 +508,13 @@ const confirmDelete = async (favorite: FavoriteLocation) => {
 }
 
 .action-btn.edit:hover {
-  background: #dbeafe;
-  color: #3b82f6;
+  background: var(--accent-primary-soft);
+  color: var(--accent-primary);
 }
 
 .action-btn.delete:hover {
-  background: #fee2e2;
-  color: #ef4444;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 
 .empty-state {
@@ -601,13 +587,14 @@ const confirmDelete = async (favorite: FavoriteLocation) => {
 }
 
 .dialog h2 {
-  font-size: 1.5rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  font-size: 1.35rem;
+  font-weight: 700;
+  background: var(--gradient-primary);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0 0 24px 0;
+  letter-spacing: -0.02em;
 }
 
 .form-group {
@@ -637,8 +624,9 @@ const confirmDelete = async (favorite: FavoriteLocation) => {
 
 .form-group input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  background: var(--bg-primary);
 }
 
 .suggestions {

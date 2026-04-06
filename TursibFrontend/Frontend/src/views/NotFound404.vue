@@ -66,8 +66,8 @@ const goBack = () => {
 
 <style scoped>
 .not-found-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100dvh;
+  background: var(--gradient-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -220,7 +220,7 @@ p {
 
 .btn-primary {
   background: white;
-  color: #667eea;
+  color: var(--accent-primary);
 }
 
 .btn-primary:hover {
