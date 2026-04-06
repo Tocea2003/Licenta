@@ -437,18 +437,20 @@ onUnmounted(() => {
 
 .stat-card {
   background: var(--bg-primary);
-  border-radius: 16px;
+  border: 1.5px solid var(--border-primary);
+  border-radius: var(--radius-lg, 16px);
   padding: 24px;
   display: flex;
   align-items: center;
   gap: 16px;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-secondary);
 }
 
 .stat-icon {
@@ -474,21 +476,10 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.active-buses {
-  border-left: 4px solid #3b82f6;
-}
-
-.avg-occupancy {
-  border-left: 4px solid #8b5cf6;
-}
-
-.total-routes {
-  border-left: 4px solid #10b981;
-}
-
-.total-stations {
-  border-left: 4px solid #f59e0b;
-}
+.active-buses   { border-left: 4px solid var(--accent-primary); }
+.avg-occupancy  { border-left: 4px solid var(--accent-secondary); }
+.total-routes   { border-left: 4px solid var(--color-success); }
+.total-stations { border-left: 4px solid var(--color-warning); }
 
 /* Charts Grid */
 .charts-grid {
@@ -500,7 +491,8 @@ onUnmounted(() => {
 
 .chart-card {
   background: var(--bg-primary);
-  border-radius: 16px;
+  border: 1.5px solid var(--border-primary);
+  border-radius: var(--radius-lg, 16px);
   padding: 24px;
   box-shadow: var(--shadow-sm);
 }
@@ -519,7 +511,8 @@ onUnmounted(() => {
 /* Live Buses */
 .live-buses-section {
   background: var(--bg-primary);
-  border-radius: 16px;
+  border: 1.5px solid var(--border-primary);
+  border-radius: var(--radius-lg, 16px);
   padding: 24px;
   box-shadow: var(--shadow-sm);
 }
@@ -539,27 +532,21 @@ onUnmounted(() => {
 
 .live-bus-card {
   background: var(--bg-secondary);
-  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md, 12px);
   padding: 16px;
-  border-left: 4px solid #3b82f6;
-  transition: transform 0.2s;
+  border-left: 4px solid var(--accent-primary);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .live-bus-card:hover {
-  transform: translateX(4px);
+  transform: translateX(3px);
+  box-shadow: var(--shadow-md);
 }
 
-.live-bus-card.low {
-  border-left-color: #22c55e;
-}
-
-.live-bus-card.medium {
-  border-left-color: #fbbf24;
-}
-
-.live-bus-card.high {
-  border-left-color: #ef4444;
-}
+.live-bus-card.low    { border-left-color: var(--color-success); }
+.live-bus-card.medium { border-left-color: var(--color-warning); }
+.live-bus-card.high   { border-left-color: var(--color-danger); }
 
 .bus-header {
   display: flex;
@@ -576,7 +563,7 @@ onUnmounted(() => {
 
 .bus-status {
   font-size: 12px;
-  color: #ef4444;
+  color: var(--color-danger);
   font-weight: 600;
   animation: pulse 2s infinite;
 }

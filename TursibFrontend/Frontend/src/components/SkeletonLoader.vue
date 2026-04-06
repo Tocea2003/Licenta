@@ -37,37 +37,27 @@ const customStyle = computed(() => {
 .skeleton {
   background: linear-gradient(
     90deg,
-    var(--skeleton-base, #e5e7eb) 0%,
-    var(--skeleton-shimmer, #f3f4f6) 50%,
-    var(--skeleton-base, #e5e7eb) 100%
+    var(--bg-tertiary) 0%,
+    var(--border-primary) 50%,
+    var(--bg-tertiary) 100%
   );
   background-size: 200% 100%;
-  border-radius: 4px;
-}
-
-:root.dark .skeleton {
-  --skeleton-base: #334155;
-  --skeleton-shimmer: #475569;
+  border-radius: var(--radius-sm, 4px);
 }
 
 .skeleton.animated {
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 1.5s ease-in-out infinite;
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-/* Variants */
 .skeleton.text {
   height: 1em;
   margin-bottom: 0.5em;
-  border-radius: 4px;
+  border-radius: var(--radius-sm, 4px);
 }
 
 .skeleton.circular {
@@ -81,6 +71,6 @@ const customStyle = computed(() => {
 }
 
 .skeleton.rounded {
-  border-radius: 12px;
+  border-radius: var(--radius-md, 10px);
 }
 </style>

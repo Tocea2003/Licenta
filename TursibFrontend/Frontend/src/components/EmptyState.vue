@@ -84,19 +84,20 @@ const handleAction = () => {
 
 .btn-action {
   padding: 12px 32px;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: var(--gradient-primary);
   color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-md, 12px);
   font-weight: 600;
   font-size: 1rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  min-height: 44px;
 }
 
 .btn-action:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.35);
 }
 
 .btn-action:active {
