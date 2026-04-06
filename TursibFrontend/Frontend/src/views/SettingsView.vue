@@ -152,32 +152,35 @@ const toggleNotifications = () => {
 }
 
 .setting-section h2 {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin: 0 0 12px 0;
+  letter-spacing: 0.07em;
+  margin: 0 0 10px 0;
+  padding-left: 4px;
 }
 
 .setting-item,
 .setting-link {
   background: var(--bg-primary);
-  border: 1px solid var(--border-primary);
-  border-radius: 12px;
+  border: 1.5px solid var(--border-primary);
+  border-radius: var(--radius-lg, 14px);
   padding: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  transition: all 0.2s;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
   text-decoration: none;
   color: inherit;
+  box-shadow: var(--shadow-xs);
 }
 
 .setting-link:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: var(--shadow-md);
+  border-color: var(--border-secondary);
 }
 
 .setting-info {
@@ -201,33 +204,34 @@ const toggleNotifications = () => {
 .toggle-btn {
   position: relative;
   width: 52px;
-  height: 28px;
+  height: 30px;
   background: var(--border-secondary);
   border: none;
-  border-radius: 14px;
+  border-radius: var(--radius-full, 999px);
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background 0.25s ease;
   flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .toggle-btn.active {
-  background: #3b82f6;
+  background: var(--accent-primary);
 }
 
 .toggle-slider {
   position: absolute;
-  top: 2px;
-  left: 2px;
+  top: 3px;
+  left: 3px;
   width: 24px;
   height: 24px;
   background: white;
   border-radius: 50%;
-  transition: transform 0.3s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .toggle-btn.active .toggle-slider {
-  transform: translateX(24px);
+  transform: translateX(22px);
 }
 
 /* Info Items */
@@ -239,12 +243,13 @@ const toggleNotifications = () => {
 
 .info-item {
   background: var(--bg-primary);
-  border: 1px solid var(--border-primary);
-  border-radius: 12px;
-  padding: 16px;
+  border: 1.5px solid var(--border-primary);
+  border-radius: var(--radius-lg, 14px);
+  padding: 14px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  box-shadow: var(--shadow-xs);
 }
 
 .info-item .label {
