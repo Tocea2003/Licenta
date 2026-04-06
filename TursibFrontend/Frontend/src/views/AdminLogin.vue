@@ -4,22 +4,22 @@
       <div class="login-header">
         <div class="logo-container">
           <div class="logo-icon">🚌</div>
-          <h1>Tursib Admin</h1>
+          <h1>{{ t('adminTitle') }}</h1>
         </div>
-        <p class="subtitle">Bine ai venit! Autentifică-te pentru a continua</p>
+        <p class="subtitle">{{ t('adminWelcome') }}</p>
       </div>
 
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="form-group">
           <label for="username">
             <span class="label-icon">👤</span>
-            Utilizator
+            {{ t('username') }}
           </label>
           <input
             id="username"
             v-model="credentials.username"
             type="text"
-            placeholder="Introdu username-ul"
+            :placeholder="t('adminUsernamePlaceholder')"
             required
             autocomplete="username"
             :disabled="isLoading"
@@ -29,13 +29,13 @@
         <div class="form-group">
           <label for="password">
             <span class="label-icon">🔒</span>
-            Parolă
+            {{ t('password') }}
           </label>
           <input
             id="password"
             v-model="credentials.password"
             type="password"
-            placeholder="Introdu parola"
+            :placeholder="t('adminPasswordPlaceholder')"
             required
             autocomplete="current-password"
             :disabled="isLoading"
@@ -52,18 +52,18 @@
         <button type="submit" class="btn-login" :disabled="isLoading">
           <span v-if="isLoading" class="spinner"></span>
           <span v-else class="login-icon">→</span>
-          {{ isLoading ? 'Se conectează...' : 'Autentificare' }}
+          {{ isLoading ? t('connecting') : t('authentication') }}
         </button>
 
         <div class="login-info">
-          <small>💡 Accesul este restricționat administratorilor autorizați</small>
+          <small>💡 {{ t('adminAccessRestricted') }}</small>
         </div>
       </form>
 
       <div class="login-footer">
         <router-link to="/" class="back-link">
           <span>←</span>
-          Înapoi la hartă
+          {{ t('adminBackToMap') }}
         </router-link>
       </div>
     </div>
@@ -80,8 +80,10 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '@/services/adminService'
+import { useLanguage } from '@/composables/useLanguage'
 
 const router = useRouter()
+const { t } = useLanguage()
 
 const credentials = ref({
   username: '',
@@ -120,7 +122,7 @@ const handleLogin = async () => {
   } catch (error: any) {
     console.error('❌ Login error:', error)
     console.error('Error details:', error.response?.data)
-    errorMessage.value = error.response?.data?.message || 'Username sau parolă incorectă'
+    errorMessage.value = error.response?.data?.message || t('adminWrongCredentials')
   } finally {
     isLoading.value = false
   }

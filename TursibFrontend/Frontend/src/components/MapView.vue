@@ -28,8 +28,12 @@
     
     <!-- Butoane din dreapta sus -->
     <div class="top-right-buttons">
+      <button @click="toggleLanguage" class="action-btn language-btn" :title="t('language')">
+        {{ currentLanguage.toUpperCase() }}
+      </button>
+
       <!-- Buton pentru favorite -->
-      <button @click="goToFavorites" class="action-btn" title="Favorite">
+      <button @click="goToFavorites" class="action-btn" :title="t('favorites')">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
           <path d="M20.84 4.61C20.3292 4.099 19.7228 3.69364 19.0554 3.41708C18.3879 3.14052 17.6725 2.99817 16.95 2.99817C16.2275 2.99817 15.5121 3.14052 14.8446 3.41708C14.1772 3.69364 13.5708 4.099 13.06 4.61L12 5.67L10.94 4.61C9.9083 3.57831 8.50903 2.99871 7.05 2.99871C5.59096 2.99871 4.19169 3.57831 3.16 4.61C2.1283 5.64169 1.54871 7.04097 1.54871 8.5C1.54871 9.95903 2.1283 11.3583 3.16 12.39L4.22 13.45L12 21.23L19.78 13.45L20.84 12.39C21.351 11.8792 21.7563 11.2728 22.0329 10.6053C22.3095 9.93789 22.4518 9.22248 22.4518 8.5C22.4518 7.77752 22.3095 7.06211 22.0329 6.39469C21.7563 5.72728 21.351 5.12084 20.84 4.61V4.61Z" 
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -37,7 +41,7 @@
       </button>
       
       <!-- Buton pentru statistici -->
-      <button @click="goToStatistics" class="action-btn" title="Statistici">
+      <button @click="goToStatistics" class="action-btn" :title="t('statistics')">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
           <path d="M3 3v18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M18 17V9M13 17V5M8 17v-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -52,7 +56,7 @@
       </button>
       
       <!-- Buton pentru dark mode -->
-      <button @click="toggleDarkMode" class="action-btn" title="Dark Mode">
+      <button @click="toggleDarkMode" class="action-btn" :title="t('darkMode')">
         <svg v-if="!isDarkMode" width="20" height="20" viewBox="0 0 24 24" fill="none">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -67,7 +71,7 @@
         v-if="isAdmin" 
         @click="goToAdmin" 
         class="action-btn admin-btn" 
-        title="Admin Panel"
+        :title="t('adminPanel')"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
           <rect x="3" y="3" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -94,7 +98,7 @@
         v-else 
         @click="handleLogout" 
         class="action-btn logout-btn" 
-        title="Logout"
+        :title="t('logout')"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -550,11 +554,13 @@ import { useNotifications, checkBusNotifications } from '@/composables/useNotifi
 import { authService } from '@/services/adminService'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { tripHistoryService, type TripHistoryItem } from '@/services/tripHistoryService'
+import { useLanguage } from '@/composables/useLanguage'
 
 const router = useRouter()
 
 // Dark mode
 const { isDarkMode, toggleDarkMode } = useDarkMode()
+const { currentLanguage, toggleLanguage, t } = useLanguage()
 
 // Navigation functions
 const goToFavorites = () => {
@@ -1261,6 +1267,11 @@ const handleAddressSelected = (location: { lat: number; lon: number; name: strin
   centerMap(location.lat, location.lon, 15)
 }
 
+const showAddressLocation = (location: { lat: number; lon: number; name: string }) => {
+  selectedAddress.value = location
+  centerMap(location.lat, location.lon, 17)
+}
+
 // Handler pentru cerere direcții de mers pe jos
 const handleWalkingDirectionsRequested = (
   start: { lat: number; lon: number; name: string },
@@ -1593,8 +1604,10 @@ const trimShapeToStations = (
   if (!points || points.length === 0) return []
   let fromIdx = 0, fromDist = Infinity, toIdx = points.length - 1, toDist = Infinity
   for (let i = 0; i < points.length; i++) {
-    const dFrom = Math.hypot(points[i].latitude - from.latitude, points[i].longitude - from.longitude)
-    const dTo   = Math.hypot(points[i].latitude - to.latitude,   points[i].longitude - to.longitude)
+    const point = points[i]
+    if (!point) continue
+    const dFrom = Math.hypot(point.latitude - from.latitude, point.longitude - from.longitude)
+    const dTo   = Math.hypot(point.latitude - to.latitude,   point.longitude - to.longitude)
     if (dFrom < fromDist) { fromDist = dFrom; fromIdx = i }
     if (dTo   < toDist)   { toDist   = dTo;   toIdx   = i }
   }
@@ -2223,23 +2236,56 @@ watch(() => props.tripPlan, async (plan) => {
 
   // 2. Segment autobuz 1: boarding → transfer (sau alighting dacă direct)
   const busEndStation = transfer ?? alighting
+  let busSegment1Path: [number, number][] = []
   try {
     const seg1 = await apiService.getRouteSegment(plan.route1Id, boarding.id, busEndStation.id)
     if (seg1?.points?.length) {
-      walkingPath.value = trimShapeToStations(seg1.points, boarding, busEndStation)
-      allPoints.push(...walkingPath.value)
+      busSegment1Path = trimShapeToStations(seg1.points, boarding, busEndStation)
     }
   } catch {}
 
+  // Fallback OSRM pentru segmentul de autobuz când GTFS nu întoarce puncte suficiente
+  if (busSegment1Path.length < 2) {
+    try {
+      const coords = `${boarding.longitude},${boarding.latitude};${busEndStation.longitude},${busEndStation.latitude}`
+      const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
+      const data = await resp.json()
+      if (data.code === 'Ok' && data.routes?.[0]) {
+        busSegment1Path = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+      }
+    } catch {}
+  }
+
+  if (busSegment1Path.length > 0) {
+    walkingPath.value = busSegment1Path
+    allPoints.push(...busSegment1Path)
+  }
+
   // 3. Segment autobuz 2 (dacă e transfer): transfer → alighting
   if (plan.type === 'transfer' && transfer && plan.route2Id) {
+    let busSegment2Path: [number, number][] = []
     try {
       const seg2 = await apiService.getRouteSegment(plan.route2Id, transfer.id, alighting.id)
       if (seg2?.points?.length) {
-        secondWalkingPath.value = trimShapeToStations(seg2.points, transfer, alighting)
-        allPoints.push(...secondWalkingPath.value)
+        busSegment2Path = trimShapeToStations(seg2.points, transfer, alighting)
       }
     } catch {}
+
+    if (busSegment2Path.length < 2) {
+      try {
+        const coords = `${transfer.longitude},${transfer.latitude};${alighting.longitude},${alighting.latitude}`
+        const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
+        const data = await resp.json()
+        if (data.code === 'Ok' && data.routes?.[0]) {
+          busSegment2Path = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+        }
+      } catch {}
+    }
+
+    if (busSegment2Path.length > 0) {
+      secondWalkingPath.value = busSegment2Path
+      allPoints.push(...busSegment2Path)
+    }
   }
 
   // 4. Mers pe jos: stație coborâre → destinație
@@ -2263,6 +2309,10 @@ watch(() => props.tripPlan, async (plan) => {
   savedDestination.value = { lat: plan.destLat, lon: plan.destLon, name: plan.destName }
 
   if (plan.type === 'direct') {
+    // Stil identic cu varianta de rută alternativă directă: segmentul autobuzului
+    // este păstrat în walkingPath (linie albastră groasă), cu panel multimodal.
+    multimodalBusPath.value = []
+
     multimodalData.value = {
       startLocation: plan.originName,
       endLocation: plan.destName,
@@ -2329,6 +2379,7 @@ const handleRouteSearchRequested = async (
 // Expunem metoda pentru a putea fi apelată din componenta părinte
 defineExpose({
   centerMap,
+  showAddressLocation,
   setTripMode,
   setSidebarOpen: (open: boolean) => { showSidebar.value = open },
   invalidateSize: () => {
@@ -2651,6 +2702,12 @@ const getStationETAs = (stationId: number) => {
   color: var(--text-primary);
 }
 
+.action-btn.language-btn {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 .action-btn:hover {
   background: var(--bg-secondary);
   box-shadow: var(--shadow-lg);
@@ -2707,6 +2764,10 @@ const getStationETAs = (stationId: number) => {
   .action-btn {
     width: 36px;
     height: 36px;
+  }
+
+  .action-btn.language-btn {
+    font-size: 11px;
   }
 
   .action-btn svg {

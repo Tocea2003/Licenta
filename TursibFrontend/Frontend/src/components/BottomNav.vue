@@ -11,7 +11,7 @@
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
-      <span>Hartă</span>
+      <span>{{ t('map') }}</span>
     </router-link>
 
     <button
@@ -25,7 +25,7 @@
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
-      <span>Planificare</span>
+      <span>{{ t('planning') }}</span>
     </button>
 
     <router-link
@@ -39,7 +39,7 @@
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
-      <span>Favorite</span>
+      <span>{{ t('favorites') }}</span>
     </router-link>
 
     <router-link
@@ -54,7 +54,7 @@
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
-      <span>Setări</span>
+      <span>{{ t('settings') }}</span>
     </router-link>
   </nav>
 </template>
@@ -62,9 +62,11 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
 import { computed } from 'vue'
+import { useLanguage } from '@/composables/useLanguage'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useLanguage()
 
 const isActive = (path: string) => {
   return computed(() => route.path === path)

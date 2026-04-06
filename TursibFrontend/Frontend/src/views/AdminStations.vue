@@ -1,23 +1,23 @@
 <template>
   <div class="stations-management">
     <div class="page-header">
-      <h2>Gestionare Stații</h2>
+      <h2>{{ t('manageStations') }}</h2>
       <button @click="showCreateModal = true" class="btn-primary">
-        + Adaugă Stație Nouă
+        + {{ t('addNewStation') }}
       </button>
     </div>
 
-    <div v-if="isLoading" class="loading">Se încarcă...</div>
+    <div v-if="isLoading" class="loading">{{ t('loading') }}</div>
 
     <div v-else class="stations-table-container">
       <table class="stations-table">
         <thead>
           <tr>
             <th>ID</th>
-            <th>Nume Stație</th>
-            <th>Latitudine</th>
-            <th>Longitudine</th>
-            <th>Acțiuni</th>
+            <th>{{ t('stationName') }}</th>
+            <th>{{ t('latitude') }}</th>
+            <th>{{ t('longitude') }}</th>
+            <th>{{ t('actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -28,13 +28,13 @@
             <td>{{ station.longitude.toFixed(6) }}</td>
             <td>
               <div class="action-buttons">
-                <button @click="editStation(station)" class="btn-edit" title="Editează">
+                <button @click="editStation(station)" class="btn-edit" :title="t('edit')">
                   ✏️
                 </button>
-                <button @click="viewOnMap(station)" class="btn-map" title="Vezi pe hartă">
+                <button @click="viewOnMap(station)" class="btn-map" :title="t('viewOnMap')">
                   🗺️
                 </button>
-                <button @click="deleteStation(station)" class="btn-delete" title="Șterge">
+                <button @click="deleteStation(station)" class="btn-delete" :title="t('delete')">
                   🗑️
                 </button>
               </div>
@@ -47,15 +47,15 @@
     <!-- Modal Create/Edit Station -->
     <div v-if="showCreateModal || showEditModal" class="modal-overlay" @click.self="closeModals">
       <div class="modal">
-        <h3>{{ showEditModal ? 'Editează Stație' : 'Adaugă Stație Nouă' }}</h3>
+        <h3>{{ showEditModal ? t('editStationTitle') : t('createStationTitle') }}</h3>
         <form @submit.prevent="handleSubmit">
           <div class="form-group">
-            <label>Nume Stație:</label>
-            <input v-model="currentStation.name" required placeholder="Ex: Piața Mare" />
+            <label>{{ t('stationName') }}:</label>
+            <input v-model="currentStation.name" required :placeholder="t('stationExample')" />
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Latitudine:</label>
+              <label>{{ t('latitude') }}:</label>
               <input 
                 v-model.number="currentStation.latitude" 
                 type="number" 
@@ -65,7 +65,7 @@
               />
             </div>
             <div class="form-group">
-              <label>Longitudine:</label>
+              <label>{{ t('longitude') }}:</label>
               <input 
                 v-model.number="currentStation.longitude" 
                 type="number" 
@@ -76,11 +76,11 @@
             </div>
           </div>
           <div class="form-help">
-            💡 Tip: Click pe hartă pentru a selecta coordonatele automat
+            💡 {{ t('mapTip') }}
           </div>
           <div class="modal-actions">
-            <button type="button" @click="closeModals" class="btn-secondary">Anulează</button>
-            <button type="submit" class="btn-primary">{{ showEditModal ? 'Salvează' : 'Creează' }}</button>
+            <button type="button" @click="closeModals" class="btn-secondary">{{ t('cancel') }}</button>
+            <button type="submit" class="btn-primary">{{ showEditModal ? t('save') : t('create') }}</button>
           </div>
         </form>
       </div>
@@ -91,6 +91,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { adminStationsService, type Station } from '@/services/adminService'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 const stations = ref<Station[]>([])
 const isLoading = ref(true)
@@ -113,8 +116,8 @@ const loadStations = async () => {
   } catch (error: any) {
     console.error('❌ Error loading stations:', error)
     console.error('Error details:', error.response?.data)
-    const errorMsg = error.response?.data?.message || error.message || 'Eroare la încărcarea stațiilor'
-    alert(`Eroare la încărcarea stațiilor: ${errorMsg}`)
+    const errorMsg = error.response?.data?.message || error.message || t('loading')
+    alert(t('stationsLoadErrorWithMessage', 'Error loading stations: {message}', { message: errorMsg }))
   } finally {
     isLoading.value = false
   }
@@ -131,14 +134,14 @@ const viewOnMap = (station: Station) => {
 }
 
 const deleteStation = async (station: Station) => {
-  if (!confirm(`Sigur vrei să ștergi stația "${station.name}"?\n\nAtenție: Aceasta poate afecta traseele care folosesc această stație!`)) return
+  if (!confirm(t('confirmDeleteStation', 'Are you sure you want to delete station "{name}"?', { name: station.name }))) return
 
   try {
     await adminStationsService.deleteStation(station.id)
     await loadStations()
   } catch (error) {
     console.error('Error deleting station:', error)
-    alert('Eroare la ștergerea stației')
+    alert(t('stationDeleteError'))
   }
 }
 
@@ -153,7 +156,7 @@ const handleSubmit = async () => {
     closeModals()
   } catch (error) {
     console.error('Error saving station:', error)
-    alert('Eroare la salvarea stației')
+    alert(t('stationSaveError'))
   }
 }
 
