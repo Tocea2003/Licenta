@@ -417,13 +417,13 @@ label {
 }
 
 input.input-valid {
-  border-color: #48bb78;
-  background-color: rgba(72, 187, 120, 0.05);
+  border-color: var(--color-success);
+  background-color: var(--color-success-soft);
 }
 
 input.input-invalid {
-  border-color: #f56565;
-  background-color: rgba(245, 101, 101, 0.05);
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-soft);
 }
 
 input {
@@ -438,8 +438,8 @@ input {
 
 input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
 input:disabled {
@@ -484,8 +484,8 @@ input:disabled {
 }
 
 .remember-checkbox:checked + .checkbox-custom {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-color: #667eea;
+  background: var(--gradient-primary);
+  border-color: var(--accent-primary);
 }
 
 .remember-checkbox:checked + .checkbox-custom::after {
@@ -500,10 +500,11 @@ input:disabled {
 }
 
 .error-banner {
-  background: #fed7d7;
-  color: #c53030;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-md, 12px);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -522,7 +523,7 @@ input:disabled {
 }
 
 .btn-login {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   color: white;
   border: none;
   padding: 16px 24px;
@@ -571,14 +572,14 @@ input:disabled {
 
 .login-info {
   text-align: center;
-  color: #718096;
+  color: var(--text-secondary);
   margin-top: -8px;
 }
 
 .login-footer {
   margin-top: 32px;
   padding-top: 24px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border-primary);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -586,14 +587,14 @@ input:disabled {
 }
 
 .signup-link {
-  color: #667eea;
+  color: var(--accent-primary);
   text-decoration: none;
   font-size: 14px;
   transition: color 0.3s ease;
 }
 
 .signup-link:hover {
-  color: #764ba2;
+  color: var(--accent-secondary);
 }
 
 .signup-link strong {
@@ -604,14 +605,14 @@ input:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #718096;
+  color: var(--text-secondary);
   text-decoration: none;
   font-size: 14px;
   transition: all 0.3s ease;
 }
 
 .back-link:hover {
-  color: #2d3748;
+  color: var(--text-primary);
   transform: translateX(-4px);
 }
 
@@ -636,7 +637,7 @@ input:disabled {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(to right, transparent, #e2e8f0, transparent);
+  background: linear-gradient(to right, transparent, var(--border-primary), transparent);
 }
 
 .divider span {
@@ -644,7 +645,7 @@ input:disabled {
   display: inline-block;
   padding: 0 16px;
   background: var(--bg-primary);
-  color: #718096;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 1px;

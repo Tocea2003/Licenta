@@ -80,7 +80,7 @@
             </div>
             <small 
               class="strength-label" 
-              :style="{ color: passwordStrength?.color ?? '#718096' }"
+              :style="{ color: passwordStrength?.color ?? 'var(--text-secondary)' }"
             >
               {{ passwordStrength?.label ?? '' }}
             </small>
@@ -203,10 +203,10 @@ const passwordStrength = computed(() => {
   
   const levels = [
     { score: 0, label: '', color: '' },
-    { score: 1, label: 'Foarte slabă', color: '#f56565' },
+    { score: 1, label: 'Foarte slabă', color: 'var(--color-danger)' },
     { score: 2, label: 'Slabă', color: '#ed8936' },
     { score: 3, label: 'Medie', color: '#ecc94b' },
-    { score: 4, label: 'Bună', color: '#48bb78' },
+    { score: 4, label: 'Bună', color: 'var(--color-success)' },
     { score: 5, label: 'Excelentă', color: '#38a169' }
   ]
   
@@ -317,7 +317,7 @@ const toggleConfirmPasswordVisibility = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   position: relative;
   overflow: hidden;
   padding: 20px;
@@ -423,12 +423,12 @@ const toggleConfirmPasswordVisibility = () => {
 h1 {
   font-size: 28px;
   font-weight: 700;
-  color: #2d3748;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .subtitle {
-  color: #718096;
+  color: var(--text-secondary);
   margin: 8px 0 0 0;
   font-size: 14px;
 }
@@ -450,7 +450,7 @@ label {
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
@@ -495,18 +495,18 @@ label {
 }
 
 input.input-valid {
-  border-color: #48bb78;
+  border-color: var(--color-success);
   background-color: #f0fff4;
 }
 
 input.input-invalid {
-  border-color: #f56565;
+  border-color: var(--color-danger);
   background-color: #fff5f5;
 }
 
 input {
   padding: 14px 16px;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--border-primary);
   border-radius: 12px;
   font-size: 15px;
   transition: all 0.3s ease;
@@ -515,7 +515,7 @@ input {
 
 input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
@@ -531,7 +531,7 @@ input:disabled {
 
 .strength-bar {
   height: 4px;
-  background: #e2e8f0;
+  background: var(--border-primary);
   border-radius: 2px;
   overflow: hidden;
   margin-bottom: 4px;
@@ -550,14 +550,14 @@ input:disabled {
 }
 
 .helper-text {
-  color: #718096;
+  color: var(--text-secondary);
   font-size: 12px;
   margin-top: 4px;
   display: block;
 }
 
 .error-text {
-  color: #f56565;
+  color: var(--color-danger);
   font-size: 12px;
   margin-top: 4px;
   display: block;
@@ -565,8 +565,8 @@ input:disabled {
 }
 
 .error-banner {
-  background: #fed7d7;
-  color: #c53030;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
   padding: 12px 16px;
   border-radius: 12px;
   display: flex;
@@ -598,7 +598,7 @@ input:disabled {
 }
 
 .btn-signup {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   color: white;
   border: none;
   padding: 16px 24px;
@@ -647,14 +647,14 @@ input:disabled {
 
 .signup-info {
   text-align: center;
-  color: #718096;
+  color: var(--text-secondary);
   margin-top: -8px;
 }
 
 .signup-footer {
   margin-top: 32px;
   padding-top: 24px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border-primary);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -662,14 +662,14 @@ input:disabled {
 }
 
 .login-link {
-  color: #667eea;
+  color: var(--accent-primary);
   text-decoration: none;
   font-size: 14px;
   transition: color 0.3s ease;
 }
 
 .login-link:hover {
-  color: #764ba2;
+  color: var(--accent-secondary);
 }
 
 .login-link strong {
@@ -680,14 +680,14 @@ input:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #718096;
+  color: var(--text-secondary);
   text-decoration: none;
   font-size: 14px;
   transition: all 0.3s ease;
 }
 
 .back-link:hover {
-  color: #2d3748;
+  color: var(--text-primary);
   transform: translateX(-4px);
 }
 
