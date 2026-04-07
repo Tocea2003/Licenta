@@ -85,11 +85,46 @@
           </div>
           <div class="segment-stations">{{ route2StationsCount }} stații</div>
           <div class="segment-from">Îmbarcă la <strong>{{ transferStation?.name }}</strong></div>
+          <div class="segment-to">Coboară la <strong>{{ secondBusDropoffStation?.name }}</strong></div>
+        </div>
+      </div>
+
+      <!-- Transfer Station Indicator 2 (pentru 3 autobuze) -->
+      <div v-if="hasThirdBus" class="transfer-indicator">
+        <div class="transfer-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M10 2v16M4 8l6-6 6 6M4 12l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="transfer-text">Schimbă autobuzul</span>
+      </div>
+
+      <!-- Segment 4: A treia linie de autobuz -->
+      <div v-if="hasThirdBus" class="route-segment bus" :style="{ '--route-color': route3Color }">
+        <div class="segment-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
+            <path d="M4 10h16M8 18v2M16 18v2M8 4v2M16 4v2" stroke="currentColor" stroke-width="2"/>
+            <circle cx="8" cy="15" r="1" fill="currentColor"/>
+            <circle cx="16" cy="15" r="1" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="segment-details">
+          <div class="segment-header">
+            <span class="segment-type">
+              <span class="route-badge" :style="{ backgroundColor: route3Color }">
+                {{ route3Number }}
+              </span>
+            </span>
+            <span class="segment-duration">{{ formatDuration(busTime3 || 0) }}</span>
+          </div>
+          <div class="segment-stations">{{ route3StationsCount }} stații</div>
+          <div class="segment-from">Îmbarcă la <strong>{{ transferStation2?.name }}</strong></div>
           <div class="segment-to">Coboară la <strong>{{ alightingStation?.name }}</strong></div>
         </div>
       </div>
 
-      <!-- Segment 4: Mers pe jos către destinație -->
+      <!-- Ultimul segment: Mers pe jos către destinație -->
       <div class="route-segment walk">
         <div class="segment-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -120,7 +155,7 @@
         </div>
         <div class="summary-item">
           <span class="summary-label">Transferuri</span>
-          <span class="summary-value">1</span>
+          <span class="summary-value">{{ transferCount }}</span>
         </div>
       </div>
     </div>
@@ -143,6 +178,7 @@ const props = defineProps<{
   endName: string
   boardingStation: Station | null
   transferStation: Station | null
+  transferStation2?: Station | null
   alightingStation: Station | null
   route1Number: string
   route1Color: string
@@ -150,10 +186,14 @@ const props = defineProps<{
   route2Number: string
   route2Color: string
   route2StationsCount: number
+  route3Number?: string
+  route3Color?: string
+  route3StationsCount?: number
   firstWalkDistance: number
   firstWalkTime: number
   busTime1: number
   busTime2: number
+  busTime3?: number
   secondWalkDistance: number
   secondWalkTime: number
 }>()
@@ -163,8 +203,19 @@ defineEmits<{
 }>()
 
 const totalTime = computed(() => 
-  props.firstWalkTime + props.busTime1 + props.busTime2 + props.secondWalkTime
+  props.firstWalkTime + props.busTime1 + props.busTime2 + (props.busTime3 || 0) + props.secondWalkTime
 )
+
+const hasThirdBus = computed(() => Boolean(props.route3Number && props.transferStation2))
+
+const secondBusDropoffStation = computed(() => {
+  if (hasThirdBus.value && props.transferStation2) {
+    return props.transferStation2
+  }
+  return props.alightingStation
+})
+
+const transferCount = computed(() => (hasThirdBus.value ? 2 : 1))
 
 const totalWalkDistance = computed(() => 
   props.firstWalkDistance + props.secondWalkDistance

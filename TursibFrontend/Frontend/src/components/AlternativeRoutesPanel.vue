@@ -79,6 +79,10 @@
               </div>
             </div>
 
+            <div v-if="route.routeCategory" class="route-reason">
+              {{ route.routeCategory }}
+            </div>
+
             <!-- Segments -->
             <div class="route-segments">
               <div
@@ -357,6 +361,19 @@ const selectRouteForNavigation = (index: number) => {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: visible;
+}
+
+.route-reason {
+  margin-top: 8px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4f46e5;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  display: inline-block;
+  padding: 4px 10px;
 }
 
 .route-card:hover {
