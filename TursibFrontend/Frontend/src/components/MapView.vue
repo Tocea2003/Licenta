@@ -1810,73 +1810,50 @@ const handleAlternativeRouteSelected = async (route: any) => {
     } catch (error) {
     }
     
-  } else if (busSegments.length === 2) {
-    // RUTĂ CU TRANSFER
+  } else if (busSegments.length >= 2) {
+    // RUTĂ CU TRANSFER (2 sau 3 autobuze)
     const segment1 = busSegments[0]
     const segment2 = busSegments[1]
+    const segment3 = busSegments[2] || null
     const transferSegment = route.segments.find((s: any) => s.type === 'transfer')
-    
-    
-    try {
-      // Găsim ID-urile rutelor
-      const routes = await apiService.getRoutes()
-      const route1 = routes.find(r => r.routeNumber === segment1.routeNumber)
-      const route2 = routes.find(r => r.routeNumber === segment2.routeNumber)
-      
-      if (!route1 || !route2) {
-        return
-      }
-      
-      // Încărcăm primul segment GTFS
-      const gtfsSegment1 = await apiService.getRouteSegment(
-        route1.id,
-        segment1.startStation.id,
-        segment1.endStation.id
-      )
-      
-      // Încărcăm al doilea segment GTFS
-      const gtfsSegment2 = await apiService.getRouteSegment(
-        route2.id,
-        segment2.startStation.id,
-        segment2.endStation.id
-      )
-      
-      let busPart1: [number, number][] = gtfsSegment1?.points
-        ? trimShapeToStations(gtfsSegment1.points, segment1.startStation, segment1.endStation)
-        : []
 
-      let busPart2: [number, number][] = gtfsSegment2?.points
-        ? trimShapeToStations(gtfsSegment2.points, segment2.startStation, segment2.endStation)
-        : []
-      
-      
-      // Calculăm cu OSRM dacă GTFS nu returnează suficiente puncte
-      if (busPart1.length < 2) {
-        const coords = `${segment1.startStation.longitude},${segment1.startStation.latitude};${segment1.endStation.longitude},${segment1.endStation.latitude}`
+    const buildBusPart = async (busSegment: any): Promise<[number, number][]> => {
+      const routes = await apiService.getRoutes()
+      const foundRoute = routes.find(r => r.routeNumber === busSegment.routeNumber)
+      if (!foundRoute) return []
+
+      let busPart: [number, number][] = []
+      try {
+        const gtfsSegment = await apiService.getRouteSegment(
+          foundRoute.id,
+          busSegment.startStation.id,
+          busSegment.endStation.id
+        )
+        busPart = gtfsSegment?.points
+          ? trimShapeToStations(gtfsSegment.points, busSegment.startStation, busSegment.endStation)
+          : []
+      } catch {}
+
+      if (busPart.length < 2) {
+        const coords = `${busSegment.startStation.longitude},${busSegment.startStation.latitude};${busSegment.endStation.longitude},${busSegment.endStation.latitude}`
         const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
         try {
           const resp = await fetch(url)
           const data = await resp.json()
           if (data.code === 'Ok' && data.routes?.[0]) {
-            busPart1 = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+            busPart = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
           }
-        } catch (e) {
-        }
+        } catch {}
       }
-      
-      if (busPart2.length < 2) {
-        const coords = `${segment2.startStation.longitude},${segment2.startStation.latitude};${segment2.endStation.longitude},${segment2.endStation.latitude}`
-        const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
-        try {
-          const resp = await fetch(url)
-          const data = await resp.json()
-          if (data.code === 'Ok' && data.routes?.[0]) {
-            busPart2 = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          }
-        } catch (e) {
-        }
-      }
-      
+
+      return busPart
+    }
+
+    try {
+      const busPart1 = await buildBusPart(segment1)
+      const busPart2 = await buildBusPart(segment2)
+      const busPart3 = segment3 ? await buildBusPart(segment3) : []
+
       // Calculăm traseele de mers pe jos
       if (savedUserLocation.value && savedDestination.value) {
         try {
@@ -1886,65 +1863,69 @@ const handleAlternativeRouteSelected = async (route: any) => {
           if (data1.code === 'Ok' && data1.routes?.[0]) {
             actualWalkingPath.value = data1.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
           }
-        } catch (e) {}
-        
+        } catch {}
+
+        const lastSegmentEnd = segment3 ? segment3.endStation : segment2.endStation
         try {
-          const url2 = `https://router.project-osrm.org/route/v1/foot/${segment2.endStation.longitude},${segment2.endStation.latitude};${savedDestination.value.lon},${savedDestination.value.lat}?overview=full&geometries=geojson`
+          const url2 = `https://router.project-osrm.org/route/v1/foot/${lastSegmentEnd.longitude},${lastSegmentEnd.latitude};${savedDestination.value.lon},${savedDestination.value.lat}?overview=full&geometries=geojson`
           const resp2 = await fetch(url2)
           const data2 = await resp2.json()
           if (data2.code === 'Ok' && data2.routes?.[0]) {
             actualSecondWalkingPath.value = data2.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
           }
-        } catch (e) {}
+        } catch {}
       }
-      
-      // Construiește traseul COMPLET (ROȘU): mers pe jos + autobuz1 + autobuz2 + mers pe jos
+
+      // Construiește traseul COMPLET
       completeRoutePath.value = [
         ...actualWalkingPath.value,
         ...busPart1,
         ...busPart2,
+        ...busPart3,
         ...actualSecondWalkingPath.value
       ]
-      
-      // Setăm segmentele de autobuz (doar între stațiile relevante)
+
+      // Setăm segmentele pe hartă
       walkingPath.value = busPart1
       secondWalkingPath.value = busPart2
+      thirdBusPath.value = busPart3
 
-      // Afișăm panelul de transfer
+      const firstTransferStation = transferSegment?.station || segment1.endStation
+      const secondTransferStation = segment3 ? segment2.endStation : null
+      const finalSegment = segment3 || segment2
+
       transferData.value = {
         startName: 'Locația ta',
         endName: 'Destinația',
         boardingStation: segment1.startStation,
-        transferStation: transferSegment?.station || segment1.endStation,
-        transferStation2: null,
-        alightingStation: segment2.endStation,
+        transferStation: firstTransferStation,
+        transferStation2: secondTransferStation,
+        alightingStation: finalSegment.endStation,
         route1Number: segment1.routeNumber,
         route1Color: segment1.color || '#3b82f6',
         route1StationsCount: segment1.stationCount || 0,
         route2Number: segment2.routeNumber,
         route2Color: segment2.color || '#10b981',
         route2StationsCount: segment2.stationCount || 0,
-        route3Number: '',
-        route3Color: '#dc2626',
-        route3StationsCount: 0,
+        route3Number: segment3?.routeNumber || '',
+        route3Color: segment3?.color || '#dc2626',
+        route3StationsCount: segment3?.stationCount || 0,
         firstWalkDistance: 0,
         firstWalkTime: 0,
         busTime1: segment1.duration || 0,
         busTime2: segment2.duration || 0,
-        busTime3: 0,
+        busTime3: segment3?.duration || 0,
         secondWalkDistance: 0,
         secondWalkTime: 0
       }
-      
+
       showTransfer.value = true
       showMultimodal.value = false
-      
-      // Centrează harta pe traseu complet
+
       if (completeRoutePath.value.length > 0) {
         const bounds = L.latLngBounds(completeRoutePath.value)
         map.value?.leafletObject?.fitBounds(bounds, { padding: [50, 50] })
       }
-      
     } catch (error) {
     }
   }
