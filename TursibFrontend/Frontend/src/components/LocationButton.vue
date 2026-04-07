@@ -19,7 +19,13 @@ const emit = defineEmits<{
 
 const loading = ref(false)
 
-const findMyLocation = () => {
+const requestCurrentPosition = (options: PositionOptions) => {
+  return new Promise<GeolocationPosition>((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, options)
+  })
+}
+
+const findMyLocation = async () => {
   if (!navigator.geolocation) {
     alert('❌ Browserul tău nu suportă geolocation!')
     return
@@ -27,27 +33,38 @@ const findMyLocation = () => {
 
   loading.value = true
 
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const lat = position.coords.latitude
-      const lon = position.coords.longitude
-      
-      console.log(`✅ Locația ta: [${lat}, ${lon}]`)
-      emit('locationFound', lat, lon)
-      
-      loading.value = false
-    },
-    (error) => {
-      console.error('❌ Eroare geolocation:', error)
-      alert(`❌ Nu pot găsi locația: ${error.message}`)
-      loading.value = false
-    },
-    {
+  try {
+    let position = await requestCurrentPosition({
       enableHighAccuracy: true,
-      timeout: 5000,
+      timeout: 12000,
       maximumAge: 0
+    })
+
+    // Dacă precizia este slabă, mai facem o încercare cu timeout mai mare.
+    if (position.coords.accuracy > 1000) {
+      try {
+        position = await requestCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 18000,
+          maximumAge: 0
+        })
+      } catch (retryError) {
+        // Păstrăm prima poziție dacă retry-ul eșuează.
+      }
     }
-  )
+
+    const lat = position.coords.latitude
+    const lon = position.coords.longitude
+    console.log(
+      `✅ Locația ta: [${lat}, ${lon}] (accuracy: ${Math.round(position.coords.accuracy)}m)`
+    )
+    emit('locationFound', lat, lon)
+  } catch (error: any) {
+    console.error('❌ Eroare geolocation:', error)
+    alert(`❌ Nu pot găsi locația: ${error?.message || 'eroare necunoscută'}`)
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 

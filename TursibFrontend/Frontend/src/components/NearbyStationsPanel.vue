@@ -24,19 +24,44 @@
           </div>
         </div>
         
-        <!-- Buton notificări -->
-        <button 
-          @click="$emit('toggleNotification', station.id)"
+        <div class="notification-summary" v-if="isNotificationActive(station.id)">
+          <span v-if="isRouteNotificationActive(station.id)">
+            Alerte active pentru traseul {{ getActiveRouteForStation(station.id) }}
+          </span>
+          <span v-else>
+            Alerte active pentru toate autobuzele din stație
+          </span>
+        </div>
+
+        <!-- Buton notificări pentru toată stația -->
+        <button
+          @click="$emit('toggleNotification', { stationId: station.id })"
           class="notification-btn"
-          :class="{ active: isNotificationActive(station.id) }"
+          :class="{ active: isNotificationActive(station.id) && !isRouteNotificationActive(station.id) }"
         >
-          <span v-if="isNotificationActive(station.id)">
+          <span v-if="isNotificationActive(station.id) && !isRouteNotificationActive(station.id)">
             🔕 Dezactivează
           </span>
           <span v-else>
-            🔔 Activează alerte
+            🔔 Alarme pentru stație
           </span>
         </button>
+
+        <div v-if="getStationETAs(station.id).length > 0" class="route-quick-actions">
+          <div class="route-quick-title">Rapid pe traseu:</div>
+          <div class="route-chip-list">
+            <button
+              v-for="eta in getUniqueRouteETAs(station.id)"
+              :key="`${station.id}-${eta.routeId}`"
+              class="route-chip"
+              :class="{ active: isSpecificRouteActive(station.id, eta.routeId) }"
+              :style="{ borderColor: eta.color, color: eta.color }"
+              @click="$emit('toggleNotification', { stationId: station.id, routeId: eta.routeId })"
+            >
+              <span>🔔 {{ eta.routeNumber }}</span>
+            </button>
+          </div>
+        </div>
       </div>
       
       <div v-if="stations.length === 0" class="no-stations">
@@ -58,8 +83,10 @@ interface Props {
   visible: boolean
   stations: StationWithDistance[]
   activeNotificationStationId: number | null
+  activeNotificationRouteId: number | null
   getStationETAs: (stationId: number) => Array<{
     busId: string
+    routeId: number
     routeNumber: string
     eta: string
     color: string
@@ -70,7 +97,7 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   close: []
-  toggleNotification: [stationId: number]
+  toggleNotification: [payload: { stationId: number; routeId?: number }]
 }>()
 
 const formatDistance = (distance: number): string => {
@@ -83,6 +110,41 @@ const formatDistance = (distance: number): string => {
 const isNotificationActive = (stationId: number): boolean => {
   return props.activeNotificationStationId === stationId
 }
+
+const isRouteNotificationActive = (stationId: number): boolean => {
+  return isNotificationActive(stationId) && props.activeNotificationRouteId !== null
+}
+
+const isSpecificRouteActive = (stationId: number, routeId: number): boolean => {
+  return isNotificationActive(stationId) && props.activeNotificationRouteId === routeId
+}
+
+const getUniqueRouteETAs = (stationId: number) => {
+  const etas = props.getStationETAs(stationId)
+  const seen = new Set<number>()
+  const unique: typeof etas = []
+
+  for (const eta of etas) {
+    if (!seen.has(eta.routeId)) {
+      seen.add(eta.routeId)
+      unique.push(eta)
+    }
+  }
+
+  return unique.slice(0, 4)
+}
+
+const getActiveRouteForStation = (stationId: number): string | null => {
+  if (!isRouteNotificationActive(stationId) || props.activeNotificationRouteId === null) {
+    return null
+  }
+
+  const matchingETA = props.getStationETAs(stationId).find(
+    eta => eta.routeId === props.activeNotificationRouteId
+  )
+
+  return matchingETA?.routeNumber ?? `Linia ${props.activeNotificationRouteId}`
+}
 </script>
 
 <style scoped>
@@ -92,10 +154,11 @@ const isNotificationActive = (stationId: number): boolean => {
   top: 80px;
   width: 340px;
   max-height: calc(100vh - 100px);
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+  background: var(--bg-primary);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+  z-index: 1200;
   display: flex;
   flex-direction: column;
   animation: slideInRight 0.3s ease-out;
@@ -117,10 +180,11 @@ const isNotificationActive = (stationId: number): boolean => {
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  border-bottom: 1px solid #e5e7eb;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--gradient-primary);
   color: white;
-  border-radius: 12px 12px 0 0;
+  border-radius: 16px 16px 0 0;
+  backdrop-filter: blur(12px);
 }
 
 .panel-header h3 {
@@ -160,7 +224,7 @@ const isNotificationActive = (stationId: number): boolean => {
 }
 
 .stations-list::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--bg-tertiary);
   border-radius: 3px;
 }
 
@@ -170,11 +234,11 @@ const isNotificationActive = (stationId: number): boolean => {
 }
 
 .station-item {
-  background: #f9fafb;
+  background: var(--bg-secondary);
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 10px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   transition: all 0.2s;
 }
 
@@ -192,26 +256,26 @@ const isNotificationActive = (stationId: number): boolean => {
 
 .station-name {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   font-size: 14px;
   flex: 1;
 }
 
 .station-distance {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 12px;
-  background: white;
+  background: var(--bg-primary);
   padding: 2px 8px;
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
 }
 
 .station-etas {
   margin: 8px 0;
   padding: 8px;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 6px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
 }
 
 .eta-item {
@@ -238,9 +302,9 @@ const isNotificationActive = (stationId: number): boolean => {
 .notification-btn {
   width: 100%;
   padding: 8px 12px;
-  border: 2px solid #667eea;
-  background: white;
-  color: #667eea;
+  border: 2px solid var(--accent-primary);
+  background: var(--bg-primary);
+  color: var(--accent-primary);
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
@@ -250,10 +314,10 @@ const isNotificationActive = (stationId: number): boolean => {
 }
 
 .notification-btn:hover {
-  background: #667eea;
-  color: white;
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+  box-shadow: var(--shadow-sm);
 }
 
 .notification-btn.active {
@@ -267,19 +331,69 @@ const isNotificationActive = (stationId: number): boolean => {
   border-color: #dc2626;
 }
 
+.notification-summary {
+  margin-top: 8px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--accent-primary);
+  background: var(--accent-primary-soft);
+  border: 1px solid var(--border-secondary);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.route-quick-actions {
+  margin-top: 8px;
+}
+
+.route-quick-title {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.route-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.route-chip {
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-primary);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.route-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.route-chip.active {
+  background: #dc2626;
+  color: white !important;
+  border-color: #dc2626 !important;
+}
+
 .no-stations {
   text-align: center;
   padding: 40px 20px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .nearby-panel {
     right: 10px;
-    top: 70px;
+    top: 116px;
     width: calc(100% - 20px);
     max-width: 340px;
+    max-height: calc(100vh - 130px);
   }
 }
 </style>
