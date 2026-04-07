@@ -3,6 +3,9 @@
     <div class="header">
       <h1>{{ t('favLocationsTitle') }}</h1>
       <p class="subtitle">{{ t('favLocationsSubtitle') }}</p>
+      <p v-if="notificationMessage" class="notification-message" :class="notificationMessageType">
+        {{ notificationMessage }}
+      </p>
     </div>
 
     <!-- Quick Add Buttons -->
@@ -42,6 +45,9 @@
           <p>{{ homeFavorite.address }}</p>
         </div>
         <div class="favorite-actions">
+          <button @click="enableNotificationsForFavorite(homeFavorite)" class="action-btn notify" :disabled="notifyingFavoriteId === homeFavorite.id" title="Activează alerte pentru stația apropiată">
+            🔔
+          </button>
           <button @click="editFavorite(homeFavorite)" class="action-btn edit">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
@@ -67,6 +73,9 @@
           <p>{{ workFavorite.address }}</p>
         </div>
         <div class="favorite-actions">
+          <button @click="enableNotificationsForFavorite(workFavorite)" class="action-btn notify" :disabled="notifyingFavoriteId === workFavorite.id" title="Activează alerte pentru stația apropiată">
+            🔔
+          </button>
           <button @click="editFavorite(workFavorite)" class="action-btn edit">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
@@ -96,6 +105,9 @@
           <p>{{ favorite.address }}</p>
         </div>
         <div class="favorite-actions">
+          <button @click="enableNotificationsForFavorite(favorite)" class="action-btn notify" :disabled="notifyingFavoriteId === favorite.id" title="Activează alerte pentru stația apropiată">
+            🔔
+          </button>
           <button @click="editFavorite(favorite)" class="action-btn edit">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
@@ -189,6 +201,8 @@
 import { ref, computed } from 'vue'
 import { useFavorites, type FavoriteLocation } from '@/composables/useFavorites'
 import { useLanguage } from '@/composables/useLanguage'
+import apiService from '@/services/apiService'
+import { enableNotifications } from '@/composables/useNotifications'
 
 const { t } = useLanguage()
 
@@ -204,6 +218,10 @@ const {
 
 const showDialog = ref(false)
 const editingFavorite = ref<FavoriteLocation | null>(null)
+const notifyingFavoriteId = ref<string | null>(null)
+const notificationMessage = ref('')
+const notificationMessageType = ref<'success' | 'error'>('success')
+const cachedStations = ref<Array<{ id: number; name: string; latitude: number; longitude: number }>>([])
 const form = ref({
   name: '',
   address: '',
@@ -324,6 +342,81 @@ const confirmDelete = async (favorite: FavoriteLocation) => {
     await removeFavorite(favorite.id)
   }
 }
+
+const calculateDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
+const findNearestStation = (lat: number, lon: number) => {
+  if (cachedStations.value.length === 0) {
+    return null
+  }
+
+  let nearest = cachedStations.value[0]
+  if (!nearest) {
+    return null
+  }
+
+  let minDistance = calculateDistanceKm(lat, lon, nearest.latitude, nearest.longitude)
+  for (const station of cachedStations.value) {
+    const distance = calculateDistanceKm(lat, lon, station.latitude, station.longitude)
+    if (distance < minDistance) {
+      minDistance = distance
+      nearest = station
+    }
+  }
+
+  return { station: nearest, distanceKm: minDistance }
+}
+
+const setNotificationFeedback = (message: string, type: 'success' | 'error') => {
+  notificationMessage.value = message
+  notificationMessageType.value = type
+
+  window.setTimeout(() => {
+    notificationMessage.value = ''
+  }, 5000)
+}
+
+const enableNotificationsForFavorite = async (favorite: FavoriteLocation) => {
+  notifyingFavoriteId.value = favorite.id
+  try {
+    if (cachedStations.value.length === 0) {
+      cachedStations.value = await apiService.getStations()
+    }
+
+    const nearest = findNearestStation(favorite.lat, favorite.lon)
+    if (!nearest) {
+      setNotificationFeedback('Nu am putut identifica o stație apropiată pentru această locație.', 'error')
+      return
+    }
+
+    const success = await enableNotifications(nearest.station.id, undefined, { etaThresholdMinutes: 3 })
+    if (!success) {
+      setNotificationFeedback('Notificările nu au putut fi activate. Verifică permisiunile browserului.', 'error')
+      return
+    }
+
+    const distanceMeters = Math.round(nearest.distanceKm * 1000)
+    setNotificationFeedback(
+      `Alerte activate pentru ${favorite.name}. Stația monitorizată: ${nearest.station.name} (${distanceMeters} m).`,
+      'success'
+    )
+  } catch (error) {
+    setNotificationFeedback('A apărut o eroare la activarea alertelor pentru această locație.', 'error')
+  } finally {
+    notifyingFavoriteId.value = null
+  }
+}
 </script>
 
 <style scoped>
@@ -351,6 +444,27 @@ const confirmDelete = async (favorite: FavoriteLocation) => {
   font-size: 0.95rem;
   margin: 0;
   font-weight: 500;
+}
+
+.notification-message {
+  margin: 12px auto 0;
+  max-width: 720px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.notification-message.success {
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #166534;
+}
+
+.notification-message.error {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
 }
 
 .quick-add {
@@ -513,6 +627,17 @@ const confirmDelete = async (favorite: FavoriteLocation) => {
 .action-btn.edit:hover {
   background: var(--accent-primary-soft);
   color: var(--accent-primary);
+}
+
+.action-btn.notify:hover {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .action-btn.delete:hover {

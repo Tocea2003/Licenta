@@ -235,10 +235,11 @@
           <!-- Transfer -->
           <template v-else>
             <div class="result-top">
-              <span class="result-badge" :style="{ background: result.route1Color }">{{ result.route1Number }}</span>
-              <span class="transfer-icon">⇄</span>
-              <span class="result-badge" :style="{ background: result.route2Color }">{{ result.route2Number }}</span>
-              <span class="result-route transfer-label">via {{ result.transferStation?.name }}</span>
+              <template v-for="(segment, segmentIndex) in result.busSegments" :key="`${segment.routeId}-${segmentIndex}`">
+                <span class="result-badge" :style="{ background: segment.color }">{{ segment.routeNumber }}</span>
+                <span v-if="segmentIndex < result.busSegments.length - 1" class="transfer-icon">⇄</span>
+              </template>
+              <span class="result-route transfer-label">via {{ getTransferLabel(result) }}</span>
             </div>
           </template>
 
@@ -274,7 +275,7 @@
             </span>
             <span>•</span>
             <span v-if="result.type === 'transfer'">
-              {{ result.route1StationsCount }}+{{ result.route2StationsCount }} {{ t('stations') }} • {{ t('transfer') }}
+              {{ result.stationsBetween }} {{ t('stations') }} • {{ formatTransferCount(result.busSegments.length - 1) }}
             </span>
             <span v-else>{{ result.stationsBetween }} {{ t('stations') }}</span>
           </div>
@@ -504,6 +505,15 @@ export interface PlanResult {
   destName: string
   walkToStartMinutes?: number
   walkToEndMinutes?: number
+  busSegments: {
+    routeId: number
+    routeNumber: string
+    routeName: string
+    color: string
+    startStationName: string
+    endStationName: string
+    stationCount: number
+  }[]
 }
 
 const planOriginQuery   = ref('')
@@ -766,7 +776,8 @@ const searchRoutes = async () => {
     const now = new Date()
     const nowMin = now.getHours() * 60 + now.getMinutes()
     const baseMin = parseTimeToMinutes(planTime.value) ?? nowMin
-    const maxWalkMinutes = 120
+    const primaryMaxWalkMinutes = 25
+    const fallbackMaxWalkMinutes = 45
 
     const originLat = origin.type === 'station'
       ? (props.allStations!.find(s => s.id === origin.stationId)?.latitude ?? origin.lat)
@@ -784,15 +795,24 @@ const searchRoutes = async () => {
       ? [props.allStations!.find(s => s.id === dest.stationId)!].filter(Boolean)
       : nearestStations(dest.lat, dest.lon, 20)
 
-    const boardingCandidates = origin.type === 'station'
+    const boardingCandidatesPrimary = origin.type === 'station'
       ? boardingRaw
-      : boardingRaw.filter(station => walkMin(originLat, originLon, station.latitude, station.longitude) <= maxWalkMinutes)
-    const alightingCandidates = dest.type === 'station'
+      : boardingRaw.filter(station => walkMin(originLat, originLon, station.latitude, station.longitude) <= primaryMaxWalkMinutes)
+    const alightingCandidatesPrimary = dest.type === 'station'
       ? alightingRaw
-      : alightingRaw.filter(station => walkMin(dest.lat, dest.lon, station.latitude, station.longitude) <= maxWalkMinutes)
+      : alightingRaw.filter(station => walkMin(dest.lat, dest.lon, station.latitude, station.longitude) <= primaryMaxWalkMinutes)
 
-    const finalBoardingCandidates = boardingCandidates.length > 0 ? boardingCandidates : boardingRaw.slice(0, 8)
-    const finalAlightingCandidates = alightingCandidates.length > 0 ? alightingCandidates : alightingRaw.slice(0, 8)
+    const finalBoardingCandidates = origin.type === 'station'
+      ? boardingRaw
+      : (boardingCandidatesPrimary.length > 0
+          ? boardingCandidatesPrimary
+          : boardingRaw.filter(station => walkMin(originLat, originLon, station.latitude, station.longitude) <= fallbackMaxWalkMinutes))
+
+    const finalAlightingCandidates = dest.type === 'station'
+      ? alightingRaw
+      : (alightingCandidatesPrimary.length > 0
+          ? alightingCandidatesPrimary
+          : alightingRaw.filter(station => walkMin(dest.lat, dest.lon, station.latitude, station.longitude) <= fallbackMaxWalkMinutes))
 
     if (!finalBoardingCandidates.length || !finalAlightingCandidates.length) { searchDone.value = true; return }
 
@@ -837,16 +857,33 @@ const searchRoutes = async () => {
               const firstBus = busSegments[0]
               const lastBus = busSegments[busSegments.length - 1]
               const isDirect = busSegments.length === 1
+              const normalizedBusSegments = busSegments.map((segment: any) => ({
+                routeId: segment.routeId ?? 0,
+                routeNumber: segment.routeNumber ?? '',
+                routeName: segment.routeName ?? '',
+                color: segment.color ?? '#3b82f6',
+                startStationName: segment.startStation?.name ?? '',
+                endStationName: segment.endStation?.name ?? '',
+                stationCount: segment.stationCount ?? 0
+              }))
 
               const depMin = baseMin + walkStart
               const arrMin = depMin + route.totalDuration + walkEnd
               const totalWalk = walkStart + walkEnd
               const minutesUntil = Math.max(0, depMin - nowMin)
 
-              const transferKey = isDirect ? '' : (firstBus.endStation?.name ?? '')
+              const transferKey = isDirect
+                ? ''
+                : normalizedBusSegments
+                    .slice(0, -1)
+                    .map(segment => segment.endStationName || String(segment.routeId))
+                    .join('>')
+              const chainKey = normalizedBusSegments
+                .map(segment => segment.routeNumber || String(segment.routeId))
+                .join('>')
               const key = isDirect
-                ? `D-${firstBus.routeNumber}`
-                : `T-${firstBus.routeNumber}-${lastBus.routeNumber}-${transferKey}`
+                ? `D-${chainKey}`
+                : `T-${chainKey}-${transferKey}`
 
               const result: PlanResult = {
                 type: isDirect ? 'direct' : 'transfer',
@@ -868,6 +905,7 @@ const searchRoutes = async () => {
                 departureTime: minutesToStr(depMin),
                 arrivalTime: minutesToStr(arrMin),
                 minutesUntil,
+                busSegments: normalizedBusSegments
               }
 
               if (!isDirect && busSegments.length >= 2) {
@@ -877,7 +915,7 @@ const searchRoutes = async () => {
                 result.route2Name = secondBus.routeName ?? ''
                 result.route2Color = secondBus.color ?? '#10b981'
                 result.route1StationsCount = firstBus.stationCount ?? 0
-                result.route2StationsCount = lastBus.stationCount ?? 0
+                result.route2StationsCount = secondBus.stationCount ?? 0
                 result.transferStation = firstBus.endStation
               }
 
@@ -920,6 +958,30 @@ const searchRoutes = async () => {
 
 const selectPlanResult = (result: PlanResult) => {
   emit('planSelected', result)
+}
+
+const getTransferLabel = (result: PlanResult) => {
+  const transferStops = result.busSegments
+    .slice(0, -1)
+    .map(segment => segment.endStationName)
+    .filter(Boolean)
+
+  if (!transferStops.length) {
+    return result.transferStation?.name ?? ''
+  }
+
+  if (transferStops.length === 1) {
+    return transferStops[0]
+  }
+
+  return transferStops.join(' → ')
+}
+
+const formatTransferCount = (count: number) => {
+  if (currentLanguage.value === 'ro') {
+    return `${count} ${count === 1 ? 'transfer' : 'transferuri'}`
+  }
+  return `${count} ${count === 1 ? 'transfer' : 'transfers'}`
 }
 
 // ===================== LIFECYCLE =====================

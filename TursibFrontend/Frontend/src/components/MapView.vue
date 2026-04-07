@@ -138,6 +138,7 @@
       :end-name="transferData.endName"
       :boarding-station="transferData.boardingStation"
       :transfer-station="transferData.transferStation"
+      :transfer-station-2="transferData.transferStation2"
       :alighting-station="transferData.alightingStation"
       :route1-number="transferData.route1Number"
       :route1-color="transferData.route1Color"
@@ -145,10 +146,14 @@
       :route2-number="transferData.route2Number"
       :route2-color="transferData.route2Color"
       :route2-stations-count="transferData.route2StationsCount"
+      :route3-number="transferData.route3Number"
+      :route3-color="transferData.route3Color"
+      :route3-stations-count="transferData.route3StationsCount"
       :first-walk-distance="transferData.firstWalkDistance"
       :first-walk-time="transferData.firstWalkTime"
       :bus-time1="transferData.busTime1"
       :bus-time2="transferData.busTime2"
+      :bus-time3="transferData.busTime3"
       :second-walk-distance="transferData.secondWalkDistance"
       :second-walk-time="transferData.secondWalkTime"
       @close="closeTransfer"
@@ -369,6 +374,15 @@
         :opacity="0.9"
       />
 
+      <!-- Segment autobuz 3 (roșu) -->
+      <l-polyline
+        v-if="thirdBusPath.length > 0 && showTransfer"
+        :lat-lngs="thirdBusPath"
+        color="#dc2626"
+        :weight="6"
+        :opacity="0.9"
+      />
+
       <!-- Mers pe jos: stație coborâre → destinație (roșu) -->
       <l-polyline
         v-if="actualSecondWalkingPath.length > 0 && (showMultimodal || showTransfer)"
@@ -445,6 +459,26 @@
         <l-popup>
           <strong style="color:#f97316">Transfer</strong><br>
           {{ transferData.transferStation.name }}
+        </l-popup>
+      </l-marker>
+
+      <!-- Marker stație al doilea transfer (aceeași iconiță) -->
+      <l-marker
+        v-if="showTransfer && transferData.transferStation2"
+        :lat-lng="[transferData.transferStation2.latitude, transferData.transferStation2.longitude]"
+      >
+        <l-icon :icon-size="[36, 36]" :icon-anchor="[18, 18]">
+          <div class="trip-pin transfer-pin secondary-transfer-pin">
+            <div class="pin-bubble">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                <path d="M7 16V4l-4 4M17 8v12l4-4"/>
+              </svg>
+            </div>
+          </div>
+        </l-icon>
+        <l-popup>
+          <strong style="color:#f97316">Transfer 2</strong><br>
+          {{ transferData.transferStation2.name }}
         </l-popup>
       </l-marker>
 
@@ -723,6 +757,7 @@ const showSecondWalking = ref(false)
 const secondWalkingStart = ref<{lat: number, lon: number, name: string} | null>(null)
 const secondWalkingEnd = ref<{lat: number, lon: number, name: string} | null>(null)
 const secondWalkingPath = ref<[number, number][]>([])
+const thirdBusPath = ref<[number, number][]>([])
 
 // State pentru segmentul de traseu multimodal (doar între stațiile de urcare și coborâre)
 const multimodalBusPath = ref<[number, number][]>([])
@@ -783,6 +818,7 @@ const transferData = ref({
   endName: '',
   boardingStation: null as Station | null,
   transferStation: null as Station | null,
+  transferStation2: null as Station | null,
   alightingStation: null as Station | null,
   route1Number: '',
   route1Color: '#3b82f6',
@@ -790,10 +826,14 @@ const transferData = ref({
   route2Number: '',
   route2Color: '#3b82f6',
   route2StationsCount: 0,
+  route3Number: '',
+  route3Color: '#dc2626',
+  route3StationsCount: 0,
   firstWalkDistance: 0,
   firstWalkTime: 0,
   busTime1: 0,
   busTime2: 0,
+  busTime3: 0,
   secondWalkDistance: 0,
   secondWalkTime: 0
 })
@@ -1457,6 +1497,30 @@ const findConnectingRoute = async (startStation: typeof props.allStations[0], en
 // Fetch alternative routes - CALCULARE LOCALĂ (nu depinde de backend)
 const fetchAlternativeRoutes = async (startStationId: number, endStationId: number) => {
   try {
+    // 1) Încearcă mai întâi algoritmul backend (Dijkstra)
+    try {
+      const backendAlternatives = await apiService.calculateRouteAlternatives(startStationId, endStationId)
+      if (Array.isArray(backendAlternatives) && backendAlternatives.length > 0) {
+        return backendAlternatives
+          .sort((a, b) => (a.totalDuration ?? 0) - (b.totalDuration ?? 0))
+          .slice(0, 3)
+          .map((route, idx) => ({
+            ...route,
+            routeRank: route.routeRank ?? idx + 1,
+            routeCategory: route.routeCategory || (
+              idx === 0
+                ? 'Cea mai rapidă'
+                : route.routeType === 'direct'
+                  ? 'Fără transfer'
+                  : 'Variantă alternativă'
+            )
+          }))
+      }
+    } catch (error) {
+      // Fallback local dacă endpoint-ul nu este disponibil.
+    }
+
+    // 2) Fallback local (estimare simplificată)
     
     const routes = await apiService.getRoutes()
     const alternatives: any[] = []
@@ -1626,6 +1690,7 @@ const handleAlternativeRouteSelected = async (route: any) => {
   // Curățăm traseele anterioare
   walkingPath.value = []
   secondWalkingPath.value = []
+  thirdBusPath.value = []
   multimodalBusPath.value = []
   actualWalkingPath.value = []
   actualSecondWalkingPath.value = []
@@ -1851,6 +1916,7 @@ const handleAlternativeRouteSelected = async (route: any) => {
         endName: 'Destinația',
         boardingStation: segment1.startStation,
         transferStation: transferSegment?.station || segment1.endStation,
+        transferStation2: null,
         alightingStation: segment2.endStation,
         route1Number: segment1.routeNumber,
         route1Color: segment1.color || '#3b82f6',
@@ -1858,10 +1924,14 @@ const handleAlternativeRouteSelected = async (route: any) => {
         route2Number: segment2.routeNumber,
         route2Color: segment2.color || '#10b981',
         route2StationsCount: segment2.stationCount || 0,
+        route3Number: '',
+        route3Color: '#dc2626',
+        route3StationsCount: 0,
         firstWalkDistance: 0,
         firstWalkTime: 0,
         busTime1: segment1.duration || 0,
         busTime2: segment2.duration || 0,
+        busTime3: 0,
         secondWalkDistance: 0,
         secondWalkTime: 0
       }
@@ -2016,6 +2086,7 @@ const handleMultimodalRouteRequested = async (
           endName: destination.name || 'Destinația',
           boardingStation: startStation,
           transferStation: transferStation,
+          transferStation2: null,
           alightingStation: endStation,
           route1Number: route1.routeNumber,
           route1Color: routeColors.value[route1.id] || '#3b82f6',
@@ -2023,10 +2094,14 @@ const handleMultimodalRouteRequested = async (
           route2Number: route2.routeNumber,
           route2Color: routeColors.value[route2.id] || '#10b981',
           route2StationsCount: route2StationsCount,
+          route3Number: '',
+          route3Color: '#dc2626',
+          route3StationsCount: 0,
           firstWalkDistance: routingData.firstDistance,
           firstWalkTime: routingData.firstTime,
           busTime1: calculateBusTime(route1StationsCount),
           busTime2: calculateBusTime(route2StationsCount),
+          busTime3: 0,
           secondWalkDistance: routingData.secondDistance,
           secondWalkTime: routingData.secondTime
         }
@@ -2071,6 +2146,7 @@ const closeMultimodal = () => {
   showMultimodal.value = false
   walkingPath.value = []
   secondWalkingPath.value = []
+  thirdBusPath.value = []
   multimodalBusPath.value = []
   routePath.value = []
   actualWalkingPath.value = []
@@ -2156,6 +2232,7 @@ const closeTransfer = () => {
   showTransfer.value = false
   walkingPath.value = []
   secondWalkingPath.value = []
+  thirdBusPath.value = []
   multimodalBusPath.value = []
   routePath.value = []
   actualWalkingPath.value = []
@@ -2173,6 +2250,7 @@ const closeTransfer = () => {
     endName: '',
     boardingStation: null,
     transferStation: null,
+    transferStation2: null,
     alightingStation: null,
     route1Number: '',
     route1Color: '#3b82f6',
@@ -2180,10 +2258,14 @@ const closeTransfer = () => {
     route2Number: '',
     route2Color: '#3b82f6',
     route2StationsCount: 0,
+    route3Number: '',
+    route3Color: '#dc2626',
+    route3StationsCount: 0,
     firstWalkDistance: 0,
     firstWalkTime: 0,
     busTime1: 0,
     busTime2: 0,
+    busTime3: 0,
     secondWalkDistance: 0,
     secondWalkTime: 0
   }
@@ -2201,6 +2283,7 @@ watch(() => props.tripPlan, async (plan) => {
   // Resetăm starea anterioară
   walkingPath.value = []
   secondWalkingPath.value = []
+  thirdBusPath.value = []
   multimodalBusPath.value = []
   actualWalkingPath.value = []
   actualSecondWalkingPath.value = []
@@ -2214,6 +2297,45 @@ watch(() => props.tripPlan, async (plan) => {
   const boarding = plan.boardingStation
   const alighting = plan.alightingStation
   const transfer = plan.transferStation ?? null
+  const planBusSegments = (plan.busSegments ?? []).filter(segment => segment.routeId > 0)
+
+  const resolveStationByName = (name?: string): Station | null => {
+    if (!name) return null
+    return props.allStations.find(station => station.name === name) ?? null
+  }
+
+  const firstBusSegment = planBusSegments[0] ?? null
+  const secondBusSegment = planBusSegments[1] ?? null
+  const thirdBusSegment = planBusSegments[2] ?? null
+
+  const firstTransferStation = transfer
+    ?? resolveStationByName(firstBusSegment?.endStationName)
+  const secondTransferStation = thirdBusSegment
+    ? resolveStationByName(secondBusSegment?.endStationName)
+    : null
+
+  const buildBusSegmentPath = async (routeId: number, fromStation: Station, toStation: Station) => {
+    let segmentPath: [number, number][] = []
+    try {
+      const segment = await apiService.getRouteSegment(routeId, fromStation.id, toStation.id)
+      if (segment?.points?.length) {
+        segmentPath = trimShapeToStations(segment.points, fromStation, toStation)
+      }
+    } catch {}
+
+    if (segmentPath.length < 2) {
+      try {
+        const coords = `${fromStation.longitude},${fromStation.latitude};${toStation.longitude},${toStation.latitude}`
+        const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
+        const data = await response.json()
+        if (data.code === 'Ok' && data.routes?.[0]) {
+          segmentPath = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+        }
+      } catch {}
+    }
+
+    return segmentPath
+  }
 
   // Colectăm toate căile pentru a calcula bounds
   const allPoints: [number, number][] = []
@@ -2234,57 +2356,36 @@ watch(() => props.tripPlan, async (plan) => {
     allPoints.push([plan.originLat, plan.originLon])
   }
 
-  // 2. Segment autobuz 1: boarding → transfer (sau alighting dacă direct)
-  const busEndStation = transfer ?? alighting
-  let busSegment1Path: [number, number][] = []
-  try {
-    const seg1 = await apiService.getRouteSegment(plan.route1Id, boarding.id, busEndStation.id)
-    if (seg1?.points?.length) {
-      busSegment1Path = trimShapeToStations(seg1.points, boarding, busEndStation)
-    }
-  } catch {}
+  // 2. Segmentele de autobuz (1, 2 și 3 dacă există)
+  const firstBusRouteId = firstBusSegment?.routeId ?? plan.route1Id
+  const firstBusEndStation = firstTransferStation ?? alighting
 
-  // Fallback OSRM pentru segmentul de autobuz când GTFS nu întoarce puncte suficiente
-  if (busSegment1Path.length < 2) {
-    try {
-      const coords = `${boarding.longitude},${boarding.latitude};${busEndStation.longitude},${busEndStation.latitude}`
-      const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
-      const data = await resp.json()
-      if (data.code === 'Ok' && data.routes?.[0]) {
-        busSegment1Path = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-      }
-    } catch {}
+  if (firstBusRouteId > 0 && firstBusEndStation) {
+    const busSegment1Path = await buildBusSegmentPath(firstBusRouteId, boarding, firstBusEndStation)
+    if (busSegment1Path.length > 0) {
+      walkingPath.value = busSegment1Path
+      allPoints.push(...busSegment1Path)
+    }
   }
 
-  if (busSegment1Path.length > 0) {
-    walkingPath.value = busSegment1Path
-    allPoints.push(...busSegment1Path)
-  }
+  const secondBusRouteId = secondBusSegment?.routeId ?? plan.route2Id ?? 0
+  const secondBusStartStation = firstTransferStation
+  const secondBusEndStation = secondTransferStation ?? alighting
 
-  // 3. Segment autobuz 2 (dacă e transfer): transfer → alighting
-  if (plan.type === 'transfer' && transfer && plan.route2Id) {
-    let busSegment2Path: [number, number][] = []
-    try {
-      const seg2 = await apiService.getRouteSegment(plan.route2Id, transfer.id, alighting.id)
-      if (seg2?.points?.length) {
-        busSegment2Path = trimShapeToStations(seg2.points, transfer, alighting)
-      }
-    } catch {}
-
-    if (busSegment2Path.length < 2) {
-      try {
-        const coords = `${transfer.longitude},${transfer.latitude};${alighting.longitude},${alighting.latitude}`
-        const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
-        const data = await resp.json()
-        if (data.code === 'Ok' && data.routes?.[0]) {
-          busSegment2Path = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-        }
-      } catch {}
-    }
-
+  if (plan.type === 'transfer' && secondBusRouteId > 0 && secondBusStartStation) {
+    const busSegment2Path = await buildBusSegmentPath(secondBusRouteId, secondBusStartStation, secondBusEndStation)
     if (busSegment2Path.length > 0) {
       secondWalkingPath.value = busSegment2Path
       allPoints.push(...busSegment2Path)
+    }
+  }
+
+  const thirdBusRouteId = thirdBusSegment?.routeId ?? 0
+  if (plan.type === 'transfer' && thirdBusRouteId > 0 && secondTransferStation) {
+    const busSegment3Path = await buildBusSegmentPath(thirdBusRouteId, secondTransferStation, alighting)
+    if (busSegment3Path.length > 0) {
+      thirdBusPath.value = busSegment3Path
+      allPoints.push(...busSegment3Path)
     }
   }
 
@@ -2329,22 +2430,32 @@ watch(() => props.tripPlan, async (plan) => {
     }
     showMultimodal.value = true
   } else if (plan.type === 'transfer' && transfer) {
+    const route2Color = secondBusSegment?.color || plan.route2Color || '#10b981'
+    const route3Color = thirdBusSegment?.color || '#dc2626'
+    const route2Stations = secondBusSegment?.stationCount ?? plan.route2StationsCount ?? 0
+    const route3Stations = thirdBusSegment?.stationCount ?? 0
+
     transferData.value = {
       startName: plan.originName,
       endName: plan.destName,
       boardingStation: boarding,
-      transferStation: transfer,
+      transferStation: firstTransferStation,
+      transferStation2: secondTransferStation,
       alightingStation: alighting,
       route1Number: plan.route1Number,
       route1Color: plan.route1Color || '#3b82f6',
       route1StationsCount: plan.route1StationsCount ?? 0,
-      route2Number: plan.route2Number ?? '',
-      route2Color: plan.route2Color || '#10b981',
-      route2StationsCount: plan.route2StationsCount ?? 0,
+      route2Number: secondBusSegment?.routeNumber || plan.route2Number || '',
+      route2Color,
+      route2StationsCount: route2Stations,
+      route3Number: thirdBusSegment?.routeNumber || '',
+      route3Color,
+      route3StationsCount: route3Stations,
       firstWalkDistance: 0,
       firstWalkTime: plan.walkToStartMinutes ?? 0,
       busTime1: (plan.route1StationsCount ?? 0) * 2,
-      busTime2: (plan.route2StationsCount ?? 0) * 2,
+      busTime2: route2Stations * 2,
+      busTime3: route3Stations * 2,
       secondWalkDistance: 0,
       secondWalkTime: plan.walkToEndMinutes ?? 0
     }
@@ -2825,6 +2936,10 @@ const getStationETAs = (stationId: number) => {
   height: 30px;
   background: #f97316;
   box-shadow: 0 0 0 4px rgba(249,115,22,0.18), 0 1px 5px rgba(249,115,22,0.4);
+}
+
+.secondary-transfer-pin .pin-bubble {
+  box-shadow: 0 0 0 4px rgba(249,115,22,0.25), 0 1px 7px rgba(249,115,22,0.5);
 }
 
 /* Alighting – green teardrop pin */
