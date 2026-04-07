@@ -255,16 +255,28 @@ const selectRouteForNavigation = (index: number) => {
   top: 80px;
   right: 20px;
   width: 380px;
-  background: linear-gradient(to bottom, var(--bg-primary), var(--bg-secondary));
-  border-radius: 16px;
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.1),
-    0 8px 40px rgba(0, 0, 0, 0.15);
+  background: color-mix(in srgb, var(--bg-primary) 96%, transparent);
+  border-radius: 18px;
+  box-shadow: var(--shadow-xl);
   max-height: calc(100vh - 120px);
   display: flex;
   flex-direction: column;
   z-index: 1000;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--border-color);
+  position: fixed;
+  overflow: hidden;
+}
+
+.alternatives-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.10), transparent 24%),
+    radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.08), transparent 22%);
+  opacity: 0.8;
 }
 
 .panel-header {
@@ -272,8 +284,10 @@ const selectRouteForNavigation = (index: number) => {
   justify-content: space-between;
   align-items: center;
   padding: 14px 20px;
-  border-bottom: 2px solid var(--border-color);
-  background: var(--bg-primary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--gradient-primary);
+  color: white;
+  position: relative;
 }
 
 .header-content {
@@ -291,27 +305,24 @@ const selectRouteForNavigation = (index: number) => {
   margin: 0;
   font-size: 18px;
   font-weight: 800;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: white;
 }
 
 .subtitle {
   margin: 2px 0 0 0;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.82);
   font-weight: 500;
 }
 
 .close-btn {
-  background: var(--bg-secondary);
-  border: 2px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   width: 34px;
   height: 34px;
   border-radius: 50%;
   cursor: pointer;
-  color: var(--text-secondary);
+  color: white;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
@@ -319,9 +330,7 @@ const selectRouteForNavigation = (index: number) => {
 }
 
 .close-btn:hover {
-  background: #fee;
-  border-color: #f66;
-  color: #f44;
+  background: rgba(255, 255, 255, 0.28);
   transform: scale(1.1);
 }
 
@@ -386,7 +395,7 @@ const selectRouteForNavigation = (index: number) => {
 
 .route-card.selected {
   border-color: #667eea;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+  background: linear-gradient(135deg, color-mix(in srgb, #667eea 10%, transparent), color-mix(in srgb, #764ba2 8%, transparent));
   box-shadow: 0 4px 16px rgba(102, 126, 234, 0.15);
 }
 

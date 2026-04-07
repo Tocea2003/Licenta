@@ -20,6 +20,7 @@
       :user-location="userLocation"
       :trip-mode="tripMode"
       @station-selected="handleStationSelected"
+      @station-notification-requested="handleStationNotificationRequested"
       @address-selected="handleAddressSelected"
       @walking-directions-requested="handleWalkingDirectionsRequested"
       @multimodal-route-requested="handleMultimodalRouteRequested"
@@ -27,7 +28,10 @@
     />
     
     <!-- Butoane din dreapta sus -->
-    <div class="top-right-buttons">
+    <div
+      class="top-right-buttons"
+      :class="{ 'top-right-buttons--docked': showNearbyStations }"
+    >
       <button @click="toggleLanguage" class="action-btn language-btn" :title="t('language')">
         {{ currentLanguage.toUpperCase() }}
       </button>
@@ -110,6 +114,33 @@
       <!-- Buton pentru locație -->
       <LocationButton @location-found="handleLocationFound" />
     </div>
+
+    <div class="map-aura"></div>
+
+    <div class="map-hud" :class="{ 'map-hud--sidebar-open': showSidebar && !isMobile }">
+      <div class="hud-chip hud-chip-primary">
+        <span class="hud-dot live"></span>
+        {{ currentLanguage.toUpperCase() }} • {{ liveBuses.length }} autobuze live
+      </div>
+      <div class="hud-chip">
+        <span class="hud-dot nearby"></span>
+        {{ nearbyStations.length }} stații apropiate
+      </div>
+      <div class="hud-chip" v-if="showTransfer || showMultimodal">
+        <span class="hud-dot route"></span>
+        Traseu activ
+      </div>
+    </div>
+
+    <div
+      v-if="notificationFeedback"
+      class="notification-feedback"
+      :class="notificationFeedback.type"
+      role="status"
+      aria-live="polite"
+    >
+      {{ notificationFeedback.message }}
+    </div>
     
     <!-- Panoul multimodal (mers pe jos + autobuz + mers pe jos) -->
     <MultimodalDirections
@@ -186,6 +217,7 @@
       :visible="showNearbyStations"
       :stations="nearbyStations"
       :active-notification-station-id="getNotificationSettings().enabled ? getNotificationSettings().stationId : null"
+      :active-notification-route-id="getNotificationSettings().enabled ? getNotificationSettings().routeId : null"
       :get-station-e-t-as="getStationETAs"
       @close="showNearbyStations = false"
       @toggleNotification="handleNotificationToggle"
@@ -737,6 +769,8 @@ const isLoadingRoute = ref(false)
 const routePolylineRef = ref<any>(null)
 
 const map = ref<any>(null)
+const pendingMapCenter = ref<[number, number] | null>(null)
+const pendingMapZoom = ref<number>(13)
 
 // State pentru locația utilizatorului
 const userLocation = ref<{lat: number, lon: number} | null>(null)
@@ -779,6 +813,8 @@ const savedDestination = ref<{ lat: number; lon: number; name: string } | null>(
 
 // State pentru afișarea panelului cu stații apropiate
 const showNearbyStations = ref(false)
+const notificationFeedback = ref<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
+let notificationFeedbackTimeout: number | null = null
 
 // State pentru rute alternative
 const alternativeRoutes = ref<any[]>([])
@@ -995,8 +1031,11 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 // ========================
 
 // Apelat când harta Leaflet e complet inițializată
-const onMapReady = (_mapInstance: any) => {
-  // rezervat pentru extensii viitoare
+const onMapReady = (mapInstance: any) => {
+  if (pendingMapCenter.value) {
+    mapInstance.setView(pendingMapCenter.value, pendingMapZoom.value, { animate: false })
+    pendingMapCenter.value = null
+  }
 }
 
 
@@ -1286,12 +1325,28 @@ const centerMap = (lat: number, lon: number, newZoom: number = 15) => {
 
   zoom.value = newZoom
 
+  pendingMapCenter.value = [lat, lon]
+  pendingMapZoom.value = newZoom
+
+  if (map.value?.leafletObject) {
+    map.value.leafletObject.setView([lat, lon], newZoom, { animate: true })
+    pendingMapCenter.value = null
+  }
+
 }
 
 // Handler pentru locația găsită de LocationButton
 const handleLocationFound = (lat: number, lon: number) => {
   userLocation.value = { lat, lon }
-  centerMap(lat, lon, 15)
+  centerMap(lat, lon, 18)
+
+  // Reaplică centrul după ce markerul și layout-ul sunt actualizate.
+  nextTick(() => {
+    window.setTimeout(() => {
+      centerMap(lat, lon, 18)
+    }, 200)
+  })
+
   // Activează automat panelul cu stații apropiate
   showNearbyStations.value = true
 }
@@ -1299,6 +1354,12 @@ const handleLocationFound = (lat: number, lon: number) => {
 // Handler pentru stația selectată din EnhancedSearch
 const handleStationSelected = (station: Station) => {
   centerMap(station.latitude, station.longitude, 16)
+}
+
+const handleStationNotificationRequested = async (station: Station) => {
+  centerMap(station.latitude, station.longitude, 17)
+  showNearbyStations.value = true
+  await handleNotificationToggle({ stationId: station.id })
 }
 
 // Handler pentru adresa selectată
@@ -2455,6 +2516,22 @@ const setTripMode = (enabled: boolean) => {
   tripMode.value = enabled
 }
 
+const showNotificationFeedback = (
+  message: string,
+  type: 'success' | 'error' | 'info' = 'info'
+) => {
+  notificationFeedback.value = { message, type }
+
+  if (notificationFeedbackTimeout) {
+    clearTimeout(notificationFeedbackTimeout)
+  }
+
+  notificationFeedbackTimeout = window.setTimeout(() => {
+    notificationFeedback.value = null
+    notificationFeedbackTimeout = null
+  }, 4200)
+}
+
 // Handle route search request from EnhancedSearch
 const handleRouteSearchRequested = async (
   origin: { lat: number; lon: number; name: string },
@@ -2499,38 +2576,55 @@ const getOccupancyClass = (occupancy: number | undefined): string => {
 }
 
 // Handler pentru notificări
-const handleNotificationToggle = async (stationId: number) => {
+const handleNotificationToggle = async (payload: { stationId: number; routeId?: number }) => {
+  const { stationId, routeId } = payload
+
   try {
     const notificationSettings = getNotificationSettings()
+    const routeMatches = (routeId ?? null) === (notificationSettings.routeId ?? null)
     
-    if (notificationSettings.enabled && notificationSettings.stationId === stationId) {
+    if (notificationSettings.enabled && notificationSettings.stationId === stationId && routeMatches) {
       // Dezactivează notificările
       disableNotifications()
-      alert('Notificările au fost dezactivate pentru această stație')
+      showNotificationFeedback('Notificările au fost dezactivate.', 'info')
     } else {
       // Verifică mai întâi suportul pentru notificări
       if (!('Notification' in window)) {
-        alert('⚠️ Browserul tău nu suportă notificări. Încearcă un browser modern (Chrome, Firefox, Edge).')
+        showNotificationFeedback(
+          'Browserul nu suportă notificări. Încearcă Chrome, Firefox sau Edge.',
+          'error'
+        )
         return
       }
       
       // Activează notificări
-      const success = await enableNotifications(stationId)
+      const success = await enableNotifications(stationId, routeId)
       
       if (success) {
-        alert('✅ Notificările au fost activate! Vei primi o alertă când autobuzul se apropie (la 2 minute).')
+        showNotificationFeedback(
+          routeId
+            ? `Notificări active pe stație pentru Linia ${routeId}.`
+            : 'Notificări active pentru toate liniile din stație.',
+          'success'
+        )
       } else {
-        alert('❌ Nu s-au putut activa notificările. Verifică dacă ai permis notificările în browser (bifează \"Allow\" în prompt-ul browserului).')
+        showNotificationFeedback(
+          'Nu s-au putut activa notificările. Permite notificările în browser și încearcă din nou.',
+          'error'
+        )
       }
     }
   } catch (error) {
-    alert('❌ Eroare la activarea notificărilor. Asigură-te că ai permis notificările în browser și că folosești HTTPS sau localhost.')
+    showNotificationFeedback(
+      'Eroare la notificări. Verifică permisiunea browserului și folosește HTTPS/localhost.',
+      'error'
+    )
   }
 }
 
 // Calcul ETA pentru autobuze care vin către o stație
 // Optimizat cu memoization și cache persistent
-const stationETACache = new Map<string, Array<{ busId: string, routeNumber: string, eta: string, color: string }>>()
+const stationETACache = new Map<string, Array<{ busId: string, routeId: number, routeNumber: string, eta: string, color: string }>>()
 let etaCacheTimeout: number | null = null
 const ETA_CACHE_DURATION = 5000 // 5 secunde
 
@@ -2543,7 +2637,7 @@ const getStationETAs = (stationId: number) => {
     return stationETACache.get(cacheKey)!
   }
   
-  const etas: Array<{ busId: string, routeNumber: string, eta: string, color: string }> = []
+  const etas: Array<{ busId: string, routeId: number, routeNumber: string, eta: string, color: string }> = []
   
   const allStations = props.allStations
   if (!allStations || allStations.length === 0) return etas
@@ -2572,6 +2666,7 @@ const getStationETAs = (stationId: number) => {
       if (etaMinutes <= 30) { // Afișăm doar dacă e sub 30 min
         etas.push({
           busId: bus.id,
+          routeId: bus.routeId,
           routeNumber: `Linia ${bus.routeId}`,
           eta: etaMinutes <= 1 ? '<1 min' : `${etaMinutes} min`,
           color: routeColors.value[bus.routeId] || '#2563eb'
@@ -2605,7 +2700,93 @@ const getStationETAs = (stationId: number) => {
   height: 100vh;
   width: 100%;
   position: relative;
-  background: #f8fafc;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.16), transparent 28%),
+    radial-gradient(circle at 80% 15%, rgba(139, 92, 246, 0.14), transparent 24%),
+    radial-gradient(circle at 50% 85%, rgba(16, 185, 129, 0.10), transparent 22%),
+    var(--bg-secondary);
+}
+
+.map-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.05), transparent 18%),
+    linear-gradient(90deg, rgba(255,255,255,0.03), transparent 20%, rgba(255,255,255,0.02));
+  opacity: 0.75;
+  z-index: 1;
+}
+
+.map-aura {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 16% 18%, rgba(59, 130, 246, 0.10), transparent 18%),
+    radial-gradient(circle at 85% 78%, rgba(249, 115, 22, 0.08), transparent 20%);
+  z-index: 1;
+}
+
+.map-hud {
+  position: fixed;
+  left: 76px;
+  bottom: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  z-index: 1150;
+  max-width: min(520px, calc(100vw - 100px));
+  transition: left 0.25s ease, max-width 0.25s ease;
+}
+
+.map-hud--sidebar-open {
+  left: 356px;
+  max-width: min(520px, calc(100vw - 392px));
+}
+
+.hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: white;
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.hud-chip-primary {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(139, 92, 246, 0.88));
+}
+
+.hud-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
+}
+
+.hud-dot.live { background: #22c55e; }
+.hud-dot.nearby { background: #60a5fa; }
+.hud-dot.route { background: #f97316; }
+
+@media (max-width: 767px) {
+  .map-hud,
+  .map-hud--sidebar-open {
+    left: 12px;
+    right: 12px;
+    bottom: 84px;
+    max-width: calc(100vw - 24px);
+  }
 }
 
 /* Asigură-te că Leaflet își încarcă corect iconițele */
@@ -2773,7 +2954,7 @@ const getStationETAs = (stationId: number) => {
   position: fixed;
   top: 16px;
   right: 16px;
-  z-index: 1100;
+  z-index: 900;
   display: grid;
   grid-template-columns: repeat(3, 40px);
   gap: 8px;
@@ -2838,7 +3019,7 @@ const getStationETAs = (stationId: number) => {
 }
 
 /* Responsive mobile */
-@media (max-width: 767px) {
+@media (max-width: 900px) {
   .sidebar-toggle-btn {
     top: 10px;
     left: 10px;
@@ -2851,6 +3032,12 @@ const getStationETAs = (stationId: number) => {
     right: 10px;
     grid-template-columns: repeat(3, 36px);
     gap: 6px;
+  }
+
+  .top-right-buttons.top-right-buttons--docked {
+    top: auto;
+    bottom: 12px;
+    right: 10px;
   }
 
   .action-btn {
@@ -3077,5 +3264,37 @@ const getStationETAs = (stationId: number) => {
 :deep(.notification-btn.active:hover) {
   background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.6);
+}
+
+.notification-feedback {
+  position: fixed;
+  top: 82px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1400;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  border: 1px solid transparent;
+}
+
+.notification-feedback.success {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #6ee7b7;
+}
+
+.notification-feedback.error {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.notification-feedback.info {
+  background: #eff6ff;
+  color: #1e40af;
+  border-color: #93c5fd;
 }
 </style>

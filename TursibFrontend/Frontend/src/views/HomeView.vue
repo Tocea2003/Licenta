@@ -170,7 +170,9 @@ onMounted(() => {
 .sidebar {
   flex-shrink: 0;
   width: 320px;
-  height: 100vh;
+  height: calc(100vh - 24px);
+  margin: 12px 0 12px 12px;
+  border-radius: 20px;
   z-index: 100;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08);
@@ -211,6 +213,9 @@ onMounted(() => {
     position: fixed;
     left: 0;
     top: 0;
+    margin: 0;
+    height: 100vh;
+    border-radius: 0;
     width: 280px;
     z-index: 1001;
     transform: translateX(-100%);

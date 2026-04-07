@@ -408,9 +408,37 @@ namespace TursibBackend
                     int totalStations = 0;
                     foreach (var routeId in routeIds)
                     {
-                        // Găsește prima cursă pentru acest traseu
+                        // Găsește o cursă reprezentativă pentru acest traseu.
+                        // Alegem mai întâi numărul de stații cel mai frecvent (mode),
+                        // apoi cea mai devreme cursă din acel grup. Astfel evităm
+                        // cursele speciale/outlier (ex: doar o singură cursă extinsă).
                         var tripCmd = conn.CreateCommand();
-                        tripCmd.CommandText = "SELECT TripId FROM Trips WHERE RouteId = @RouteId LIMIT 1";
+                        tripCmd.CommandText = @"
+                            WITH trip_stats AS (
+                                SELECT t.TripId,
+                                       COUNT(st.StopId) AS StopCount,
+                                       MIN(st.DepartureTime) AS FirstDeparture
+                                FROM Trips t
+                                JOIN StopTimes st ON st.TripId = t.TripId
+                                WHERE t.RouteId = @RouteId
+                                GROUP BY t.TripId
+                            ),
+                            stop_count_freq AS (
+                                SELECT StopCount, COUNT(*) AS Freq
+                                FROM trip_stats
+                                GROUP BY StopCount
+                            ),
+                            best_stop_count AS (
+                                SELECT StopCount
+                                FROM stop_count_freq
+                                ORDER BY Freq DESC, StopCount DESC
+                                LIMIT 1
+                            )
+                            SELECT ts.TripId
+                            FROM trip_stats ts
+                            JOIN best_stop_count bsc ON bsc.StopCount = ts.StopCount
+                            ORDER BY ts.FirstDeparture ASC
+                            LIMIT 1";
                         tripCmd.Parameters.Add(new SqliteParameter("@RouteId", routeId));
                         
                         var tripId = tripCmd.ExecuteScalar()?.ToString();

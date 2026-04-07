@@ -119,10 +119,19 @@
           class="search-result-item"
           @click="selectStation(station)"
         >
-          <span class="result-name">{{ station.name }}</span>
-          <span v-if="selectedLocation" class="result-distance">
-            {{ calculateDistance(station.latitude, station.longitude) }} km
-          </span>
+          <div class="result-main">
+            <span class="result-name">{{ station.name }}</span>
+            <span v-if="selectedLocation" class="result-distance">
+              {{ calculateDistance(station.latitude, station.longitude) }} km
+            </span>
+          </div>
+          <button
+            class="result-notification-btn"
+            title="Activează notificări pentru această stație"
+            @click.stop="requestStationNotification(station)"
+          >
+            🔔
+          </button>
         </div>
       </div>
     </div>
@@ -175,6 +184,7 @@ interface GeocodeResult {
 
 const emit = defineEmits<{
   stationSelected: [station: Station]
+  stationNotificationRequested: [station: Station]
   addressSelected: [location: { lat: number; lon: number; name: string }]
   walkingDirectionsRequested: [start: { lat: number; lon: number; name: string }, end: Station]
   multimodalRouteRequested: [userLocation: { lat: number; lon: number }, destination: { lat: number; lon: number; name: string }]
@@ -573,6 +583,10 @@ const selectStation = (station: Station) => {
   searchQuery.value = station.name
 }
 
+const requestStationNotification = (station: Station) => {
+  emit('stationNotificationRequested', station)
+}
+
 // Select favorite location
 const selectFavorite = (favorite: FavoriteLocation) => {
   const location = {
@@ -958,11 +972,40 @@ if (typeof window !== 'undefined') {
   background: var(--bg-secondary);
 }
 
+.result-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
 .result-name {
   color: var(--text-primary);
   font-size: 14px;
   flex: 1;
   font-weight: 500;
+}
+
+.result-notification-btn {
+  border: 1px solid #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.result-notification-btn:hover {
+  background: #dbeafe;
+  transform: translateY(-1px);
 }
 
 .result-distance {

@@ -437,7 +437,7 @@ export const enableNotifications = async (
   const hasPermission = await requestNotificationPermission()
 
   if (!hasPermission) {
-    alert('⚠️ Trebuie să accepți notificările în browser pentru a primi alerte!')
+    console.warn('⚠️ Permisiunea pentru notificări a fost refuzată sau indisponibilă')
     return false
   }
 

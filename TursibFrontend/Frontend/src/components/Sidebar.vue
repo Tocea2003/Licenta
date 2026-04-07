@@ -836,16 +836,6 @@ const searchRoutes = async () => {
           if (attemptedPairs.has(pairKey)) return
           attemptedPairs.add(pairKey)
 
-          const walkStart = origin.type === 'address'
-            ? walkMin(originLat, originLon, boarding.latitude, boarding.longitude)
-            : 0
-          const walkEnd = dest.type === 'address'
-            ? walkMin(alighting.latitude, alighting.longitude, dest.lat, dest.lon)
-            : 0
-
-          // Permitem adrese mai îndepărtate pentru a găsi totuși o rută posibilă
-          // (explicația de walking apare în rezultat).
-
           try {
             const departureTime = buildDepartureDateTime(planTime.value)
             const routes = await apiService.calculateRouteAlternatives(boarding.id, alighting.id, departureTime)
@@ -856,6 +846,30 @@ const searchRoutes = async () => {
 
               const firstBus = busSegments[0]
               const lastBus = busSegments[busSegments.length - 1]
+              const firstBusStart = firstBus.startStation as Station | undefined
+              const lastBusEnd = lastBus.endStation as Station | undefined
+
+              const effectiveBoarding = origin.type === 'address'
+                ? (firstBusStart ?? boarding)
+                : (firstBusStart ?? boarding)
+              const effectiveAlighting = dest.type === 'address'
+                ? (lastBusEnd ?? alighting)
+                : (lastBusEnd ?? alighting)
+
+              const stationWalkStart = origin.type === 'station' && effectiveBoarding.id !== boarding.id
+                ? walkMin(originLat, originLon, effectiveBoarding.latitude, effectiveBoarding.longitude)
+                : 0
+              const stationWalkEnd = dest.type === 'station' && effectiveAlighting.id !== alighting.id
+                ? walkMin(effectiveAlighting.latitude, effectiveAlighting.longitude, dest.lat, dest.lon)
+                : 0
+
+              const walkStart = origin.type === 'address'
+                ? walkMin(originLat, originLon, effectiveBoarding.latitude, effectiveBoarding.longitude)
+                : stationWalkStart
+              const walkEnd = dest.type === 'address'
+                ? walkMin(effectiveAlighting.latitude, effectiveAlighting.longitude, dest.lat, dest.lon)
+                : stationWalkEnd
+
               const isDirect = busSegments.length === 1
               const normalizedBusSegments = busSegments.map((segment: any) => ({
                 routeId: segment.routeId ?? 0,
@@ -892,8 +906,8 @@ const searchRoutes = async () => {
                 route1Name: firstBus.routeName ?? '',
                 route1Color: firstBus.color ?? '#3b82f6',
                 stationsBetween: busSegments.reduce((sum: number, s: any) => sum + (s.stationCount ?? 0), 0),
-                boardingStation: boarding,
-                alightingStation: alighting,
+                boardingStation: effectiveBoarding,
+                alightingStation: effectiveAlighting,
                 originLat: origin.lat,
                 originLon: origin.lon,
                 originName: origin.name,
@@ -998,10 +1012,24 @@ defineExpose({ openPlanTab })
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-primary);
-  border-right: 1px solid var(--border-primary);
+  background: color-mix(in srgb, var(--bg-primary) 96%, transparent);
+  border-right: 1px solid var(--border-color);
+  box-shadow: var(--shadow-xl);
+  backdrop-filter: blur(18px);
   overflow: hidden;
   font-family: 'Inter', system-ui, sans-serif;
+  position: relative;
+}
+
+.sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.10), transparent 24%),
+    radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.08), transparent 22%);
+  opacity: 0.8;
 }
 
 /* ===== HEADER ===== */
@@ -1015,6 +1043,7 @@ defineExpose({ openPlanTab })
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .sidebar-header::after {
@@ -1059,11 +1088,13 @@ defineExpose({ openPlanTab })
 /* ===== TAB BAR ===== */
 .tab-bar {
   display: flex;
-  border-bottom: 1px solid var(--border-primary);
-  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-primary) 94%, transparent);
   flex-shrink: 0;
   padding: 0 8px;
   gap: 2px;
+  position: relative;
+  z-index: 1;
 }
 
 .tab-btn {

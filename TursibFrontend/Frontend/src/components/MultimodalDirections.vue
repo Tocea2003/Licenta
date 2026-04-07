@@ -11,7 +11,7 @@
           <span class="icon">📏</span>
           <div>
             <strong>{{ totalDistance }} km</strong>
-            <small>Distanță totală</small>
+            <small>Distanță pe jos</small>
           </div>
         </div>
         <div class="summary-item">
@@ -26,7 +26,7 @@
     
     <div class="panel-body">
       <!-- Pas 1: Mers pe jos la stația de urcare -->
-      <div class="route-section">
+      <div v-if="showFirstWalk" class="route-section">
         <div class="section-header walking">
           <span class="icon">🚶</span>
           <div class="section-title">
@@ -86,7 +86,7 @@
       </div>
       
       <!-- Pas 3: Mers pe jos la destinație -->
-      <div class="route-section">
+      <div v-if="showSecondWalk" class="route-section">
         <div class="section-header walking">
           <span class="icon">🚶</span>
           <div class="section-title">
@@ -156,6 +156,14 @@ const totalDistance = computed(() => {
   return ((props.firstWalkDistance + props.secondWalkDistance) / 1000).toFixed(2)
 })
 
+const showFirstWalk = computed(() => {
+  return props.firstWalkDistance > 0 || props.firstWalkTime > 0
+})
+
+const showSecondWalk = computed(() => {
+  return props.secondWalkDistance > 0 || props.secondWalkTime > 0
+})
+
 const totalTime = computed(() => {
   return props.firstWalkTime + props.busTime + props.secondWalkTime
 })
@@ -184,20 +192,20 @@ const getStepIcon = (type: string) => {
   left: 370px;
   width: 380px;
   max-height: calc(100vh - 120px);
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+  background: var(--bg-primary);
+  border-radius: 18px;
+  box-shadow: var(--shadow-xl);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   z-index: 450;
   font-family: 'Inter', system-ui, sans-serif;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
 }
 
 .panel-header {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--gradient-primary);
   color: white;
   padding: 20px;
 }
@@ -227,7 +235,7 @@ const getStepIcon = (type: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .close-btn:hover {

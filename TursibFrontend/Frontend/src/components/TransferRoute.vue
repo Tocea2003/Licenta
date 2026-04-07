@@ -246,21 +246,19 @@ const formatDuration = (minutes: number): string => {
   width: 340px;
   max-width: calc(100vw - 390px);
   max-height: calc(100vh - 100px);
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--bg-primary);
   backdrop-filter: blur(16px);
-  border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+  border-radius: 18px;
+  box-shadow: var(--shadow-xl);
   z-index: 500;
   overflow: hidden;
   animation: slideUp 0.3s ease-out;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
 }
 
 @media (prefers-color-scheme: dark) {
   .transfer-route-panel {
-    background: rgba(30, 30, 35, 0.98);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-primary);
   }
 }
 
@@ -280,8 +278,9 @@ const formatDuration = (minutes: number): string => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-primary);
   color: white;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .panel-title {
@@ -291,7 +290,7 @@ const formatDuration = (minutes: number): string => {
 }
 
 .close-btn {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.16);
   border: none;
   border-radius: 8px;
   width: 32px;
@@ -305,7 +304,7 @@ const formatDuration = (minutes: number): string => {
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.28);
   transform: scale(1.05);
 }
 
@@ -510,7 +509,7 @@ const formatDuration = (minutes: number): string => {
 .route-summary {
   margin-top: 20px;
   padding: 16px;
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
   border-radius: 12px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -519,8 +518,8 @@ const formatDuration = (minutes: number): string => {
 
 @media (prefers-color-scheme: dark) {
   .route-summary {
-    background: rgba(40, 40, 50, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
+    border: 1px solid var(--border-color);
   }
 }
 
