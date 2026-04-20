@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "xyLNL4JdYYE=",
+  "dgSpecHash": "MuU3an9zFzU=",
   "success": true,
-  "projectFilePath": "D:\\licenta3\\Licenta\\BusSimulator\\BusSimulator.csproj",
+  "projectFilePath": "D:\\licenta3\\Licenta\\.claude\\worktrees\\musing-heyrovsky-b72276\\BusSimulator\\BusSimulator.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\crist\\.nuget\\packages\\firebasedatabase.net\\5.0.0\\firebasedatabase.net.5.0.0.nupkg.sha512",
     "C:\\Users\\crist\\.nuget\\packages\\litedb\\5.0.17\\litedb.5.0.17.nupkg.sha512",

@@ -29,11 +29,12 @@ namespace TursibBackend.Services
         /// Calculează ruta optimă între două stații folosind algoritmul Dijkstra.
         /// </summary>
         public async Task<CalculatedRoute?> CalculateOptimalRoute(
-            int startStationId, 
+            int startStationId,
             int endStationId,
-            DateTime? departureTime = null)
+            DateTime? departureTime = null,
+            DateTime? arrivalTime = null)
         {
-            var routes = await CalculateAlternativeRoutes(startStationId, endStationId, departureTime);
+            var routes = await CalculateAlternativeRoutes(startStationId, endStationId, departureTime, arrivalTime);
             return routes.FirstOrDefault();
         }
 
@@ -42,11 +43,11 @@ namespace TursibBackend.Services
         /// cu diferite penalități pentru a obține diversitate în rezultate.
         /// </summary>
         public async Task<List<CalculatedRoute>> CalculateAlternativeRoutes(
-            int startStationId, 
+            int startStationId,
             int endStationId,
-            DateTime? departureTime = null)
+            DateTime? departureTime = null,
+            DateTime? arrivalTime = null)
         {
-            var departure = departureTime ?? DateTime.Now;
             var alternativeRoutes = new List<CalculatedRoute>();
 
             // Încarcă datele necesare
@@ -113,7 +114,71 @@ namespace TursibBackend.Services
                 alternativeRoutes[i].RouteRank = i + 1;
             }
 
+            // Stamp timestamps pe fiecare rută în funcție de modul de căutare.
+            // arriveBy are prioritate peste departAt; ambele absente => pleacă acum.
+            foreach (var route in alternativeRoutes)
+            {
+                var totalSpan = ComputeRouteSpan(route);
+                DateTime effectiveDeparture;
+                if (arrivalTime.HasValue)
+                    effectiveDeparture = arrivalTime.Value.AddMinutes(-totalSpan);
+                else if (departureTime.HasValue)
+                    effectiveDeparture = departureTime.Value;
+                else
+                    effectiveDeparture = DateTime.Now;
+
+                StampSegmentTimes(route, effectiveDeparture);
+            }
+
             return alternativeRoutes;
+        }
+
+        /// <summary>
+        /// Calculează durata totală a unei rute în minute, incluzând penalitățile
+        /// de transfer între segmente consecutive de bus pe linii diferite.
+        /// </summary>
+        private static int ComputeRouteSpan(CalculatedRoute route)
+        {
+            var span = 0;
+            for (int i = 0; i < route.Segments.Count; i++)
+            {
+                span += route.Segments[i].Duration;
+                if (i < route.Segments.Count - 1
+                    && route.Segments[i].Type == "bus"
+                    && route.Segments[i + 1].Type == "bus"
+                    && route.Segments[i].RouteId != route.Segments[i + 1].RouteId)
+                {
+                    span += TRANSFER_PENALTY_MINUTES;
+                }
+            }
+            return span;
+        }
+
+        /// <summary>
+        /// Setează DepartureTime/ArrivalTime pe rută și StartTime/EndTime pe fiecare segment.
+        /// Între segmente de bus pe linii diferite se inserează gap-ul de transfer,
+        /// astfel încât EndTime-ul ultimului segment să coincidă cu ArrivalTime al rutei.
+        /// </summary>
+        private static void StampSegmentTimes(CalculatedRoute route, DateTime effectiveDeparture)
+        {
+            route.DepartureTime = effectiveDeparture;
+            var cursor = effectiveDeparture;
+            for (int i = 0; i < route.Segments.Count; i++)
+            {
+                var segment = route.Segments[i];
+                segment.StartTime = cursor;
+                cursor = cursor.AddMinutes(segment.Duration);
+                segment.EndTime = cursor;
+
+                if (i < route.Segments.Count - 1
+                    && segment.Type == "bus"
+                    && route.Segments[i + 1].Type == "bus"
+                    && segment.RouteId != route.Segments[i + 1].RouteId)
+                {
+                    cursor = cursor.AddMinutes(TRANSFER_PENALTY_MINUTES);
+                }
+            }
+            route.ArrivalTime = cursor;
         }
 
         #endregion
@@ -611,6 +676,12 @@ namespace TursibBackend.Services
         
         /// <summary>Categoria rutei: "Cea mai rapidă", "Mai puține transferuri", etc.</summary>
         public string RouteCategory { get; set; } = "";
+
+        /// <summary>Ora de plecare efectivă (pentru afișare în UI)</summary>
+        public DateTime DepartureTime { get; set; }
+
+        /// <summary>Ora de sosire estimată (DepartureTime + TotalDuration)</summary>
+        public DateTime ArrivalTime { get; set; }
     }
 
     /// <summary>
@@ -647,6 +718,12 @@ namespace TursibBackend.Services
         
         /// <summary>Distanța în km (pentru segmente de tip "walk")</summary>
         public double? Distance { get; set; }
+
+        /// <summary>Ora de start a segmentului (boarding pentru bus, start walking etc.)</summary>
+        public DateTime StartTime { get; set; }
+
+        /// <summary>Ora de final a segmentului (alighting pentru bus, end walking etc.)</summary>
+        public DateTime EndTime { get; set; }
     }
 
     #endregion

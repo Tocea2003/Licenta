@@ -71,9 +71,17 @@
         </div>
       </div>
 
-      <!-- Data și ora -->
+      <!-- Mod căutare: Pleacă acum / Pleacă la ora / Ajunge la ora -->
       <div class="form-row">
         <div class="form-group">
+          <label>🕐 Când:</label>
+          <select v-model="searchMode" class="time-input">
+            <option value="leaveNow">Pleacă acum</option>
+            <option value="departAt">Pleacă la ora</option>
+            <option value="arriveBy">Ajunge la ora</option>
+          </select>
+        </div>
+        <div v-if="searchMode !== 'leaveNow'" class="form-group">
           <label>📅 Data:</label>
           <input
             v-model="selectedDate"
@@ -82,8 +90,8 @@
             class="date-input"
           />
         </div>
-        <div class="form-group">
-          <label>🕐 Ora plecării:</label>
+        <div v-if="searchMode !== 'leaveNow'" class="form-group">
+          <label>{{ searchMode === 'arriveBy' ? '🏁 Ora sosirii:' : '🕐 Ora plecării:' }}</label>
           <input
             v-model="selectedTime"
             type="time"
@@ -274,6 +282,7 @@ const fromLocation = ref<{ lat: number; lon: number; name: string } | null>(null
 const toLocation = ref<{ lat: number; lon: number; name: string } | null>(null)
 const selectedDate = ref('')
 const selectedTime = ref('')
+const searchMode = ref<'leaveNow' | 'departAt' | 'arriveBy'>('leaveNow')
 const userLocation = ref<{ lat: number; lon: number } | null>(null)
 
 // Suggestions
@@ -309,7 +318,9 @@ const today = computed(() => {
 })
 
 const canSearch = computed(() => {
-  return fromLocation.value && toLocation.value && selectedDate.value && selectedTime.value
+  if (!fromLocation.value || !toLocation.value) return false
+  if (searchMode.value === 'leaveNow') return true
+  return !!selectedDate.value && !!selectedTime.value
 })
 
 // Methods
@@ -515,126 +526,131 @@ const searchTrips = async () => {
   searchResults.value = []
 
   try {
-    // Simulate API call - în realitate va apela backend-ul
-    await new Promise(resolve => setTimeout(resolve, 1500))
-
-    // Găsește stațiile cele mai apropiate de start și destinație
     const nearestToStart = findNearestStation(fromLocation.value!)
     const nearestToEnd = findNearestStation(toLocation.value!)
 
-    // Generate mock results based on search criteria
-    const results: TripOption[] = []
+    if (!nearestToStart || !nearestToEnd) {
+      alert('Nu s-au găsit stații apropiate de locațiile selectate')
+      return
+    }
 
-    if (nearestToStart && nearestToEnd) {
-      // Example trip 1: Direct route
-      results.push({
-        departureTime: selectedTime.value,
-        arrivalTime: addMinutes(selectedTime.value, 25),
-        totalDuration: 25,
-        transfersCount: 0,
-        totalWalkingDistance: 300,
-        segments: [
-          {
-            type: 'walk',
-            from: fromLocation.value!.name,
-            to: nearestToStart.name,
-            duration: 5,
-            distance: 300,
-            fromCoords: fromLocation.value!,
-            toCoords: { lat: nearestToStart.latitude, lon: nearestToStart.longitude }
-          },
-          {
-            type: 'bus',
-            from: nearestToStart.name,
-            to: nearestToEnd.name,
-            duration: 20,
-            routeNumber: '5',
-            routeName: 'Valea Aurie - Gara',
-            routeColor: '#FF0000',
-            boardingTime: addMinutes(selectedTime.value, 5),
-            alightingTime: addMinutes(selectedTime.value, 25),
-            stopsCount: 8,
-            fromCoords: { lat: nearestToStart.latitude, lon: nearestToStart.longitude },
-            toCoords: { lat: nearestToEnd.latitude, lon: nearestToEnd.longitude }
-          }
-        ]
-      })
-
-      // Example trip 2: With one transfer
-      const midStation = allStations.value[Math.floor(allStations.value.length / 2)]
-      if (midStation) {
-        results.push({
-          departureTime: selectedTime.value,
-          arrivalTime: addMinutes(selectedTime.value, 35),
-          totalDuration: 35,
-          transfersCount: 1,
-          totalWalkingDistance: 450,
-          segments: [
-            {
-              type: 'walk',
-              from: fromLocation.value!.name,
-              to: nearestToStart.name,
-              duration: 4,
-              distance: 250,
-              fromCoords: fromLocation.value!,
-              toCoords: { lat: nearestToStart.latitude, lon: nearestToStart.longitude }
-            },
-            {
-              type: 'bus',
-              from: nearestToStart.name,
-              to: midStation.name,
-              duration: 12,
-              routeNumber: '11',
-              routeName: 'Zona Industrială - Piața Cibin',
-              routeColor: '#0000FF',
-              boardingTime: addMinutes(selectedTime.value, 4),
-              alightingTime: addMinutes(selectedTime.value, 16),
-              stopsCount: 5,
-              fromCoords: { lat: nearestToStart.latitude, lon: nearestToStart.longitude },
-              toCoords: { lat: midStation.latitude, lon: midStation.longitude }
-            },
-            {
-              type: 'walk',
-              from: midStation.name,
-              to: midStation.name,
-              duration: 3,
-              distance: 150,
-              fromCoords: { lat: midStation.latitude, lon: midStation.longitude },
-              toCoords: { lat: midStation.latitude, lon: midStation.longitude }
-            },
-            {
-              type: 'bus',
-              from: midStation.name,
-              to: nearestToEnd.name,
-              duration: 14,
-              routeNumber: '8',
-              routeName: 'Linia Verde',
-              routeColor: '#00AA00',
-              boardingTime: addMinutes(selectedTime.value, 21),
-              alightingTime: addMinutes(selectedTime.value, 35),
-              stopsCount: 6,
-              fromCoords: { lat: midStation.latitude, lon: midStation.longitude },
-              toCoords: { lat: nearestToEnd.latitude, lon: nearestToEnd.longitude }
-            },
-            {
-              type: 'walk',
-              from: nearestToEnd.name,
-              to: toLocation.value!.name,
-              duration: 2,
-              distance: 50,
-              fromCoords: { lat: nearestToEnd.latitude, lon: nearestToEnd.longitude },
-              toCoords: toLocation.value!
-            }
-          ]
-        })
+    // Pregătește payload-ul pentru backend în funcție de modul de căutare
+    let apiOptions: { mode: 'departAt' | 'arriveBy'; dateTime: string } | undefined
+    if (searchMode.value !== 'leaveNow') {
+      apiOptions = {
+        mode: searchMode.value,
+        dateTime: `${selectedDate.value}T${selectedTime.value}:00`
       }
     }
 
-    searchResults.value = results
+    const backendRoutes = await apiService.calculateRouteAlternatives(
+      nearestToStart.id,
+      nearestToEnd.id,
+      apiOptions
+    )
+
+    if (!backendRoutes || backendRoutes.length === 0) {
+      searchResults.value = []
+      return
+    }
+
+    // Distanțele de walking între start/end și cele mai apropiate stații
+    const walkToStartDist = calculateDistance(
+      fromLocation.value!.lat, fromLocation.value!.lon,
+      nearestToStart.latitude, nearestToStart.longitude
+    )
+    const walkFromEndDist = calculateDistance(
+      nearestToEnd.latitude, nearestToEnd.longitude,
+      toLocation.value!.lat, toLocation.value!.lon
+    )
+    // Aproximare: 5 km/h mers pe jos ≈ 12 min/km ≈ 1 min/83m
+    const walkToStartDuration = Math.max(1, Math.round(walkToStartDist / 83))
+    const walkFromEndDuration = Math.max(1, Math.round(walkFromEndDist / 83))
+
+    searchResults.value = backendRoutes.map((route: any) => {
+      const segments: TripSegment[] = []
+
+      // Segment inițial de walking (dacă utilizatorul nu e deja la stație)
+      if (walkToStartDist > 20) {
+        segments.push({
+          type: 'walk',
+          from: fromLocation.value!.name,
+          to: nearestToStart.name,
+          duration: walkToStartDuration,
+          distance: walkToStartDist,
+          fromCoords: { lat: fromLocation.value!.lat, lon: fromLocation.value!.lon },
+          toCoords: { lat: nearestToStart.latitude, lon: nearestToStart.longitude }
+        })
+      }
+
+      // Mapează segmentele din backend
+      for (const seg of (route.segments ?? [])) {
+        const startStation = seg.startStation
+        const endStation = seg.endStation
+        if (seg.type === 'bus') {
+          segments.push({
+            type: 'bus',
+            from: startStation?.name ?? '?',
+            to: endStation?.name ?? '?',
+            duration: seg.duration,
+            routeNumber: seg.routeNumber ?? '',
+            routeName: seg.routeName ?? '',
+            routeColor: seg.color ?? '#888',
+            boardingTime: formatBackendTime(seg.startTime),
+            alightingTime: formatBackendTime(seg.endTime),
+            stopsCount: seg.stationCount ?? 0,
+            fromCoords: startStation ? { lat: startStation.latitude, lon: startStation.longitude } : undefined,
+            toCoords: endStation ? { lat: endStation.latitude, lon: endStation.longitude } : undefined
+          })
+        } else {
+          // walk (între stații)
+          segments.push({
+            type: 'walk',
+            from: startStation?.name ?? '?',
+            to: endStation?.name ?? '?',
+            duration: seg.duration,
+            distance: Math.round((seg.distance ?? 0) * 1000),
+            fromCoords: startStation ? { lat: startStation.latitude, lon: startStation.longitude } : undefined,
+            toCoords: endStation ? { lat: endStation.latitude, lon: endStation.longitude } : undefined
+          })
+        }
+      }
+
+      // Segment final de walking (de la ultima stație la destinație)
+      if (walkFromEndDist > 20) {
+        segments.push({
+          type: 'walk',
+          from: nearestToEnd.name,
+          to: toLocation.value!.name,
+          duration: walkFromEndDuration,
+          distance: walkFromEndDist,
+          fromCoords: { lat: nearestToEnd.latitude, lon: nearestToEnd.longitude },
+          toCoords: { lat: toLocation.value!.lat, lon: toLocation.value!.lon }
+        })
+      }
+
+      const busSegments = segments.filter(s => s.type === 'bus')
+      const walkSegments = segments.filter(s => s.type === 'walk')
+      const totalWalkingDistance = walkSegments.reduce((acc, s) => acc + (s.distance ?? 0), 0)
+      const extraWalkDuration = (walkToStartDist > 20 ? walkToStartDuration : 0) + (walkFromEndDist > 20 ? walkFromEndDuration : 0)
+      const totalDuration = (route.totalDuration ?? 0) + extraWalkDuration
+
+      const routeDeparture = formatBackendTime(route.departureTime)
+      const routeArrival = addMinutes(routeDeparture, totalDuration)
+
+      return {
+        departureTime: routeDeparture,
+        arrivalTime: routeArrival,
+        totalDuration,
+        transfersCount: Math.max(0, busSegments.length - 1),
+        totalWalkingDistance,
+        segments
+      } as TripOption
+    })
 
   } catch (error) {
     console.error('Error searching trips:', error)
-    alert('Eroare la căutarea traseelor')
+    alert('Eroare la căutarea traseelor. Verifică dacă backend-ul rulează.')
   } finally {
     isSearching.value = false
   }
@@ -658,6 +674,14 @@ const findNearestStation = (location: { lat: number; lon: number }): Station | n
   }
   
   return nearest
+}
+
+const formatBackendTime = (iso?: string): string => {
+  if (!iso) return ''
+  // Backend returnează DateTime ISO (ex: "2026-04-21T09:25:00"). Extragem HH:MM local.
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
 const addMinutes = (time: string, minutes: number): string => {

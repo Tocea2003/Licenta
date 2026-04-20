@@ -259,6 +259,83 @@ public class RouteCalculatorServiceTests : IDisposable
         results[0].RouteCategory.Should().Be("Cea mai rapidă");
     }
 
+    [Fact]
+    public async Task CalculateAlternativeRoutes_WithArrivalTime_ShouldSetArrivalNotAfterRequested()
+    {
+        // Arrange
+        int startStationId = 1;
+        int endStationId = 5;
+        var requestedArrival = new DateTime(2026, 4, 21, 10, 0, 0);
+
+        // Act
+        var results = await _service.CalculateAlternativeRoutes(
+            startStationId, endStationId, departureTime: null, arrivalTime: requestedArrival);
+
+        // Assert
+        results.Should().NotBeEmpty();
+        foreach (var route in results)
+        {
+            route.ArrivalTime.Should().Be(requestedArrival,
+                "în modul 'arrive by', ora de sosire trebuie să corespundă celei cerute");
+            route.Segments.Should().NotBeEmpty();
+            route.Segments.First().StartTime.Should().Be(route.DepartureTime,
+                "primul segment începe la ora de plecare");
+            route.Segments.Last().EndTime.Should().Be(route.ArrivalTime,
+                "ultimul segment se termină la ora de sosire");
+            route.DepartureTime.Should().BeBefore(requestedArrival,
+                "plecarea trebuie să fie înaintea sosirii cerute");
+        }
+    }
+
+    [Fact]
+    public async Task CalculateAlternativeRoutes_WithDepartureTime_ShouldSetDepartureMatching()
+    {
+        // Arrange
+        int startStationId = 1;
+        int endStationId = 5;
+        var requestedDeparture = new DateTime(2026, 4, 21, 9, 0, 0);
+
+        // Act
+        var results = await _service.CalculateAlternativeRoutes(
+            startStationId, endStationId, departureTime: requestedDeparture);
+
+        // Assert
+        results.Should().NotBeEmpty();
+        foreach (var route in results)
+        {
+            route.DepartureTime.Should().Be(requestedDeparture,
+                "în modul 'depart at', ora de plecare trebuie să corespundă celei cerute");
+            route.Segments.First().StartTime.Should().Be(requestedDeparture);
+            route.ArrivalTime.Should().BeAfter(requestedDeparture,
+                "sosirea trebuie să fie după plecare");
+            route.Segments.Last().EndTime.Should().Be(route.ArrivalTime);
+        }
+    }
+
+    [Fact]
+    public async Task CalculateAlternativeRoutes_WithBothTimesProvided_ShouldPrioritizeArrival()
+    {
+        // Arrange
+        int startStationId = 1;
+        int endStationId = 5;
+        var departure = new DateTime(2026, 4, 21, 9, 0, 0);
+        var arrival = new DateTime(2026, 4, 21, 11, 0, 0);
+
+        // Act
+        var results = await _service.CalculateAlternativeRoutes(
+            startStationId, endStationId, departureTime: departure, arrivalTime: arrival);
+
+        // Assert
+        results.Should().NotBeEmpty();
+        foreach (var route in results)
+        {
+            route.ArrivalTime.Should().Be(arrival,
+                "când ambele ore sunt date, arrivalTime câștigă");
+            route.DepartureTime.Should().NotBe(departure,
+                "departureTime trebuie recalculat înapoi, nu copiat");
+        }
+    }
+
     #endregion
 
     #region Edge Cases Tests
