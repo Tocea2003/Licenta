@@ -29,7 +29,8 @@ namespace TursibBackend.Controllers
                 var route = await _routeCalculator.CalculateOptimalRoute(
                     request.StartStationId,
                     request.EndStationId,
-                    request.DepartureTime
+                    request.DepartureTime,
+                    request.ArrivalTime
                 );
 
                 if (route == null)
@@ -59,7 +60,8 @@ namespace TursibBackend.Controllers
                 var routes = await _routeCalculator.CalculateAlternativeRoutes(
                     request.StartStationId,
                     request.EndStationId,
-                    request.DepartureTime
+                    request.DepartureTime,
+                    request.ArrivalTime
                 );
 
                 if (routes.Count == 0)
@@ -81,5 +83,6 @@ namespace TursibBackend.Controllers
         public int StartStationId { get; set; }
         public int EndStationId { get; set; }
         public DateTime? DepartureTime { get; set; }
+        public DateTime? ArrivalTime { get; set; }
     }
 }

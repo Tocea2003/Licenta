@@ -141,11 +141,17 @@ export default {
   async calculateRouteAlternatives(
     startStationId: number,
     endStationId: number,
-    departureTime?: string
+    options?: { mode: 'departAt' | 'arriveBy'; dateTime: string } | string
   ): Promise<any[]> {
     const payload: Record<string, unknown> = { startStationId, endStationId }
-    if (departureTime) {
-      payload.departureTime = departureTime
+
+    if (typeof options === 'string') {
+      // Compatibilitate cu forma veche (doar departureTime ca string)
+      payload.departureTime = options
+    } else if (options?.mode === 'departAt') {
+      payload.departureTime = options.dateTime
+    } else if (options?.mode === 'arriveBy') {
+      payload.arrivalTime = options.dateTime
     }
 
     const response = await apiClient.post('/routing/alternatives', payload)

@@ -202,13 +202,21 @@
           </div>
         </div>
 
-        <!-- Ora plecării -->
+        <!-- Mod căutare + ora -->
         <div class="form-group">
-          <label class="form-label">🕐 {{ t('departureAfter') }}</label>
+          <label class="form-label">🕐 Când</label>
+          <select v-model="planMode" class="time-input">
+            <option value="leaveNow">Pleacă acum</option>
+            <option value="departAt">Pleacă la ora</option>
+            <option value="arriveBy">Ajunge la ora</option>
+          </select>
+        </div>
+        <div v-if="planMode !== 'leaveNow'" class="form-group">
+          <label class="form-label">{{ planMode === 'arriveBy' ? '🏁 Ora sosirii' : '🕐 Ora plecării' }}</label>
           <input v-model="planTime" type="time" class="time-input" required />
         </div>
 
-        <button @click="searchRoutes" :disabled="(!planOrigin && !planOriginQuery.trim()) || (!planDest && !planDestQuery.trim()) || !planTime || isSearching" class="btn-search-routes">
+        <button @click="searchRoutes" :disabled="(!planOrigin && !planOriginQuery.trim()) || (!planDest && !planDestQuery.trim()) || (planMode !== 'leaveNow' && !planTime) || isSearching" class="btn-search-routes">
           <span v-if="isSearching">⏳ {{ t('searching') }}</span>
           <span v-else>🔍 {{ t('searchTrips') }}</span>
         </button>
@@ -519,6 +527,7 @@ export interface PlanResult {
 const planOriginQuery   = ref('')
 const planDestQuery     = ref('')
 const planTime          = ref(new Date().toTimeString().substring(0, 5))
+const planMode           = ref<'leaveNow' | 'departAt' | 'arriveBy'>('leaveNow')
 const planOrigin        = ref<PlanLocation | null>(null)
 const planDest          = ref<PlanLocation | null>(null)
 const originSuggestions = ref<Suggestion[]>([])
@@ -775,7 +784,13 @@ const searchRoutes = async () => {
     const origin = planOrigin.value!, dest = planDest.value!
     const now = new Date()
     const nowMin = now.getHours() * 60 + now.getMinutes()
-    const baseMin = parseTimeToMinutes(planTime.value) ?? nowMin
+    const effectiveTime = planMode.value === 'leaveNow'
+      ? `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+      : planTime.value
+    const baseMin = parseTimeToMinutes(effectiveTime) ?? nowMin
+    const targetArrivalMin = planMode.value === 'arriveBy'
+      ? (parseTimeToMinutes(planTime.value) ?? nowMin)
+      : null
     const primaryMaxWalkMinutes = 25
     const fallbackMaxWalkMinutes = 45
 
@@ -837,8 +852,20 @@ const searchRoutes = async () => {
           attemptedPairs.add(pairKey)
 
           try {
-            const departureTime = buildDepartureDateTime(planTime.value)
-            const routes = await apiService.calculateRouteAlternatives(boarding.id, alighting.id, departureTime)
+            // Pregătește opțiunile pentru backend în funcție de modul de căutare.
+            // Pentru arriveBy, scade timpul de mers de la destinație (walkEnd) per pereche,
+            // astfel încât ora de sosire afișată (incl. walking final) să fie <= target.
+            let apiOptions: { mode: 'departAt' | 'arriveBy'; dateTime: string } | undefined
+            if (planMode.value === 'departAt') {
+              apiOptions = { mode: 'departAt', dateTime: buildDepartureDateTime(planTime.value) }
+            } else if (planMode.value === 'arriveBy' && targetArrivalMin !== null) {
+              const walkEndMin = dest.type === 'address'
+                ? walkMin(alighting.latitude, alighting.longitude, dest.lat, dest.lon)
+                : 0
+              const adjustedArrivalMin = targetArrivalMin - walkEndMin
+              apiOptions = { mode: 'arriveBy', dateTime: buildDepartureDateTime(minutesToStr(Math.max(0, adjustedArrivalMin))) }
+            }
+            const routes = await apiService.calculateRouteAlternatives(boarding.id, alighting.id, apiOptions)
 
             for (const route of routes) {
               const busSegments = (route.segments as any[]).filter(s => s.type === 'bus')
@@ -881,8 +908,15 @@ const searchRoutes = async () => {
                 stationCount: segment.stationCount ?? 0
               }))
 
-              const depMin = baseMin + walkStart
-              const arrMin = depMin + route.totalDuration + walkEnd
+              let depMin: number
+              let arrMin: number
+              if (planMode.value === 'arriveBy' && targetArrivalMin !== null) {
+                arrMin = targetArrivalMin
+                depMin = arrMin - walkEnd - route.totalDuration - walkStart
+              } else {
+                depMin = baseMin + walkStart
+                arrMin = depMin + route.totalDuration + walkEnd
+              }
               const totalWalk = walkStart + walkEnd
               const minutesUntil = Math.max(0, depMin - nowMin)
 

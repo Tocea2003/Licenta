@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\licenta3\\Licenta\\BusSimulator\\BusSimulator.csproj": {}
+    "D:\\licenta3\\Licenta\\.claude\\worktrees\\musing-heyrovsky-b72276\\BusSimulator\\BusSimulator.csproj": {}
   },
   "projects": {
-    "D:\\licenta3\\Licenta\\BusSimulator\\BusSimulator.csproj": {
+    "D:\\licenta3\\Licenta\\.claude\\worktrees\\musing-heyrovsky-b72276\\BusSimulator\\BusSimulator.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\licenta3\\Licenta\\BusSimulator\\BusSimulator.csproj",
+        "projectUniqueName": "D:\\licenta3\\Licenta\\.claude\\worktrees\\musing-heyrovsky-b72276\\BusSimulator\\BusSimulator.csproj",
         "projectName": "BusSimulator",
-        "projectPath": "D:\\licenta3\\Licenta\\BusSimulator\\BusSimulator.csproj",
+        "projectPath": "D:\\licenta3\\Licenta\\.claude\\worktrees\\musing-heyrovsky-b72276\\BusSimulator\\BusSimulator.csproj",
         "packagesPath": "C:\\Users\\crist\\.nuget\\packages\\",
-        "outputPath": "D:\\licenta3\\Licenta\\BusSimulator\\obj\\",
+        "outputPath": "D:\\licenta3\\Licenta\\.claude\\worktrees\\musing-heyrovsky-b72276\\BusSimulator\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
