@@ -1,0 +1,28 @@
+# Keep only these top-level folders in the repository
+*
+!.gitignore
+!BusSimulator/
+!BusSimulator/**
+!TursibBackend/
+!TursibBackend/**
+!TursibFrontend/
+!TursibFrontend/**
+
+# Sensitive files
+**/.env
+**/.env.*
+!**/.env.example
+
+# .NET build output
+**/bin/
+**/obj/
+
+# Frontend dependencies and build output
+**/node_modules/
+**/dist/
+**/build/
+
+# Common logs and OS files
+**/*.log
+**/.DS_Store
+**/Thumbs.db
