@@ -44,6 +44,15 @@
         </svg>
       </button>
       
+      <!-- Buton pentru bilete -->
+      <button v-if="isAuthenticated" @click="goToTickets" class="action-btn" title="Biletele mele">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M4 9V7C4 6.44772 4.44772 6 5 6H19C19.5523 6 20 6.44772 20 7V9C18.8954 9 18 9.89543 18 11C18 12.1046 18.8954 13 20 13V15C20 15.5523 19.5523 16 19 16H5C4.44772 16 4 15.5523 4 15V13C5.10457 13 6 12.1046 6 11C6 9.89543 5.10457 9 4 9Z"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M10 8V14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 2"/>
+        </svg>
+      </button>
+
       <!-- Buton pentru statistici -->
       <button @click="goToStatistics" class="action-btn" :title="t('statistics')">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -635,6 +644,10 @@ const goToFavorites = () => {
 
 const goToStatistics = () => {
   router.push('/statistics')
+}
+
+const goToTickets = () => {
+  router.push('/tickets')
 }
 
 const goToAdmin = () => {
