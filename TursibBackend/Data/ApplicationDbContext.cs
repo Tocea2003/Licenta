@@ -16,6 +16,8 @@ namespace TursibBackend.Data
         public DbSet<Bus> Buses { get; set; }
         public DbSet<RouteStation> RouteStations { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<Ticket> Tickets { get; set; }
+        public DbSet<Payment> Payments { get; set; }
 
         // Aici configurăm relațiile (deși EF Core le-ar putea deduce singur,
         // e bine să fim expliciți pentru relația Many-to-Many)
@@ -45,6 +47,28 @@ namespace TursibBackend.Data
                 .Property(s => s.Longitude)
                 .HasColumnType("REAL")
                 .HasPrecision(18, 10); // Precizie mare pentru GPS
+
+            // Precision pentru preturi
+            modelBuilder.Entity<Ticket>()
+                .Property(t => t.PriceRon)
+                .HasColumnType("decimal(10,2)");
+            modelBuilder.Entity<Payment>()
+                .Property(p => p.Amount)
+                .HasColumnType("decimal(10,2)");
+
+            // Ticket -> Payment (optional)
+            modelBuilder.Entity<Ticket>()
+                .HasOne(t => t.Payment)
+                .WithMany()
+                .HasForeignKey(t => t.PaymentId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Ticket -> User
+            modelBuilder.Entity<Ticket>()
+                .HasOne(t => t.User)
+                .WithMany()
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // ========== SEEDING DATA (Date de Test) ==========
             
