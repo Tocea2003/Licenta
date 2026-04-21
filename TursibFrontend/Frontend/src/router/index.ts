@@ -53,6 +53,18 @@ const router = createRouter({
       component: () => import('../views/SignUp.vue'),
     },
     {
+      path: '/tickets',
+      name: 'tickets',
+      component: () => import('../views/TicketsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/tickets/checkout',
+      name: 'ticket-checkout',
+      component: () => import('../views/TicketCheckoutView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/loginadmin',
       name: 'admin-login',
       component: AdminLogin,
@@ -60,7 +72,7 @@ const router = createRouter({
     {
       path: '/admin',
       component: AdminDashboard,
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, requiresAdmin: true },
       children: [
         {
           path: '',
@@ -98,13 +110,13 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth) {
     const isAuth = authService.isAuthenticated()
     const user = authService.getUser()
-    
-    console.log('🔐 Auth check:', { isAuth, user })
-    
+
+    console.log('🔐 Auth check:', { isAuth, user, requiresAdmin: to.meta.requiresAdmin })
+
     if (!isAuth) {
       console.warn('⚠️ Not authenticated - redirecting to login')
-      next('/loginadmin')
-    } else if (user?.role !== 'admin' && user?.role !== 'Admin') {
+      next(to.meta.requiresAdmin ? '/loginadmin' : '/login')
+    } else if (to.meta.requiresAdmin && user?.role !== 'admin' && user?.role !== 'Admin') {
       console.warn('⚠️ Not admin - access denied')
       alert('Acces interzis. Ai nevoie de rol de administrator.')
       next('/')
