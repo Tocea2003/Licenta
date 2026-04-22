@@ -133,9 +133,15 @@
       <p>{{ t('addFrequentLocations') }}</p>
     </div>
 
-    <!-- Add/Edit Dialog -->
+    <!-- Gradient FAB -->
+    <button class="fab-add" @click="openAddDialog('custom')" aria-label="Adaugă locație">
+      <span class="fab-plus">+</span>
+    </button>
+
+    <!-- Add/Edit Dialog (bottom sheet) -->
     <div v-if="showDialog" class="dialog-overlay" @click="closeDialog">
       <div class="dialog" @click.stop>
+        <div class="dialog-handle"></div>
         <h2>{{ editingFavorite ? t('editLocation') : t('addLocation') }}</h2>
         
         <div class="form-group">
@@ -429,7 +435,6 @@ const enableNotificationsForFavorite = async (favorite: FavoriteLocation) => {
 
 .header {
   margin-bottom: 32px;
-  text-align: center;
 }
 
 .header h1 {
@@ -672,30 +677,68 @@ const enableNotificationsForFavorite = async (favorite: FavoriteLocation) => {
   line-height: 1.5;
 }
 
-/* Dialog */
-.dialog-overlay {
+/* Gradient FAB */
+.fab-add {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  right: 16px;
+  bottom: 90px;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: #fff;
+  border: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  z-index: 50;
+  transition: transform 0.2s var(--ease-out-back, cubic-bezier(0.34, 1.56, 0.64, 1)),
+              box-shadow 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fab-add:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 10px 28px rgba(59, 130, 246, 0.5);
+}
+
+.fab-plus {
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+/* Dialog — bottom sheet */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
   z-index: 2000;
-  padding: 24px;
-  animation: fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeIn 0.2s ease;
 }
 
 .dialog {
   background: var(--bg-primary);
-  border-radius: 20px;
-  padding: 28px;
-  max-width: 520px;
+  border-radius: 20px 20px 0 0;
+  padding: 20px 20px 28px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 -8px 32px rgba(15, 23, 42, 0.12);
+  animation: slideUp 0.25s ease-out;
+}
+
+.dialog-handle {
+  width: 40px;
+  height: 4px;
+  background: var(--border-primary);
+  border-radius: 2px;
+  margin: 0 auto 16px;
 }
 
 @keyframes fadeIn {
@@ -704,14 +747,8 @@ const enableNotificationsForFavorite = async (favorite: FavoriteLocation) => {
 }
 
 @keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
 }
 
 .dialog h2 {

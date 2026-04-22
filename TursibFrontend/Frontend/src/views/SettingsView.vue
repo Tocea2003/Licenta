@@ -6,155 +6,215 @@
     </div>
 
     <div class="content">
-      <!-- Dark Mode Section -->
-      <div class="setting-section">
-        <h2>🎨 {{ t('appearance') }}</h2>
-        <div class="setting-item">
-          <div class="setting-info">
-            <h3>{{ t('darkMode') }}</h3>
-            <p>{{ t('darkModeDesc') }}</p>
-          </div>
-          <button 
-            @click="toggleDarkMode" 
-            class="toggle-btn"
-            :class="{ active: isDarkMode }"
-            :aria-label="isDarkMode ? t('disableDarkMode') : t('enableDarkMode')"
-          >
-            <span class="toggle-slider"></span>
-          </button>
-        </div>
-      </div>
-
       <!-- Notifications Section -->
       <div class="setting-section">
-        <h2>🔔 {{ t('notifications') }}</h2>
-        <div class="setting-item">
-          <div class="setting-info">
-            <h3>{{ t('pushNotifications') }}</h3>
-            <p>{{ t('pushNotificationsDesc') }}</p>
+        <div class="section-label">🔔 {{ t('notifications') }}</div>
+        <div class="section-card">
+          <div class="section-row">
+            <div class="row-info">
+              <div class="row-title">{{ t('pushNotifications') }}</div>
+              <div class="row-desc">{{ t('pushNotificationsDesc') }}</div>
+            </div>
+            <button
+              @click="toggleNotifications"
+              class="toggle-btn"
+              :class="{ active: notificationsEnabled }"
+            >
+              <span class="toggle-slider"></span>
+            </button>
           </div>
-          <button 
-            @click="toggleNotifications" 
-            class="toggle-btn"
-            :class="{ active: notificationsEnabled }"
-          >
-            <span class="toggle-slider"></span>
-          </button>
+          <div class="section-row">
+            <div class="row-info">
+              <div class="row-title">Sunet</div>
+              <div class="row-desc">La notificări noi</div>
+            </div>
+            <button
+              @click="soundEnabled = !soundEnabled"
+              class="toggle-btn"
+              :class="{ active: soundEnabled }"
+            >
+              <span class="toggle-slider"></span>
+            </button>
+          </div>
+          <div class="section-row last">
+            <div class="row-info">
+              <div class="row-title">Vibrație</div>
+            </div>
+            <button
+              @click="hapticsEnabled = !hapticsEnabled"
+              class="toggle-btn"
+              :class="{ active: hapticsEnabled }"
+            >
+              <span class="toggle-slider"></span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Language Section -->
+      <!-- Appearance Section -->
       <div class="setting-section">
-        <h2>🌐 {{ t('language') }}</h2>
-        <div class="setting-item language-item">
-          <div class="setting-info">
-            <h3>{{ languageName }}</h3>
-            <p>{{ t('switchToLanguage', 'Switch the app to {language}', { language: nextLanguageName }) }}</p>
+        <div class="section-label">🎨 {{ t('appearance') }}</div>
+        <div class="section-card">
+          <div class="section-row">
+            <div class="row-info">
+              <div class="row-title">{{ t('darkMode') }}</div>
+            </div>
+            <div class="segmented">
+              <button
+                v-for="opt in themeOptions"
+                :key="opt.value"
+                class="seg-btn"
+                :class="{ active: themeMode === opt.value }"
+                @click="setThemeMode(opt.value)"
+              >{{ opt.label }}</button>
+            </div>
           </div>
-          <div class="language-buttons" role="group" :aria-label="t('language')">
-            <button
-              v-for="language in languageOptions"
-              :key="language"
-              @click="setLanguage(language)"
-              class="lang-btn"
-              :class="{ active: currentLanguage === language }"
-              :aria-label="t('switchLanguageAria', 'Switch language to {language}', { language: getLanguageDisplay(language) })"
-            >
-              {{ getLanguageDisplay(language) }}
-            </button>
+          <div class="section-row last">
+            <div class="row-info">
+              <div class="row-title">{{ t('language') }}</div>
+            </div>
+            <div class="segmented">
+              <button
+                v-for="lang in languageOptions"
+                :key="lang"
+                class="seg-btn"
+                :class="{ active: currentLanguage === lang }"
+                @click="setLanguage(lang)"
+              >{{ getLanguageDisplay(lang) }}</button>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Statistics Section -->
       <div class="setting-section">
-        <h2>📊 {{ t('statistics') }}</h2>
-        <router-link to="/statistics" class="setting-link">
-          <div class="setting-info">
-            <h3>{{ t('myStatistics') }}</h3>
-            <p>{{ t('usageStatisticsDesc') }}</p>
-          </div>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </router-link>
-      </div>
-
-      <!-- Account Section -->
-      <div class="setting-section">
-        <h2>👤 {{ t('account') }}</h2>
-        <router-link to="/login" class="setting-link">
-          <div class="setting-info">
-            <h3>{{ t('authentication') }}</h3>
-            <p>{{ t('signInAccountDesc') }}</p>
-          </div>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </router-link>
-      </div>
-
-      <!-- About Section -->
-      <div class="setting-section">
-        <h2>ℹ️ {{ t('information') }}</h2>
-        <div class="info-items">
-          <div class="info-item">
-            <span class="label">{{ t('version') }}</span>
-            <span class="value">1.0.0</span>
-          </div>
-          <div class="info-item">
-            <span class="label">{{ t('build') }}</span>
-            <span class="value">2026.01.15</span>
-          </div>
-          <router-link to="/about" class="setting-link">
-            <div class="setting-info">
-              <h3>{{ t('aboutApp') }}</h3>
-              <p>{{ t('aboutAppDesc') }}</p>
+        <div class="section-label">📊 {{ t('statistics') }}</div>
+        <div class="section-card">
+          <router-link to="/statistics" class="section-row link-row last">
+            <span class="link-icon">📊</span>
+            <div class="row-info">
+              <div class="row-title">{{ t('myStatistics') }}</div>
+              <div class="row-desc">{{ t('usageStatisticsDesc') }}</div>
             </div>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </router-link>
         </div>
       </div>
+
+      <!-- Account Section -->
+      <div class="setting-section">
+        <div class="section-label">👤 {{ t('account') }}</div>
+        <div class="section-card">
+          <router-link to="/login" class="section-row link-row">
+            <span class="link-icon">👤</span>
+            <div class="row-info"><div class="row-title">Profil</div></div>
+            <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </router-link>
+          <router-link to="/login" class="section-row link-row">
+            <span class="link-icon">🔒</span>
+            <div class="row-info"><div class="row-title">Schimbă parola</div></div>
+            <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </router-link>
+          <router-link to="/about" class="section-row link-row">
+            <span class="link-icon">📊</span>
+            <div class="row-info"><div class="row-title">Date și confidențialitate</div></div>
+            <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </router-link>
+          <div class="section-row link-row last danger" @click="handleLogout">
+            <span class="link-icon">🚪</span>
+            <div class="row-info"><div class="row-title">Deconectare</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Info Section -->
+      <div class="setting-section">
+        <div class="section-label">ℹ️ {{ t('information') }}</div>
+        <div class="section-card">
+          <div class="section-row">
+            <div class="row-info"><div class="row-title">{{ t('version') }}</div></div>
+            <span class="row-value">1.0.0</span>
+          </div>
+          <router-link to="/about" class="section-row link-row last">
+            <span class="link-icon">ℹ️</span>
+            <div class="row-info">
+              <div class="row-title">{{ t('aboutApp') }}</div>
+            </div>
+            <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </router-link>
+        </div>
+      </div>
+
+      <div class="footer-note">Tursib Tracker v2.4.1 · made in Sibiu 🇷🇴</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useLanguage, type Language } from '@/composables/useLanguage'
 
 const { isDarkMode, toggleDarkMode } = useDarkMode()
 const { currentLanguage, setLanguage, t } = useLanguage()
+
 const notificationsEnabled = ref(false)
+const soundEnabled = ref(true)
+const hapticsEnabled = ref(false)
+
 const languageOptions: Language[] = ['ro', 'en', 'de']
 
-const getLanguageDisplay = (language: Language) => {
-  if (language === 'ro') return t('romanian')
-  if (language === 'en') return t('english')
-  return t('german')
+const themeOptions = [
+  { value: 'light', label: '☀️ Light' },
+  { value: 'dark',  label: '🌙 Dark' },
+  { value: 'auto',  label: 'Auto' },
+]
+
+const themeMode = ref<'light' | 'dark' | 'auto'>(isDarkMode.value ? 'dark' : 'light')
+
+const setThemeMode = (mode: 'light' | 'dark' | 'auto') => {
+  themeMode.value = mode
+  if (mode === 'dark' && !isDarkMode.value) toggleDarkMode()
+  if (mode === 'light' && isDarkMode.value) toggleDarkMode()
+  if (mode === 'auto') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    if (prefersDark !== isDarkMode.value) toggleDarkMode()
+  }
 }
 
-const languageName = computed(() => getLanguageDisplay(currentLanguage.value))
-
-const nextLanguageName = computed(() => {
-  if (currentLanguage.value === 'ro') return getLanguageDisplay('en')
-  if (currentLanguage.value === 'en') return getLanguageDisplay('de')
-  return getLanguageDisplay('ro')
+watch(isDarkMode, (val) => {
+  if (themeMode.value !== 'auto') {
+    themeMode.value = val ? 'dark' : 'light'
+  }
 })
+
+const getLanguageDisplay = (language: Language) => {
+  if (language === 'ro') return '🇷🇴 RO'
+  if (language === 'en') return '🇬🇧 EN'
+  return '🇩🇪 DE'
+}
 
 const toggleNotifications = () => {
   notificationsEnabled.value = !notificationsEnabled.value
-  if (notificationsEnabled.value) {
-    // Request notification permission
-    if ('Notification' in window) {
-      Notification.requestPermission().then(permission => {
-        notificationsEnabled.value = permission === 'granted'
-      })
-    }
+  if (notificationsEnabled.value && 'Notification' in window) {
+    Notification.requestPermission().then(permission => {
+      notificationsEnabled.value = permission === 'granted'
+    })
   }
+}
+
+const handleLogout = () => {
+  // logout logic placeholder
 }
 </script>
 
@@ -176,78 +236,120 @@ const toggleNotifications = () => {
   margin: 0 0 8px 0;
   font-size: 2rem;
   font-weight: 800;
+  color: white;
 }
 
 .subtitle {
   margin: 0;
   font-size: 0.95rem;
   opacity: 0.9;
+  color: white;
 }
 
 .content {
-  padding: 24px;
+  padding: 24px 16px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
-.setting-section h2 {
+/* Section container */
+.setting-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-label {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  margin: 0 0 10px 0;
-  padding-left: 4px;
+  padding: 0 4px;
 }
 
-.setting-item,
-.setting-link {
+/* Grouped card */
+.section-card {
   background: var(--bg-primary);
-  border: 1.5px solid var(--border-primary);
-  border-radius: var(--radius-lg, 14px);
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
-  text-decoration: none;
-  color: inherit;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
   box-shadow: var(--shadow-xs);
 }
 
-.setting-link:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--border-secondary);
+/* Row inside card */
+.section-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--bg-tertiary);
+  text-decoration: none;
+  color: inherit;
 }
 
-.setting-info {
+.section-row.last,
+.section-row:last-child {
+  border-bottom: none;
+}
+
+.link-row {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.link-row:hover {
+  background: var(--bg-secondary);
+}
+
+.link-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.chevron {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.row-info {
   flex: 1;
+  min-width: 0;
 }
 
-.setting-info h3 {
-  margin: 0 0 4px 0;
-  font-size: 1rem;
-  font-weight: 600;
+.row-title {
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-primary);
+  line-height: 1.2;
 }
 
-.setting-info p {
-  margin: 0;
-  font-size: 0.85rem;
+.row-desc {
+  font-size: 12px;
   color: var(--text-secondary);
+  margin-top: 2px;
+  line-height: 1.3;
 }
 
-/* Toggle Button */
+.row-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.danger .row-title {
+  color: var(--color-danger);
+}
+
+/* Toggle */
 .toggle-btn {
   position: relative;
-  width: 52px;
-  height: 30px;
+  width: 48px;
+  height: 28px;
   background: var(--border-secondary);
   border: none;
-  border-radius: var(--radius-full, 999px);
+  border-radius: var(--radius-full);
   cursor: pointer;
   transition: background 0.25s ease;
   flex-shrink: 0;
@@ -258,80 +360,58 @@ const toggleNotifications = () => {
   background: var(--accent-primary);
 }
 
-.language-item {
-  align-items: center;
-}
-
-.language-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.lang-btn {
-  border: 1px solid var(--border-primary);
-  border-radius: 8px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 0.8rem;
-  font-weight: 700;
-  padding: 8px 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.lang-btn:hover {
-  border-color: #3b82f6;
-}
-
-.lang-btn.active {
-  background: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
-}
-
 .toggle-slider {
   position: absolute;
   top: 3px;
   left: 3px;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   background: white;
   border-radius: 50%;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.25s var(--ease-out-back, cubic-bezier(0.34, 1.56, 0.64, 1));
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .toggle-btn.active .toggle-slider {
-  transform: translateX(22px);
+  transform: translateX(20px);
 }
 
-/* Info Items */
-.info-items {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* Segmented control */
+.segmented {
+  display: inline-flex;
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
-.info-item {
+.seg-btn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 0;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary);
+  font: 500 12px/1 var(--font-sans, 'Inter', sans-serif);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.seg-btn.active {
   background: var(--bg-primary);
-  border: 1.5px solid var(--border-primary);
-  border-radius: var(--radius-lg, 14px);
-  padding: 14px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  color: var(--text-primary);
+  font-weight: 600;
   box-shadow: var(--shadow-xs);
 }
 
-.info-item .label {
-  font-size: 0.95rem;
-  color: var(--text-secondary);
+/* Footer */
+.footer-note {
+  text-align: center;
+  font-size: 11px;
   font-weight: 500;
-}
-
-.info-item .value {
-  font-size: 0.95rem;
-  color: var(--text-primary);
-  font-weight: 600;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  padding: 8px 0 16px;
 }
 </style>
