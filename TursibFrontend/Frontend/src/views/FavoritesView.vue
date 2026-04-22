@@ -474,7 +474,7 @@ const enableNotificationsForFavorite = async (favorite: FavoriteLocation) => {
 
 .quick-add {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-bottom: 32px;
 }
@@ -652,7 +652,7 @@ const enableNotificationsForFavorite = async (favorite: FavoriteLocation) => {
 
 .empty-state {
   text-align: center;
-  padding: 80px 24px;
+  padding: 80px 80px 80px 24px; /* right pad clears the fixed FAB */
   max-width: 500px;
   margin: 0 auto;
 }

@@ -1,41 +1,5 @@
 <template>
   <div class="enhanced-search-container">
-    <!-- Quick Access Favorites (when not searching) -->
-    <div v-if="!searchQuery && !originQuery && favorites.length > 0" class="quick-access">
-      <div class="section-title">⭐ Favorite</div>
-      <div class="favorites-grid">
-        <button
-          v-for="favorite in favorites.slice(0, 3)"
-          :key="favorite.id"
-          @click="selectFavorite(favorite)"
-          class="favorite-chip"
-        >
-          <span class="chip-icon">{{ favorite.icon }}</span>
-          <span class="chip-name">{{ favorite.name }}</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Recent Searches (when not searching) -->
-    <div v-if="!searchQuery && !originQuery && latestSearches.length > 0" class="recent-searches">
-      <div class="section-title">
-        🕒 Căutări Recente
-        <button @click="clearAllSearches" class="clear-all-btn">Șterge tot</button>
-      </div>
-      <div
-        v-for="search in latestSearches.slice(0, 5)"
-        :key="search.id"
-        @click="selectRecentSearch(search)"
-        class="recent-item"
-      >
-        <span class="recent-icon">{{ getSearchIcon(search.type) }}</span>
-        <div class="recent-info">
-          <span class="recent-name">{{ search.result.name }}</span>
-          <span class="recent-time">{{ getRelativeTime(search.timestamp) }}</span>
-        </div>
-        <button @click.stop="removeSearch(search.id)" class="remove-btn">×</button>
-      </div>
-    </div>
     
     <!-- Origin Search (only in trip mode) -->
     <div v-if="tripMode" class="search-box origin-box">
@@ -95,7 +59,44 @@
       />
       <button v-if="searchQuery" @click="clearSearch" class="clear-btn">✕</button>
     </div>
-    
+
+    <!-- Quick Access Favorites (dropdown when focused, no query) -->
+    <div v-if="showResults && !searchQuery && !originQuery && favorites.length > 0" class="quick-access">
+      <div class="section-title">⭐ Favorite</div>
+      <div class="favorites-grid">
+        <button
+          v-for="favorite in favorites.slice(0, 3)"
+          :key="favorite.id"
+          @click="selectFavorite(favorite)"
+          class="favorite-chip"
+        >
+          <span class="chip-icon">{{ favorite.icon }}</span>
+          <span class="chip-name">{{ favorite.name }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Recent Searches (dropdown when focused, no query) -->
+    <div v-if="showResults && !searchQuery && !originQuery && latestSearches.length > 0" class="recent-searches">
+      <div class="section-title">
+        🕒 Căutări Recente
+        <button @click="clearAllSearches" class="clear-all-btn">Șterge tot</button>
+      </div>
+      <div
+        v-for="search in latestSearches.slice(0, 5)"
+        :key="search.id"
+        @click="selectRecentSearch(search)"
+        class="recent-item"
+      >
+        <span class="recent-icon">{{ getSearchIcon(search.type) }}</span>
+        <div class="recent-info">
+          <span class="recent-name">{{ search.result.name }}</span>
+          <span class="recent-time">{{ getRelativeTime(search.timestamp) }}</span>
+        </div>
+        <button @click.stop="removeSearch(search.id)" class="remove-btn">×</button>
+      </div>
+    </div>
+
     <div v-if="showResults && (geocodeResults.length > 0 || filteredStations.length > 0)" class="search-results">
       <!-- Rezultate geocoding (adrese) -->
       <div v-if="geocodeResults.length > 0" class="results-section">
@@ -707,23 +708,30 @@ if (typeof window !== 'undefined') {
 }
 
 .favorites-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-direction: row;
   gap: 8px;
   margin-top: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
 }
+.favorites-grid::-webkit-scrollbar { display: none; }
 
 .favorite-chip {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  padding: 12px 8px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   cursor: pointer;
   transition: all 0.2s;
+  flex-shrink: 0;
+  min-width: 64px;
+  max-width: 90px;
 }
 
 .favorite-chip:hover {
