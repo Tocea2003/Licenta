@@ -1,0 +1,353 @@
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import CardInputForm, { type CardData } from '@/components/CardInputForm.vue'
+import ticketsService, { type Ticket } from '@/services/ticketsService'
+
+const router = useRouter()
+
+type Step = 1 | 2 | 3
+const step = ref<Step>(1)
+const submitting = ref(false)
+const serverError = ref<string | null>(null)
+const purchased = ref<Ticket | null>(null)
+
+const selectedType = ref<'single'>('single')
+const cardData = ref<CardData>({
+  cardholderName: '',
+  cardNumber: '',
+  expiryMonth: '',
+  expiryYear: '',
+  cvv: ''
+})
+const cardValid = ref(false)
+
+const ticketOptions = [
+  { id: 'single' as const, name: 'Bilet simplu', desc: 'O calatorie, valabil 60 min', price: 3.00 }
+]
+
+const selectedOption = computed(() => ticketOptions.find(o => o.id === selectedType.value)!)
+
+function goToStep2() {
+  step.value = 2
+}
+
+async function submitPayment() {
+  if (!cardValid.value) return
+  submitting.value = true
+  serverError.value = null
+  try {
+    const ticket = await ticketsService.purchase({
+      ticketType: selectedType.value,
+      cardNumber: cardData.value.cardNumber,
+      expiryMonth: cardData.value.expiryMonth,
+      expiryYear: cardData.value.expiryYear,
+      cvv: cardData.value.cvv,
+      cardholderName: cardData.value.cardholderName
+    })
+    purchased.value = ticket
+    step.value = 3
+  } catch (err: any) {
+    const status = err?.response?.status
+    const msg = err?.response?.data?.message
+    if (status === 402) {
+      serverError.value = msg || 'Plata a fost refuzata'
+    } else if (status === 401) {
+      serverError.value = 'Sesiune expirata. Te rugam sa te autentifici din nou.'
+      setTimeout(() => router.push('/login'), 1500)
+    } else {
+      serverError.value = msg || 'A aparut o eroare la procesarea platii'
+    }
+  } finally {
+    submitting.value = false
+  }
+}
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('ro-RO', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  })
+}
+
+function onCardUpdate(payload: { data: CardData; valid: boolean }) {
+  cardData.value = payload.data
+  cardValid.value = payload.valid
+}
+</script>
+
+<template>
+  <div class="page page-narrow">
+    <header class="page-header">
+      <div>
+        <h1 class="page-title">Cumpara bilet</h1>
+        <p class="page-subtitle">Plateste cu cardul si primesti biletul instant</p>
+      </div>
+    </header>
+
+    <nav class="stepper" aria-label="Pasi checkout">
+      <div class="stepper-item" :class="{ active: step === 1, done: step > 1 }">
+        <span class="stepper-num">{{ step > 1 ? '✓' : '1' }}</span>
+        <span>Bilet</span>
+      </div>
+      <div class="stepper-item" :class="{ active: step === 2, done: step > 2 }">
+        <span class="stepper-num">{{ step > 2 ? '✓' : '2' }}</span>
+        <span>Plata</span>
+      </div>
+      <div class="stepper-item" :class="{ active: step === 3 }">
+        <span class="stepper-num">3</span>
+        <span>Confirmare</span>
+      </div>
+    </nav>
+
+    <!-- STEP 1 — select ticket -->
+    <section v-if="step === 1" class="card checkout-section">
+      <h2 class="section-title">Alege tipul biletului</h2>
+      <div class="ticket-options">
+        <button
+          v-for="opt in ticketOptions"
+          :key="opt.id"
+          type="button"
+          class="chip ticket-chip"
+          :class="{ selected: selectedType === opt.id }"
+          @click="selectedType = opt.id"
+        >
+          <div class="chip-main">
+            <strong>{{ opt.name }}</strong>
+            <span class="chip-desc">{{ opt.desc }}</span>
+          </div>
+          <span class="chip-price">{{ opt.price.toFixed(2) }} RON</span>
+        </button>
+      </div>
+      <div class="section-actions">
+        <button type="button" class="btn btn-primary btn-lg" @click="goToStep2">
+          Continua la plata · {{ selectedOption.price.toFixed(2) }} RON
+        </button>
+      </div>
+    </section>
+
+    <!-- STEP 2 — card details -->
+    <section v-if="step === 2" class="card checkout-section">
+      <h2 class="section-title">Date card</h2>
+      <div class="order-summary">
+        <span>{{ selectedOption.name }}</span>
+        <strong>{{ selectedOption.price.toFixed(2) }} RON</strong>
+      </div>
+
+      <CardInputForm @update="onCardUpdate" />
+
+      <div v-if="serverError" class="alert alert-danger" role="alert">
+        {{ serverError }}
+      </div>
+
+      <div class="section-actions">
+        <button type="button" class="btn btn-ghost" :disabled="submitting" @click="step = 1">
+          ← Inapoi
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary btn-lg"
+          :disabled="!cardValid || submitting"
+          @click="submitPayment"
+        >
+          {{ submitting ? 'Se proceseaza...' : `Plateste ${selectedOption.price.toFixed(2)} RON` }}
+        </button>
+      </div>
+    </section>
+
+    <!-- STEP 3 — confirmation -->
+    <section v-if="step === 3 && purchased" class="card checkout-section success-section">
+      <div class="success-icon" aria-hidden="true">✓</div>
+      <h2 class="section-title success-title">Plata aprobata!</h2>
+      <p class="success-sub">Biletul tau a fost emis cu succes.</p>
+
+      <div class="summary-grid">
+        <div>
+          <span class="field-label">Bilet</span>
+          <span class="field-value">{{ selectedOption.name }}</span>
+        </div>
+        <div>
+          <span class="field-label">Pret platit</span>
+          <span class="field-value">{{ purchased.priceRon.toFixed(2) }} RON</span>
+        </div>
+        <div>
+          <span class="field-label">Valabil pana la</span>
+          <span class="field-value">{{ formatDateTime(purchased.validUntil) }}</span>
+        </div>
+        <div v-if="purchased.payment">
+          <span class="field-label">Card</span>
+          <span class="field-value">
+            {{ purchased.payment.cardBrand === 'visa' ? 'Visa' : purchased.payment.cardBrand === 'mastercard' ? 'Mastercard' : 'Card' }}
+            •••• {{ purchased.payment.cardLast4 }}
+          </span>
+        </div>
+      </div>
+
+      <div class="qr-box">
+        <span class="qr-label">Cod validare</span>
+        <code class="qr-token">{{ purchased.qrToken }}</code>
+      </div>
+
+      <div class="section-actions">
+        <button type="button" class="btn btn-outline" @click="router.push('/tickets')">
+          Vezi biletele mele
+        </button>
+        <button type="button" class="btn btn-primary" @click="router.push('/')">
+          Inapoi la harta
+        </button>
+      </div>
+    </section>
+  </div>
+</template>
+
+<style scoped>
+.checkout-section {
+  padding: var(--space-5);
+}
+
+.section-title {
+  font-size: var(--text-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-4) 0;
+}
+
+.ticket-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.ticket-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  min-height: 64px;
+  width: 100%;
+  text-align: left;
+}
+.chip-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chip-desc {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-weight: var(--fw-normal);
+}
+.chip-price {
+  font-size: var(--text-lg);
+  font-weight: var(--fw-bold);
+}
+
+.section-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+.section-actions .btn-primary {
+  min-width: 220px;
+}
+
+.order-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+}
+.order-summary strong {
+  font-size: var(--text-md);
+}
+
+.success-section {
+  text-align: center;
+  padding: var(--space-8) var(--space-5);
+}
+.success-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-success);
+  color: #fff;
+  font-size: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--space-4) auto;
+  box-shadow: var(--shadow-lg);
+}
+.success-title {
+  margin-bottom: var(--space-2);
+}
+.success-sub {
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-6) 0;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3) var(--space-4);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  text-align: left;
+}
+.summary-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.field-label {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.field-value {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+}
+
+.qr-box {
+  border: 2px dashed var(--border-secondary);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.qr-label {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.qr-token {
+  font-family: 'SF Mono', Menlo, monospace;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  word-break: break-all;
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .summary-grid { grid-template-columns: 1fr; }
+  .section-actions { flex-direction: column-reverse; }
+  .section-actions .btn { width: 100%; }
+}
+</style>
