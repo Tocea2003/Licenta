@@ -32,6 +32,9 @@ builder.Services.AddScoped<JwtService>();
 // Register Route Calculator Service
 builder.Services.AddScoped<RouteCalculatorService>();
 
+// Register Payment Simulator Service
+builder.Services.AddScoped<PaymentSimulatorService>();
+
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
