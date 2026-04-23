@@ -2641,70 +2641,91 @@ const stationETACache = new Map<string, Array<{ busId: string, routeId: number, 
 let etaCacheTimeout: number | null = null
 const ETA_CACHE_DURATION = 5000 // 5 secunde
 
+/** Compass bearing (0-360°) from point A to point B */
+const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const lat1R = lat1 * Math.PI / 180
+  const lat2R = lat2 * Math.PI / 180
+  const y = Math.sin(dLon) * Math.cos(lat2R)
+  const x = Math.cos(lat1R) * Math.sin(lat2R) - Math.sin(lat1R) * Math.cos(lat2R) * Math.cos(dLon)
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
+}
+
+/** Smallest absolute angle between two headings (0–180°) */
+const angleDiff = (a: number, b: number): number =>
+  Math.abs(((a - b) + 540) % 360 - 180)
+
 const getStationETAs = (stationId: number) => {
-  // Verifică cache
+  // Cache per 5-second bucket
   const now = Date.now()
-  const cacheKey = `${stationId}-${now - (now % ETA_CACHE_DURATION)}` // Cache bucket de 5s
-  
-  if (stationETACache.has(cacheKey)) {
-    return stationETACache.get(cacheKey)!
-  }
-  
-  const etas: Array<{ busId: string, routeId: number, routeNumber: string, eta: string, color: string }> = []
-  
+  const cacheKey = `${stationId}-${now - (now % ETA_CACHE_DURATION)}`
+  if (stationETACache.has(cacheKey)) return stationETACache.get(cacheKey)!
+
   const allStations = props.allStations
-  if (!allStations || allStations.length === 0) return etas
-  
+  if (!allStations?.length) return []
+
   const station = allStations.find(s => s.id === stationId)
-  if (!station) return etas
-  
+  if (!station) return []
+
   const stationLat = station.latitude
   const stationLon = station.longitude
   const buses = liveBuses.value
-  
-  // Procesare optimizată - evităm forEach
-  for (let i = 0; i < buses.length; i++) {
-    const bus = buses[i]
-    if (!bus || typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') {
-      continue
+
+  // Keep only the closest approaching bus per route
+  const routeBest = new Map<number, { busId: string; distKm: number; speed: number }>()
+
+  for (const bus of buses) {
+    if (typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') continue
+
+    const distKm = calculateDistance(bus.latitude, bus.longitude, stationLat, stationLon)
+
+    // Ignore buses more than 4 km away or already past/at the stop (<30 m)
+    if (distKm > 4 || distKm < 0.03) continue
+
+    // Direction check — skip buses heading away (>90° off course)
+    if (typeof bus.heading === 'number') {
+      const bearing = calculateBearing(bus.latitude, bus.longitude, stationLat, stationLon)
+      if (angleDiff(bus.heading, bearing) > 90) continue
     }
-    
-    const distance = calculateDistance(bus.latitude, bus.longitude, stationLat, stationLon)
-    
-    // Dacă autobuzul e la mai puțin de 5km de stație
-    if (distance < 5) {
-      const avgSpeed = bus.speed || 35 // km/h
-      const etaMinutes = Math.round((distance / avgSpeed) * 60)
-      
-      if (etaMinutes <= 30) { // Afișăm doar dacă e sub 30 min
-        etas.push({
-          busId: bus.id,
-          routeId: bus.routeId,
-          routeNumber: `Linia ${bus.routeId}`,
-          eta: etaMinutes <= 1 ? '<1 min' : `${etaMinutes} min`,
-          color: routeColors.value[bus.routeId] || '#2563eb'
-        })
-      }
+
+    const existing = routeBest.get(bus.routeId)
+    if (!existing || distKm < existing.distKm) {
+      routeBest.set(bus.routeId, { busId: bus.id, distKm, speed: bus.speed ?? 0 })
     }
   }
-  
-  // Sortează după ETA
+
+  const etas: Array<{ busId: string; routeId: number; routeNumber: string; eta: string; color: string }> = []
+
+  for (const [routeId, { busId, distKm, speed }] of routeBest) {
+    // Use actual speed if meaningful, otherwise default to 25 km/h city average
+    const avgSpeed = speed > 5 ? Math.min(speed, 50) : 25
+    const etaMin = Math.round((distKm / avgSpeed) * 60)
+    if (etaMin > 30) continue
+
+    etas.push({
+      busId,
+      routeId,
+      routeNumber: `Linia ${routeId}`,
+      eta: etaMin <= 1 ? '<1 min' : `${etaMin} min`,
+      color: routeColors.value[routeId] || '#2563eb'
+    })
+  }
+
+  // Sort by ETA ascending, cap at 8 entries
   etas.sort((a, b) => {
-    const etaA = a.eta === '<1 min' ? 0 : parseInt(a.eta)
-    const etaB = b.eta === '<1 min' ? 0 : parseInt(b.eta)
-    return etaA - etaB
+    const ta = a.eta === '<1 min' ? 0 : parseInt(a.eta)
+    const tb = b.eta === '<1 min' ? 0 : parseInt(b.eta)
+    return ta - tb
   })
-  
-  // Salvează în cache
-  stationETACache.set(cacheKey, etas)
-  
-  // Curăță cache-ul vechi periodic
+  const result = etas.slice(0, 8)
+
+  stationETACache.set(cacheKey, result)
   if (stationETACache.size > 20) {
-    const oldestKey = stationETACache.keys().next().value
-    if (oldestKey) stationETACache.delete(oldestKey)
+    const oldest = stationETACache.keys().next().value
+    if (oldest) stationETACache.delete(oldest)
   }
-  
-  return etas
+
+  return result
 }
 </script>
 

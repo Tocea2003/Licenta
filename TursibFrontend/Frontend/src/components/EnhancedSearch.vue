@@ -22,10 +22,16 @@
         <div
           v-for="(result, index) in geocodeOriginResults"
           :key="`origin-address-${index}`"
-          class="search-result-item"
+          class="search-result-item address-result"
           @click="selectOriginAddress(result)"
         >
-          <span class="result-name">{{ result.display_name }}</span>
+          <span class="result-type-icon">{{ getTypeIcon(result.type) }}</span>
+          <div class="result-address-info">
+            <span class="result-name">{{ result.displayName }}</span>
+            <span v-if="result.addressDetails.suburb || result.addressDetails.city" class="result-address-sub">
+              {{ [result.addressDetails.suburb, result.addressDetails.city].filter(Boolean).join(', ') }}
+            </span>
+          </div>
         </div>
       </div>
       
@@ -104,10 +110,16 @@
         <div
           v-for="(result, index) in geocodeResults"
           :key="`address-${index}`"
-          class="search-result-item"
+          class="search-result-item address-result"
           @click="selectAddress(result)"
         >
-          <span class="result-name">{{ result.display_name }}</span>
+          <span class="result-type-icon">{{ getTypeIcon(result.type) }}</span>
+          <div class="result-address-info">
+            <span class="result-name">{{ result.displayName }}</span>
+            <span v-if="result.addressDetails.suburb || result.addressDetails.city" class="result-address-sub">
+              {{ [result.addressDetails.suburb, result.addressDetails.city].filter(Boolean).join(', ') }}
+            </span>
+          </div>
         </div>
       </div>
       
@@ -164,6 +176,7 @@ import apiService from '@/services/apiService'
 import { useFavorites, type FavoriteLocation } from '@/composables/useFavorites'
 import { useRecentSearches } from '@/composables/useRecentSearches'
 import { useStatistics } from '@/composables/useStatistics'
+import { searchAddresses, getTypeIcon, type GeocodingResult } from '@/services/geocodingService'
 
 interface Props {
   stations: Station[]
@@ -176,12 +189,6 @@ const props = withDefaults(defineProps<Props>(), {
   userLocation: null,
   tripMode: false
 })
-
-interface GeocodeResult {
-  lat: string
-  lon: string
-  display_name: string
-}
 
 const emit = defineEmits<{
   stationSelected: [station: Station]
@@ -199,14 +206,14 @@ const { incrementSearches, recordStationUsage } = useStatistics()
 
 const searchQuery = ref('')
 const showResults = ref(false)
-const geocodeResults = ref<GeocodeResult[]>([])
+const geocodeResults = ref<GeocodingResult[]>([])
 const isSearching = ref(false)
 const selectedLocation = ref<{ lat: number; lon: number } | null>(null)
 
 // Origin search state
 const originQuery = ref('')
 const showOriginResults = ref(false)
-const geocodeOriginResults = ref<GeocodeResult[]>([])
+const geocodeOriginResults = ref<GeocodingResult[]>([])
 const filteredOriginStations = ref<Station[]>([])
 const originLocation = ref<{ lat: number; lon: number; name: string } | null>(null)
 const destinationLocation = ref<{ lat: number; lon: number; name: string } | null>(null)
@@ -251,63 +258,13 @@ const filteredStations = computed(() => {
 
 // Geocoding API (Nominatim - OpenStreetMap)
 const searchAddress = async (query: string) => {
-  if (query.length < 3) {
+  if (query.length < 2) {
     geocodeResults.value = []
     return
   }
-  
   isSearching.value = true
-  
   try {
-    // Adaugă "Sibiu, Romania" pentru context local
-    const searchQuery = `${query}, Sibiu, Romania`
-    
-    // Parametri îmbunătățiți pentru Nominatim:
-    // - addressdetails=1: include detalii complete adresă
-    // - extratags=1: include tag-uri suplimentare OSM
-    // - namedetails=1: include variante ale numelui
-    const params = new URLSearchParams({
-      format: 'json',
-      q: searchQuery,
-      limit: '5',
-      addressdetails: '1',
-      extratags: '1',
-      namedetails: '1',
-      'accept-language': 'ro' // Preferință pentru limba română
-    })
-    
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?${params.toString()}`
-    )
-    const data = await response.json()
-    
-    // Filtrează rezultatele pentru a exclude cele prea imprecise
-    geocodeResults.value = data.filter((result: any) => {
-      // Exclude rezultate cu bbox (bounding box) prea mare
-      // care indică o zonă largă, nu o adresă precisă
-      if (result.boundingbox) {
-        const bbox = result.boundingbox.map((coord: string) => parseFloat(coord))
-        const latDiff = Math.abs(bbox[1] - bbox[0])
-        const lonDiff = Math.abs(bbox[3] - bbox[2])
-        
-        // Dacă bbox-ul este mai mare de 0.01 grade (~1km), exclude
-        if (latDiff > 0.01 || lonDiff > 0.01) {
-          console.log('⚠️ Exclude rezultat imprecis:', result.display_name)
-          return false
-        }
-      }
-      return true
-    })
-    
-    console.log(`🔍 Găsite ${geocodeResults.value.length} rezultate precise pentru "${query}"`)
-  } catch (error) {
-    // Ignoră erorile de rețea temporare (network changed, fetch failed)
-    if (error instanceof TypeError && (error.message.includes('fetch') || error.message.includes('network'))) {
-      console.warn('⚠️ Eroare temporară de rețea la geocoding - se va reîncerca automat')
-    } else {
-      console.error('❌ Eroare la geocoding:', error)
-    }
-    geocodeResults.value = []
+    geocodeResults.value = await searchAddresses(query)
   } finally {
     isSearching.value = false
   }
@@ -349,49 +306,21 @@ const handleOriginSearch = () => {
     clearTimeout(originSearchTimeout)
   }
   originSearchTimeout = setTimeout(async () => {
-    if (originQuery.value.length < 3) {
+    if (originQuery.value.length < 2) {
       geocodeOriginResults.value = []
       return
     }
-    
-    try {
-      const searchQuery = `${originQuery.value}, Sibiu, Romania`
-      const params = new URLSearchParams({
-        format: 'json',
-        q: searchQuery,
-        limit: '5',
-        addressdetails: '1',
-        'accept-language': 'ro'
-      })
-      
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?${params.toString()}`
-      )
-      const data = await response.json()
-      
-      geocodeOriginResults.value = data.filter((result: any) => {
-        if (result.boundingbox) {
-          const bbox = result.boundingbox.map((coord: string) => parseFloat(coord))
-          const latDiff = Math.abs(bbox[1] - bbox[0])
-          const lonDiff = Math.abs(bbox[3] - bbox[2])
-          if (latDiff > 0.01 || lonDiff > 0.01) return false
-        }
-        return true
-      })
-    } catch (error) {
-      console.error('Geocoding error:', error)
-      geocodeOriginResults.value = []
-    }
-  }, 500)
+    geocodeOriginResults.value = await searchAddresses(originQuery.value)
+  }, 400)
 }
 
-const selectOriginAddress = (result: GeocodeResult) => {
+const selectOriginAddress = (result: GeocodingResult) => {
   originLocation.value = {
-    lat: parseFloat(result.lat),
-    lon: parseFloat(result.lon),
-    name: result.display_name
+    lat: result.lat,
+    lon: result.lon,
+    name: result.displayName
   }
-  originQuery.value = result.display_name
+  originQuery.value = result.displayName
   showOriginResults.value = false
   geocodeOriginResults.value = []
   filteredOriginStations.value = []
@@ -470,14 +399,14 @@ const findNearestStation = (lat: number, lon: number): Station | null => {
   return nearest || null
 }
 
-const selectAddress = (result: GeocodeResult) => {
-  const destinationLat = parseFloat(result.lat)
-  const destinationLon = parseFloat(result.lon)
-  const destinationName = result.display_name.split(',')[0] || 'Destinație'
-  
+const selectAddress = (result: GeocodingResult) => {
+  const destinationLat  = result.lat
+  const destinationLon  = result.lon
+  const destinationName = result.displayName
+
   // Track statistics
   incrementSearches()
-  
+
   // Salvează în recent searches
   addRecentSearch({
     query: searchQuery.value,
@@ -488,57 +417,34 @@ const selectAddress = (result: GeocodeResult) => {
       lon: destinationLon
     }
   })
-  
+
   // In trip mode, just set destination
   if (props.tripMode) {
-    destinationLocation.value = {
-      lat: destinationLat,
-      lon: destinationLon,
-      name: result.display_name
-    }
-    searchQuery.value = result.display_name
+    destinationLocation.value = { lat: destinationLat, lon: destinationLon, name: destinationName }
+    searchQuery.value = destinationName
     showResults.value = false
     geocodeResults.value = []
     return
   }
-  
-  // Original behavior for non-trip mode
-  // Dacă avem locația utilizatorului, calculează traseu multimodal
+
+  // Non-trip mode: multimodal route or walking fallback
   if (props.userLocation) {
-    console.log(`🚀 Calculez traseu multimodal de la locația ta la ${destinationName}`)
-    
     selectedLocation.value = { lat: destinationLat, lon: destinationLon }
-    
-    // Emite eveniment pentru traseu multimodal (mers pe jos + autobuz + mers pe jos)
-    emit('multimodalRouteRequested', 
+    emit('multimodalRouteRequested',
       props.userLocation,
       { lat: destinationLat, lon: destinationLon, name: destinationName }
     )
-    
     emit('addressSelected', { lat: destinationLat, lon: destinationLon, name: destinationName })
   } else {
-    // Fallback: fără locație GPS, doar walking directions la cea mai apropiată stație
-    console.log(`⚠️ Nicio locație GPS - afișez doar stația cea mai apropiată de ${destinationName}`)
-    
     selectedLocation.value = { lat: destinationLat, lon: destinationLon }
-    
     const nearestStation = findNearestStation(destinationLat, destinationLon)
-    
     if (nearestStation) {
-      const distance = getDistance(destinationLat, destinationLon, nearestStation.latitude, nearestStation.longitude)
-      console.log(`🎯 Cea mai apropiată stație de "${result.display_name}": ${nearestStation.name} (${distance.toFixed(2)} km)`)
-      
-      const startLocation = {
-        lat: destinationLat,
-        lon: destinationLon,
-        name: destinationName
-      }
-      
+      const startLocation = { lat: destinationLat, lon: destinationLon, name: destinationName }
       emit('addressSelected', startLocation)
       emit('walkingDirectionsRequested', startLocation, nearestStation)
     }
   }
-  
+
   showResults.value = false
   searchQuery.value = destinationName
 }
@@ -634,10 +540,13 @@ const selectRecentSearch = (search: any) => {
       selectStation(station)
     }
   } else if (search.result.lat && search.result.lon) {
-    const fakeResult: GeocodeResult = {
-      lat: search.result.lat.toString(),
-      lon: search.result.lon.toString(),
-      display_name: search.result.name
+    const fakeResult: GeocodingResult = {
+      displayName:    search.result.name,
+      fullAddress:    search.result.name,
+      lat:            search.result.lat,
+      lon:            search.result.lon,
+      type:           'other',
+      addressDetails: {}
     }
     selectAddress(fakeResult)
   }
@@ -987,6 +896,33 @@ if (typeof window !== 'undefined') {
   gap: 8px;
   flex: 1;
   min-width: 0;
+}
+
+.address-result {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.result-type-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.result-address-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.result-address-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .result-name {
