@@ -40,13 +40,16 @@ export function getTypeIcon(type: GeocodingResult['type']): string {
 export function normalizeAddressQuery(query: string): string {
   return query
     .trim()
-    .replace(/\bstr\.?\s+/gi,  'Strada ')
-    .replace(/\bbd\.?\s+/gi,   'Bulevardul ')
-    .replace(/\bb-dul\s+/gi,   'Bulevardul ')
-    .replace(/\bcal\.?\s+/gi,  'Calea ')
-    .replace(/\bal\.?\s+/gi,   'Aleea ')
-    .replace(/\bp-?ta\.?\s+/gi,'Piata ')
-    .replace(/\bnr\.?\s*/gi,   '')   // strip "nr." prefix — the number alone is better
+    .replace(/\bstr\.?\s+/gi,     'Strada ')
+    .replace(/\bbd\.?\s+/gi,      'Bulevardul ')
+    .replace(/\bb-dul\s+/gi,      'Bulevardul ')
+    .replace(/\bcal\.?\s+/gi,     'Calea ')
+    .replace(/\bal\.?\s+/gi,      'Aleea ')
+    .replace(/\bp-?ta\.?\s+/gi,   'Piata ')
+    .replace(/\bnr\.?\s*/gi,      '')   // strip "nr." abbreviation
+    .replace(/\bnumarul\s*/gi,    '')   // strip full word "numarul"
+    .replace(/\s{2,}/g,           ' ')  // collapse double spaces left by removals
+    .trim()
 }
 
 // ─── Internal formatting ──────────────────────────────────────────────────────
@@ -116,58 +119,97 @@ function rankResults(query: string, results: GeocodingResult[]): GeocodingResult
 
 let _abort: AbortController | null = null
 
+/** Parse a normalized query into structured parts if it contains a house number */
+function parseStructured(normalized: string): { street: string; city?: string } | null {
+  // Match patterns like: "Strada Unirii 19 Cisnadie" or "Calea Dumbravii 5A Sibiu"
+  const m = normalized.match(
+    /^(.+?)\s+(\d+[A-Za-z]?)\s+([A-ZĂÂÎȘȚ][a-zăâîșț]+(?:\s+[A-ZĂÂÎȘȚ][a-zăâîșț]+)*)$/
+  )
+  if (!m) return null
+  return { street: `${m[2]} ${m[1]}`, city: m[3] }
+}
+
+async function nominatimFetch(params: URLSearchParams, signal: AbortSignal): Promise<any[]> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?${params}`,
+      { signal, headers: { Accept: 'application/json' } }
+    )
+    return await res.json()
+  } catch {
+    return []
+  }
+}
+
+function toResults(data: any[]): GeocodingResult[] {
+  return data.map(item => ({
+    displayName:    formatDisplayName(item),
+    fullAddress:    item.display_name,
+    lat:            parseFloat(item.lat),
+    lon:            parseFloat(item.lon),
+    type:           classifyType(item),
+    addressDetails: {
+      road:        item.address?.road ?? item.address?.pedestrian ?? item.address?.footway,
+      houseNumber: item.address?.house_number,
+      suburb:      item.address?.suburb ?? item.address?.neighbourhood,
+      city:        item.address?.city   ?? item.address?.town ?? item.address?.village
+    }
+  }))
+}
+
 /**
  * Search for addresses using Nominatim.
- * Returns up to 8 results, ranked by relevance (house numbers first).
- * No bbox filtering — every precise address is accepted.
+ * Runs a free-form query + (when a house number is detected) a parallel
+ * structured query, then merges, deduplicates and ranks.
  */
 export async function searchAddresses(query: string): Promise<GeocodingResult[]> {
   if (query.trim().length < 2) return []
 
-  // Cancel any in-flight request
   if (_abort) _abort.abort()
   _abort = new AbortController()
+  const signal = _abort.signal
 
-  const normalized = normalizeAddressQuery(query)
-  const fullQuery  = /romania/i.test(normalized)
+  const normalized  = normalizeAddressQuery(query)
+  const wordCount   = normalized.split(/\s+/).filter(Boolean).length
+  // 4+ word queries already carry a city name — just add Romania to avoid
+  // "Cisnadie, Sibiu, Romania" confusing Nominatim.
+  const fullQuery = /romania/i.test(normalized)
     ? normalized
-    : `${normalized}, Sibiu, Romania`
+    : wordCount >= 4
+      ? `${normalized}, Romania`
+      : `${normalized}, Sibiu, Romania`
 
-  const params = new URLSearchParams({
-    format:          'json',
-    q:               fullQuery,
-    limit:           '8',
-    addressdetails:  '1',
-    countrycodes:    'ro',
-    viewbox:         SIBIU_VIEWBOX,
-    bounded:         '0',      // viewbox is a hint, not a hard limit
+  // ── Free-form query ────────────────────────────────────────────────────────
+  const freeParams = new URLSearchParams({
+    format: 'json', q: fullQuery, limit: '6',
+    addressdetails: '1', countrycodes: 'ro',
+    viewbox: SIBIU_VIEWBOX, bounded: '0',
     'accept-language': 'ro'
   })
 
+  // ── Structured query (parallel, only when house number detected) ───────────
+  const structured = parseStructured(normalized)
+  const structParams = structured
+    ? new URLSearchParams({
+        format: 'json', limit: '4', addressdetails: '1',
+        countrycodes: 'ro', 'accept-language': 'ro',
+        street:  structured.street,
+        city:    structured.city ?? 'Sibiu',
+        country: 'Romania'
+      })
+    : null
+
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?${params}`,
-      { signal: _abort.signal, headers: { Accept: 'application/json' } }
-    )
-    const data: any[] = await res.json()
+    const [freeData, structData] = await Promise.all([
+      nominatimFetch(freeParams, signal),
+      structParams ? nominatimFetch(structParams, signal) : Promise.resolve([])
+    ])
 
-    const results: GeocodingResult[] = data.map(item => ({
-      displayName:    formatDisplayName(item),
-      fullAddress:    item.display_name,
-      lat:            parseFloat(item.lat),
-      lon:            parseFloat(item.lon),
-      type:           classifyType(item),
-      addressDetails: {
-        road:        item.address?.road ?? item.address?.pedestrian ?? item.address?.footway,
-        houseNumber: item.address?.house_number,
-        suburb:      item.address?.suburb ?? item.address?.neighbourhood,
-        city:        item.address?.city   ?? item.address?.town ?? item.address?.village
-      }
-    }))
+    const all = toResults([...structData, ...freeData])   // structured first (more precise)
 
-    // Deduplicate by displayName (Nominatim sometimes returns the same place twice)
+    // Deduplicate by displayName
     const seen = new Set<string>()
-    const unique = results.filter(r => {
+    const unique = all.filter(r => {
       if (seen.has(r.displayName)) return false
       seen.add(r.displayName)
       return true
@@ -176,11 +218,7 @@ export async function searchAddresses(query: string): Promise<GeocodingResult[]>
     return rankResults(normalized, unique)
   } catch (err: any) {
     if (err?.name === 'AbortError') return []
-    if (err instanceof TypeError && err.message.includes('fetch')) {
-      console.warn('⚠️ Geocoding: network error, will retry on next input')
-      return []
-    }
-    console.error('❌ Geocoding error:', err?.message)
+    console.warn('⚠️ Geocoding error:', err?.message)
     return []
   }
 }
