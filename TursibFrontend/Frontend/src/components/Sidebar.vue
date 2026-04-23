@@ -174,7 +174,11 @@
             <div v-if="originSuggestions.length > 0" class="autocomplete">
               <button v-for="s in originSuggestions" :key="`${s.type}-${s.name}`"
                 @click="selectOrigin(s)" class="autocomplete-item">
-                {{ s.type === 'station' ? '🚏' : '📍' }} {{ s.name }}
+                <span class="ac-icon">{{ s.type === 'station' ? '🚏' : (s.icon ?? '📍') }}</span>
+                <span class="ac-text">
+                  <span class="ac-name">{{ s.name }}</span>
+                  <span v-if="s.subtext" class="ac-sub">{{ s.subtext }}</span>
+                </span>
               </button>
             </div>
           </div>
@@ -196,7 +200,11 @@
             <div v-if="destSuggestions.length > 0" class="autocomplete">
               <button v-for="s in destSuggestions" :key="`${s.type}-${s.name}`"
                 @click="selectDest(s)" class="autocomplete-item">
-                {{ s.type === 'station' ? '🚏' : '📍' }} {{ s.name }}
+                <span class="ac-icon">{{ s.type === 'station' ? '🚏' : (s.icon ?? '📍') }}</span>
+                <span class="ac-text">
+                  <span class="ac-name">{{ s.name }}</span>
+                  <span v-if="s.subtext" class="ac-sub">{{ s.subtext }}</span>
+                </span>
               </button>
             </div>
           </div>
@@ -310,6 +318,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import apiService, { type Route, type Station, type StationScheduleEntry } from '@/services/apiService'
 import { useLanguage } from '@/composables/useLanguage'
+import { searchAddresses, getTypeIcon } from '@/services/geocodingService'
 
 // Props
 const props = defineProps<{
@@ -484,6 +493,8 @@ interface Suggestion {
   lat: number
   lon: number
   stationId?: number
+  icon?: string        // type icon from geocoding service
+  subtext?: string     // suburb / city line
 }
 
 export interface PlanResult {
@@ -603,64 +614,17 @@ const rankAddressSuggestion = (query: string, candidateName: string) => {
 const sortByAddressRelevance = (query: string, suggestions: Suggestion[]) =>
   [...suggestions].sort((a, b) => rankAddressSuggestion(query, b.name) - rankAddressSuggestion(query, a.name))
 
-// Geocoding via Google (if API key exists) + Nominatim fallback
-let geocodeAbort: AbortController | null = null
-const GOOGLE_GEOCODING_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
-
-const geocodeWithGoogle = async (query: string): Promise<Suggestion[]> => {
-  if (!GOOGLE_GEOCODING_KEY) return []
-
-  try {
-    const cleanedQuery = normalizeAddressInput(query)
-    const addressQuery = /romania/i.test(cleanedQuery) ? cleanedQuery : `${cleanedQuery}, Romania`
-    const params = new URLSearchParams({
-      address: addressQuery,
-      key: GOOGLE_GEOCODING_KEY
-    })
-    const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`)
-    const data = await response.json()
-    const results: any[] = Array.isArray(data?.results) ? data.results : []
-
-    const mapped = results
-      .slice(0, 4)
-      .map(result => ({
-        type: 'address' as const,
-        name: result.formatted_address,
-        lat: result.geometry?.location?.lat,
-        lon: result.geometry?.location?.lng
-      }))
-      .filter(item => Number.isFinite(item.lat) && Number.isFinite(item.lon)) as Suggestion[]
-
-    return sortByAddressRelevance(query, mapped)
-  } catch {
-    return []
-  }
-}
-
+// Geocoding via shared service (Nominatim, exact address support)
 const geocode = async (query: string): Promise<Suggestion[]> => {
-  if (geocodeAbort) geocodeAbort.abort()
-  geocodeAbort = new AbortController()
-
-  try {
-    const cleanedQuery = normalizeAddressInput(query)
-    const googleResults = await geocodeWithGoogle(cleanedQuery)
-    if (googleResults.length > 0) {
-      return googleResults
-    }
-
-    const normalizedQuery = /romania/i.test(cleanedQuery) ? cleanedQuery : `${cleanedQuery}, Romania`
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(normalizedQuery)}&format=json&limit=8&addressdetails=1&countrycodes=ro&viewbox=23.9,45.65,24.45,46.0&bounded=0`
-    const res = await fetch(url, { signal: geocodeAbort.signal, headers: { 'Accept-Language': 'ro' } })
-    const data: any[] = await res.json()
-    const mapped: Suggestion[] = data.map(d => ({
-      type: 'address' as const,
-      name: d.display_name,
-      lat: parseFloat(d.lat),
-      lon: parseFloat(d.lon),
-    }))
-
-    return sortByAddressRelevance(cleanedQuery, mapped)
-  } catch { return [] }
+  const results = await searchAddresses(query)
+  return results.map(r => ({
+    type: 'address' as const,
+    name: r.displayName,
+    lat: r.lat,
+    lon: r.lon,
+    icon: getTypeIcon(r.type),
+    subtext: [r.addressDetails.suburb, r.addressDetails.city].filter(Boolean).join(', ') || undefined
+  }))
 }
 
 const getSuggestions = async (query: string): Promise<Suggestion[]> => {
@@ -1464,7 +1428,9 @@ defineExpose({ openPlanTab })
 }
 
 .autocomplete-item {
-  display: block;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   width: 100%;
   text-align: left;
   padding: 10px 14px;
@@ -1480,6 +1446,31 @@ defineExpose({ openPlanTab })
 
 .autocomplete-item:last-child { border-bottom: none; }
 .autocomplete-item:hover { background: var(--accent-primary-soft); color: var(--accent-primary); }
+
+.ac-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+.ac-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ac-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.ac-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ===== SCHEDULE PANEL ===== */
 .schedule-panel { display: flex; flex-direction: column; gap: 8px; }
