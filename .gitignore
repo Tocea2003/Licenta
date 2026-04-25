@@ -5,6 +5,8 @@
 !BusSimulator/**
 !TursibBackend/
 !TursibBackend/**
+!TursibBackend.Tests/
+!TursibBackend.Tests/**
 !TursibFrontend/
 !TursibFrontend/**
 
