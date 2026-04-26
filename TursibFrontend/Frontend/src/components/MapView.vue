@@ -604,7 +604,7 @@
 
 <script setup lang="ts">
 
-import { ref, computed, onMounted, onActivated, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onActivated, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDatabaseObject } from 'vuefire'
 import { ref as dbRef, getDatabase } from 'firebase/database'
@@ -687,22 +687,28 @@ const {
 } = useNotifications()
 
 // Check authentication on mount and periodically
+let authCheckIntervalId: ReturnType<typeof setInterval> | null = null
+
 onMounted(() => {
   // Initial auth check
   checkAuthStatus()
-  
+
   // Check notifications support
   const diagnostics = checkNotificationSupport()
   if (!diagnostics.supported) {
   }
-  
+
   // Check auth status every 2 seconds to detect login changes
-  setInterval(() => {
+  authCheckIntervalId = setInterval(() => {
     const wasAuthenticated = isAuthenticated.value
     checkAuthStatus()
     if (!wasAuthenticated && isAuthenticated.value) {
     }
   }, 2000)
+})
+
+onUnmounted(() => {
+  if (authCheckIntervalId !== null) clearInterval(authCheckIntervalId)
 })
 
 // Also check when component becomes active (after navigation, keep-alive)

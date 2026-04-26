@@ -1,6 +1,7 @@
 using TursibBackend.Data;
 using TursibBackend.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using RouteModel = TursibBackend.Models.Route;
 
 namespace TursibBackend.Services
@@ -12,15 +13,37 @@ namespace TursibBackend.Services
     public class RouteCalculatorService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMemoryCache _cache;
         private const double WALKING_SPEED_KM_PER_HOUR = 5.0; // Viteza medie de mers pe jos
         private const double MAX_WALKING_DISTANCE_KM = 0.5; // Distanța maximă pentru walking (500m)
         private const int TRANSFER_PENALTY_MINUTES = 5; // Penalitate pentru fiecare transfer
         private const int AVG_BUS_SPEED_KM_PER_HOUR = 25; // Viteza medie autobuz în oraș
         private const int STATION_STOP_TIME_MINUTES = 1; // Timp de oprire la fiecare stație
 
-        public RouteCalculatorService(ApplicationDbContext context)
+        private record GraphCacheEntry(TransportGraph Graph, List<RouteModel> AllRoutes, List<Station> AllStations);
+
+        public RouteCalculatorService(ApplicationDbContext context, IMemoryCache cache)
         {
             _context = context;
+            _cache = cache;
+        }
+
+        private async Task<GraphCacheEntry> GetOrBuildGraphAsync()
+        {
+            if (_cache.TryGetValue("transport_graph", out GraphCacheEntry? cached) && cached != null)
+                return cached;
+
+            var allRoutes = await _context.Routes
+                .AsNoTracking()
+                .Include(r => r.RouteStations)
+                .ThenInclude(rs => rs.Station)
+                .ToListAsync();
+            var allStations = await _context.Stations.AsNoTracking().ToListAsync();
+
+            var graph = BuildTransportGraph(allRoutes, allStations);
+            var entry = new GraphCacheEntry(graph, allRoutes, allStations);
+            _cache.Set("transport_graph", entry, TimeSpan.FromMinutes(5));
+            return entry;
         }
 
         #region Public API Methods
@@ -50,21 +73,13 @@ namespace TursibBackend.Services
         {
             var alternativeRoutes = new List<CalculatedRoute>();
 
-            // Încarcă datele necesare
-            var allRoutes = await _context.Routes
-                .Include(r => r.RouteStations)
-                .ThenInclude(rs => rs.Station)
-                .ToListAsync();
+            // Load graph and route data (cached for 5 minutes)
+            var (graph, allRoutes, allStations) = await GetOrBuildGraphAsync();
 
-            var allStations = await _context.Stations.ToListAsync();
-
-            if (allRoutes.Count == 0 || allStations.Count == 0)
+            if (graph.Nodes.Count == 0)
             {
                 return alternativeRoutes;
             }
-
-            // Construiește graful de transport
-            var graph = BuildTransportGraph(allRoutes, allStations);
 
             // 1. Ruta optimă (minimizare timp total)
             var optimalPath = DijkstraSearch(graph, startStationId, endStationId, 

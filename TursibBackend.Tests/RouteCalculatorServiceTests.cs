@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using TursibBackend.Data;
 using TursibBackend.Models;
 using TursibBackend.Services;
@@ -23,7 +24,7 @@ public class RouteCalculatorServiceTests : IDisposable
             .UseInMemoryDatabase(Guid.NewGuid().ToString()) // isolated per test class instance
             .Options;
         _db  = new ApplicationDbContext(options);
-        _sut = new RouteCalculatorService(_db);
+        _sut = new RouteCalculatorService(_db, new MemoryCache(new MemoryCacheOptions()));
     }
 
     public void Dispose() => _db.Dispose();

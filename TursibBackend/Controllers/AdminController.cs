@@ -235,13 +235,16 @@ namespace TursibBackend.Controllers
         {
             try
             {
-                // Get database statistics
-                var totalRoutes = await _context.Routes.CountAsync();
-                var totalStations = await _context.Stations.CountAsync();
-                var totalBuses = await _context.Buses.CountAsync();
+                // Run all count queries concurrently
+                var routesTask   = _context.Routes.CountAsync();
+                var stationsTask = _context.Stations.CountAsync();
+                var busesTask    = _context.Buses.CountAsync();
+                await Task.WhenAll(routesTask, stationsTask, busesTask);
 
-                // Get active buses from Firebase (simulated with database for now)
-                var activeBuses = await _context.Buses.CountAsync();
+                var totalRoutes   = routesTask.Result;
+                var totalStations = stationsTask.Result;
+                var totalBuses    = busesTask.Result;
+                var activeBuses   = busesTask.Result;
 
                 // Calculate average occupancy (simulated)
                 var avgOccupancy = 0;
