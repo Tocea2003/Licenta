@@ -142,7 +142,8 @@ app.MapGet("/api/debug/routestations", () =>
     
     return Results.Ok(new { totalRouteStations = count, byRoute = results });
 })
-.WithName("DebugRouteStations");
+.WithName("DebugRouteStations")
+.RequireAuthorization(policy => policy.RequireRole("Admin"));
 
 // Endpoint DEBUG pentru Trips și StopTimes
 app.MapGet("/api/debug/gtfs", () =>
@@ -201,7 +202,8 @@ app.MapGet("/api/debug/gtfs", () =>
     
     return Results.Ok(info);
 })
-.WithName("DebugGTFS");
+.WithName("DebugGTFS")
+.RequireAuthorization(policy => policy.RequireRole("Admin"));
 
 var summaries = new[]
 {

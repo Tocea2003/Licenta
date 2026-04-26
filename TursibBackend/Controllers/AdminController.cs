@@ -25,7 +25,7 @@ namespace TursibBackend.Controllers
         [HttpGet("routes")]
         public async Task<ActionResult<IEnumerable<Models.Route>>> GetAllRoutes()
         {
-            return await _context.Routes.ToListAsync();
+            return await _context.Routes.AsNoTracking().ToListAsync();
         }
 
         // PUT: api/admin/routes/5
@@ -131,10 +131,8 @@ namespace TursibBackend.Controllers
             catch (DbUpdateConcurrencyException)
             {
                 if (!_context.Stations.Any(s => s.Id == id))
-                {
                     return NotFound();
-                }
-                throw;
+                return StatusCode(500, "Conflict writing station. Please refresh and try again.");
             }
 
             return NoContent();
@@ -303,6 +301,7 @@ namespace TursibBackend.Controllers
         public async Task<ActionResult<IEnumerable<object>>> GetAllUsers()
         {
             var users = await _context.Users
+                .AsNoTracking()
                 .Select(u => new
                 {
                     u.Id,
