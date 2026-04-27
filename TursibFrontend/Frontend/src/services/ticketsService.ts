@@ -39,7 +39,7 @@ export interface PaymentInfo {
   status: string
 }
 
-export type TicketType = 'single' | 'student' | 'carnet10' | 'daily' | 'monthly'
+export type TicketType = 'single' | 'daily' | 'weekly' | 'monthly_nominal' | 'monthly_nonnominal'
 
 export interface Ticket {
   id: number

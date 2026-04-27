@@ -22,44 +22,44 @@ const cardData = ref<CardData>({
 })
 const cardValid = ref(false)
 
+// Tarife Tursib Sibiu în vigoare de la 1 aprilie 2025
 const ticketOptions: { id: TicketType; icon: string; name: string; desc: string; price: number; badge?: string }[] = [
   {
     id: 'single',
     icon: '🎫',
-    name: 'Bilet simplu',
-    desc: 'O călătorie, valabil 60 min',
-    price: 3.00
-  },
-  {
-    id: 'student',
-    icon: '🎓',
-    name: 'Bilet elev / student',
-    desc: 'O călătorie, tarif redus, 60 min',
-    price: 1.50,
-    badge: 'Redus'
-  },
-  {
-    id: 'carnet10',
-    icon: '📋',
-    name: 'Carnet 10 călătorii',
-    desc: '10 călătorii incluse, valabil 30 zile',
-    price: 25.00,
-    badge: 'Economie 17%'
+    name: 'Bilet intern 60 min',
+    desc: 'O călătorie, valabil 60 de minute',
+    price: 3.50
   },
   {
     id: 'daily',
     icon: '☀️',
-    name: 'Bilet de zi',
-    desc: 'Călătorii nelimitate, 24 ore',
-    price: 8.00
+    name: 'Legitimație zilnică',
+    desc: 'Călătorii nelimitate, 1 zi calendaristică',
+    price: 7.00
   },
   {
-    id: 'monthly',
+    id: 'weekly',
     icon: '📅',
-    name: 'Abonament lunar',
-    desc: 'Călătorii nelimitate, 30 zile',
-    price: 50.00,
-    badge: 'Cel mai avantajos'
+    name: 'Abonament 7 zile',
+    desc: 'Călătorii nelimitate, 7 zile calendaristice',
+    price: 24.00
+  },
+  {
+    id: 'monthly_nominal',
+    icon: '🪪',
+    name: 'Abonament nominal 30 zile',
+    desc: 'Călătorii nelimitate, 30 zile — pe numele tău',
+    price: 90.00,
+    badge: 'Nominal'
+  },
+  {
+    id: 'monthly_nonnominal',
+    icon: '📋',
+    name: 'Abonament nenominal 30 zile',
+    desc: 'Călătorii nelimitate, 30 zile — transferabil',
+    price: 126.00,
+    badge: 'Nenominal'
   },
 ]
 

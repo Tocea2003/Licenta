@@ -14,14 +14,14 @@ namespace TursibBackend.Controllers
         private readonly PaymentSimulatorService _payments;
         private readonly ILogger<TicketsController> _logger;
 
-        // Catalog of all supported ticket types: price (RON), validity in minutes, rides included
+        // Catalog of Tursib Sibiu ticket types (tarife în vigoare de la 1 aprilie 2025)
         private static readonly Dictionary<string, (decimal Price, int ValidityMinutes, int? RidesTotal)> TicketCatalog = new()
         {
-            ["single"]   = (3.00m,          60,             null),
-            ["student"]  = (1.50m,          60,             null),
-            ["carnet10"] = (25.00m,         60 * 24 * 30,   10),
-            ["daily"]    = (8.00m,          60 * 24,        null),
-            ["monthly"]  = (50.00m,         60 * 24 * 30,   null),
+            ["single"]           = (3.50m,  60,           null),   // Bilet intern 60 min
+            ["daily"]            = (7.00m,  60 * 24,      null),   // Legitimație zilnică internă
+            ["weekly"]           = (24.00m, 60 * 24 * 7,  null),   // Abonament 7 zile intern
+            ["monthly_nominal"]  = (90.00m, 60 * 24 * 30, null),   // Abonament nominal 30 zile
+            ["monthly_nonnominal"] = (126.00m, 60 * 24 * 30, null), // Abonament nenominal 30 zile
         };
 
         public TicketsController(ApplicationDbContext context, PaymentSimulatorService payments, ILogger<TicketsController> logger)

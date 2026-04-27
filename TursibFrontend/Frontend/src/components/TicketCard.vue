@@ -5,11 +5,11 @@ import type { Ticket, TicketType } from '@/services/ticketsService'
 const props = defineProps<{ ticket: Ticket }>()
 
 const TICKET_META: Record<TicketType, { icon: string; name: string; sub: string }> = {
-  single:   { icon: '🎫', name: 'Bilet simplu',          sub: 'O călătorie — 60 min' },
-  student:  { icon: '🎓', name: 'Bilet elev / student',   sub: 'O călătorie tarif redus — 60 min' },
-  carnet10: { icon: '📋', name: 'Carnet 10 călătorii',    sub: '10 călătorii — valabil 30 zile' },
-  daily:    { icon: '☀️', name: 'Bilet de zi',            sub: 'Călătorii nelimitate — 24 ore' },
-  monthly:  { icon: '📅', name: 'Abonament lunar',        sub: 'Călătorii nelimitate — 30 zile' },
+  single:             { icon: '🎫', name: 'Bilet intern 60 min',         sub: 'O călătorie — valabil 60 min' },
+  daily:              { icon: '☀️', name: 'Legitimație zilnică',          sub: 'Călătorii nelimitate — 1 zi' },
+  weekly:             { icon: '📅', name: 'Abonament 7 zile',            sub: 'Călătorii nelimitate — 7 zile' },
+  monthly_nominal:    { icon: '🪪', name: 'Abonament nominal 30 zile',   sub: 'Călătorii nelimitate — 30 zile (nominal)' },
+  monthly_nonnominal: { icon: '📋', name: 'Abonament nenominal 30 zile', sub: 'Călătorii nelimitate — 30 zile (nenominal)' },
 }
 
 const meta = computed(() => TICKET_META[props.ticket.ticketType] ?? TICKET_META.single)
