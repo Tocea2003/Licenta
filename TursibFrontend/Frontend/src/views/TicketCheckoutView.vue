@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import CardInputForm, { type CardData } from '@/components/CardInputForm.vue'
-import ticketsService, { type Ticket } from '@/services/ticketsService'
+import ticketsService, { type Ticket, type TicketType } from '@/services/ticketsService'
 
 const router = useRouter()
 
@@ -12,7 +12,7 @@ const submitting = ref(false)
 const serverError = ref<string | null>(null)
 const purchased = ref<Ticket | null>(null)
 
-const selectedType = ref<'single'>('single')
+const selectedType = ref<TicketType>('single')
 const cardData = ref<CardData>({
   cardholderName: '',
   cardNumber: '',
@@ -22,8 +22,45 @@ const cardData = ref<CardData>({
 })
 const cardValid = ref(false)
 
-const ticketOptions = [
-  { id: 'single' as const, name: 'Bilet simplu', desc: 'O calatorie, valabil 60 min', price: 3.00 }
+const ticketOptions: { id: TicketType; icon: string; name: string; desc: string; price: number; badge?: string }[] = [
+  {
+    id: 'single',
+    icon: '🎫',
+    name: 'Bilet simplu',
+    desc: 'O călătorie, valabil 60 min',
+    price: 3.00
+  },
+  {
+    id: 'student',
+    icon: '🎓',
+    name: 'Bilet elev / student',
+    desc: 'O călătorie, tarif redus, 60 min',
+    price: 1.50,
+    badge: 'Redus'
+  },
+  {
+    id: 'carnet10',
+    icon: '📋',
+    name: 'Carnet 10 călătorii',
+    desc: '10 călătorii incluse, valabil 30 zile',
+    price: 25.00,
+    badge: 'Economie 17%'
+  },
+  {
+    id: 'daily',
+    icon: '☀️',
+    name: 'Bilet de zi',
+    desc: 'Călătorii nelimitate, 24 ore',
+    price: 8.00
+  },
+  {
+    id: 'monthly',
+    icon: '📅',
+    name: 'Abonament lunar',
+    desc: 'Călătorii nelimitate, 30 zile',
+    price: 50.00,
+    badge: 'Cel mai avantajos'
+  },
 ]
 
 const selectedOption = computed(() => ticketOptions.find(o => o.id === selectedType.value)!)
@@ -112,8 +149,12 @@ function onCardUpdate(payload: { data: CardData; valid: boolean }) {
           :class="{ selected: selectedType === opt.id }"
           @click="selectedType = opt.id"
         >
+          <span class="chip-icon" aria-hidden="true">{{ opt.icon }}</span>
           <div class="chip-main">
-            <strong>{{ opt.name }}</strong>
+            <div class="chip-name-row">
+              <strong>{{ opt.name }}</strong>
+              <span v-if="opt.badge" class="chip-badge">{{ opt.badge }}</span>
+            </div>
             <span class="chip-desc">{{ opt.desc }}</span>
           </div>
           <span class="chip-price">{{ opt.price.toFixed(2) }} RON</span>
@@ -164,11 +205,15 @@ function onCardUpdate(payload: { data: CardData; valid: boolean }) {
       <div class="summary-grid">
         <div>
           <span class="field-label">Bilet</span>
-          <span class="field-value">{{ selectedOption.name }}</span>
+          <span class="field-value">{{ selectedOption.icon }} {{ selectedOption.name }}</span>
         </div>
         <div>
           <span class="field-label">Pret platit</span>
           <span class="field-value">{{ purchased.priceRon.toFixed(2) }} RON</span>
+        </div>
+        <div v-if="purchased.ridesTotal">
+          <span class="field-label">Calatorii incluse</span>
+          <span class="field-value">{{ purchased.ridesTotal }} calatorii</span>
         </div>
         <div>
           <span class="field-label">Valabil pana la</span>
@@ -221,18 +266,39 @@ function onCardUpdate(payload: { data: CardData; valid: boolean }) {
 
 .ticket-chip {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-md);
   min-height: 64px;
   width: 100%;
   text-align: left;
 }
+.chip-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
 .chip-main {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+}
+.chip-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.chip-badge {
+  font-size: 10px;
+  font-weight: var(--fw-bold);
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .chip-desc {
   font-size: var(--text-xs);
@@ -242,6 +308,7 @@ function onCardUpdate(payload: { data: CardData; valid: boolean }) {
 .chip-price {
   font-size: var(--text-lg);
   font-weight: var(--fw-bold);
+  flex-shrink: 0;
 }
 
 .section-actions {

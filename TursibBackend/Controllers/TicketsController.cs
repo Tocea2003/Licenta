@@ -14,6 +14,16 @@ namespace TursibBackend.Controllers
         private readonly PaymentSimulatorService _payments;
         private readonly ILogger<TicketsController> _logger;
 
+        // Catalog of all supported ticket types: price (RON), validity in minutes, rides included
+        private static readonly Dictionary<string, (decimal Price, int ValidityMinutes, int? RidesTotal)> TicketCatalog = new()
+        {
+            ["single"]   = (3.00m,          60,             null),
+            ["student"]  = (1.50m,          60,             null),
+            ["carnet10"] = (25.00m,         60 * 24 * 30,   10),
+            ["daily"]    = (8.00m,          60 * 24,        null),
+            ["monthly"]  = (50.00m,         60 * 24 * 30,   null),
+        };
+
         public TicketsController(ApplicationDbContext context, PaymentSimulatorService payments, ILogger<TicketsController> logger)
         {
             _context = context;
@@ -45,10 +55,14 @@ namespace TursibBackend.Controllers
             if (string.IsNullOrWhiteSpace(request.Cvv))
                 return BadRequest(new { message = "CVV-ul este obligatoriu" });
 
-            // Momentan doar bilet simplu
-            var price = 3.00m;
+            // Resolve ticket type from catalog
+            var ticketType = (request.TicketType ?? "single").ToLower();
+            if (!TicketCatalog.TryGetValue(ticketType, out var catalog))
+                return BadRequest(new { message = $"Tip bilet necunoscut: {ticketType}" });
+
+            var price = catalog.Price;
             var validFrom = DateTime.UtcNow;
-            var validUntil = validFrom.AddMinutes(60);
+            var validUntil = validFrom.AddMinutes(catalog.ValidityMinutes);
 
             var digits = PaymentSimulatorService.Normalize(request.CardNumber);
             var brand = _payments.DetectBrand(request.CardNumber);
@@ -89,7 +103,7 @@ namespace TursibBackend.Controllers
             var ticket = new Ticket
             {
                 UserId = user.Id,
-                TicketType = "single",
+                TicketType = ticketType,
                 PriceRon = price,
                 Status = "active",
                 PurchasedAt = DateTime.UtcNow,
@@ -157,6 +171,7 @@ namespace TursibBackend.Controllers
             validFrom = t.ValidFrom,
             validUntil = t.ValidUntil,
             qrToken = t.QrToken,
+            ridesTotal = TicketCatalog.TryGetValue(t.TicketType ?? "single", out var cat) ? cat.RidesTotal : null,
             payment = p == null ? null : new
             {
                 id = p.Id,

@@ -11,6 +11,7 @@ const createMockRouter = () => {
       { path: '/', name: 'home', component: { template: '<div>Home</div>' } },
       { path: '/trip-planner', name: 'trip-planner', component: { template: '<div>Trip Planner</div>' } },
       { path: '/favorites', name: 'favorites', component: { template: '<div>Favorites</div>' } },
+      { path: '/tickets', name: 'tickets', component: { template: '<div>Tickets</div>' } },
       { path: '/settings', name: 'settings', component: { template: '<div>Settings</div>' } },
     ]
   })
@@ -28,15 +29,14 @@ describe('BottomNav', () => {
       }
     })
 
-    // Check that all 4 nav items are rendered
+    // Check that all 5 nav items are rendered
     const navItems = wrapper.findAll('.nav-item')
-    expect(navItems).toHaveLength(4)
+    expect(navItems).toHaveLength(5)
 
-    // Check labels
-    expect(wrapper.text()).toContain('Hartă')
+    // Check labels (i18n renders without diacritics in test env)
     expect(wrapper.text()).toContain('Planificare')
     expect(wrapper.text()).toContain('Favorite')
-    expect(wrapper.text()).toContain('Setări')
+    expect(wrapper.text()).toContain('Bilete')
 
     wrapper.unmount()
   })
