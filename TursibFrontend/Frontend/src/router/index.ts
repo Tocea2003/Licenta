@@ -8,6 +8,9 @@ const AdminDashboard = () => import('../views/AdminDashboard.vue')
 const AdminAnalytics = () => import('../views/AdminAnalytics.vue')
 const AdminRoutes = () => import('../views/AdminRoutes.vue')
 const AdminStations = () => import('../views/AdminStations.vue')
+const AdminBuses = () => import('../views/AdminBuses.vue')
+const AdminUsers = () => import('../views/AdminUsers.vue')
+const AdminTickets = () => import('../views/AdminTickets.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -92,6 +95,21 @@ const router = createRouter({
           path: 'stations',
           name: 'admin-stations',
           component: AdminStations,
+        },
+        {
+          path: 'buses',
+          name: 'admin-buses',
+          component: AdminBuses,
+        },
+        {
+          path: 'users',
+          name: 'admin-users',
+          component: AdminUsers,
+        },
+        {
+          path: 'tickets',
+          name: 'admin-tickets',
+          component: AdminTickets,
         },
       ]
     },

@@ -335,6 +335,119 @@ namespace TursibBackend.Controllers
 
             return Ok(new { message = $"User role updated to {request.Role}", user = new { user.Id, user.Username, user.Role } });
         }
+
+        // DELETE: api/admin/users/{id}
+        [HttpDelete("users/{id}")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null)
+                return NotFound(new { message = "User not found" });
+
+            if (user.Role == "Admin")
+            {
+                var adminCount = await _context.Users.CountAsync(u => u.Role == "Admin");
+                if (adminCount <= 1)
+                    return BadRequest(new { message = "Nu poți șterge ultimul administrator." });
+            }
+
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // ========== BUS MANAGEMENT ==========
+
+        // GET: api/admin/buses
+        [HttpGet("buses")]
+        public async Task<ActionResult<IEnumerable<object>>> GetAllBuses()
+        {
+            var buses = await _context.Buses
+                .AsNoTracking()
+                .Include(b => b.CurrentRoute)
+                .Select(b => new
+                {
+                    b.Id,
+                    b.LicensePlate,
+                    b.InternalName,
+                    b.CurrentRouteId,
+                    currentRouteName   = b.CurrentRoute != null ? b.CurrentRoute.Name : null,
+                    currentRouteNumber = b.CurrentRoute != null ? b.CurrentRoute.RouteNumber : null
+                })
+                .ToListAsync();
+            return Ok(buses);
+        }
+
+        // POST: api/admin/buses
+        [HttpPost("buses")]
+        public async Task<IActionResult> CreateBus([FromBody] TursibBackend.Models.Bus bus)
+        {
+            _context.Buses.Add(bus);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetAllBuses), new { id = bus.Id }, new { bus.Id, bus.LicensePlate, bus.InternalName, bus.CurrentRouteId });
+        }
+
+        // PUT: api/admin/buses/{id}
+        [HttpPut("buses/{id}")]
+        public async Task<IActionResult> UpdateBus(int id, [FromBody] TursibBackend.Models.Bus bus)
+        {
+            if (id != bus.Id) return BadRequest("Bus ID mismatch");
+            var existing = await _context.Buses.FindAsync(id);
+            if (existing == null) return NotFound();
+
+            existing.LicensePlate  = bus.LicensePlate;
+            existing.InternalName  = bus.InternalName;
+            existing.CurrentRouteId = bus.CurrentRouteId;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // DELETE: api/admin/buses/{id}
+        [HttpDelete("buses/{id}")]
+        public async Task<IActionResult> DeleteBus(int id)
+        {
+            var bus = await _context.Buses.FindAsync(id);
+            if (bus == null) return NotFound();
+            _context.Buses.Remove(bus);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // ========== TICKET MANAGEMENT ==========
+
+        // GET: api/admin/tickets
+        [HttpGet("tickets")]
+        public async Task<ActionResult<IEnumerable<object>>> GetAllTickets()
+        {
+            var tickets = await _context.Tickets
+                .AsNoTracking()
+                .Include(t => t.User)
+                .Include(t => t.Payment)
+                .OrderByDescending(t => t.PurchasedAt)
+                .Select(t => new
+                {
+                    t.Id,
+                    t.TicketType,
+                    t.PriceRon,
+                    t.Status,
+                    t.PurchasedAt,
+                    t.ValidFrom,
+                    t.ValidUntil,
+                    t.QrToken,
+                    username = t.User != null ? t.User.Username : null,
+                    userId   = t.UserId,
+                    payment  = t.Payment != null ? new
+                    {
+                        t.Payment.Id,
+                        t.Payment.Amount,
+                        t.Payment.CardLast4,
+                        t.Payment.CardBrand,
+                        t.Payment.Status
+                    } : null
+                })
+                .ToListAsync();
+            return Ok(tickets);
+        }
     }
 
     // Request models

@@ -80,6 +80,42 @@ export interface RouteStation {
   station?: Station
 }
 
+export interface Bus {
+  id: number
+  licensePlate: string
+  internalName: string
+  currentRouteId: number | null
+  currentRouteName?: string | null
+  currentRouteNumber?: string | null
+}
+
+export interface AdminTicket {
+  id: number
+  ticketType: string
+  priceRon: number
+  status: string
+  purchasedAt: string
+  validFrom: string
+  validUntil: string
+  qrToken: string
+  username: string | null
+  userId: number
+  payment: {
+    id: number
+    amount: number
+    cardLast4: string
+    cardBrand: string
+    status: string
+  } | null
+}
+
+export interface AdminUser {
+  id: number
+  username: string
+  role: string
+  createdAt: string
+}
+
 const authService = {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     const response = await axios.post(`${API_BASE_URL}/Auth/login`, credentials)
@@ -183,4 +219,46 @@ const adminStationsService = {
   }
 }
 
-export { authService, adminRoutesService, adminStationsService }
+const adminUsersService = {
+  async getUsers(): Promise<AdminUser[]> {
+    const response = await adminApi.get('/admin/users')
+    return response.data
+  },
+
+  async updateRole(id: number, role: string): Promise<void> {
+    await adminApi.patch(`/admin/users/${id}/role`, { role })
+  },
+
+  async deleteUser(id: number): Promise<void> {
+    await adminApi.delete(`/admin/users/${id}`)
+  }
+}
+
+const adminBusesService = {
+  async getBuses(): Promise<Bus[]> {
+    const response = await adminApi.get('/admin/buses')
+    return response.data
+  },
+
+  async createBus(bus: Omit<Bus, 'id' | 'currentRouteName' | 'currentRouteNumber'>): Promise<Bus> {
+    const response = await adminApi.post('/admin/buses', bus)
+    return response.data
+  },
+
+  async updateBus(id: number, bus: Omit<Bus, 'currentRouteName' | 'currentRouteNumber'>): Promise<void> {
+    await adminApi.put(`/admin/buses/${id}`, bus)
+  },
+
+  async deleteBus(id: number): Promise<void> {
+    await adminApi.delete(`/admin/buses/${id}`)
+  }
+}
+
+const adminTicketsService = {
+  async getTickets(): Promise<AdminTicket[]> {
+    const response = await adminApi.get('/admin/tickets')
+    return response.data
+  }
+}
+
+export { authService, adminRoutesService, adminStationsService, adminUsersService, adminBusesService, adminTicketsService }

@@ -22,6 +22,18 @@
           <span class="nav-icon">📍</span>
           <span class="nav-text">{{ t('stations') }}</span>
         </router-link>
+        <router-link to="/admin/buses" class="nav-item">
+          <span class="nav-icon">🚌</span>
+          <span class="nav-text">Flotă Autobuze</span>
+        </router-link>
+        <router-link to="/admin/users" class="nav-item">
+          <span class="nav-icon">👥</span>
+          <span class="nav-text">Utilizatori</span>
+        </router-link>
+        <router-link to="/admin/tickets" class="nav-item">
+          <span class="nav-icon">🎫</span>
+          <span class="nav-text">Bilete & Revenue</span>
+        </router-link>
       </nav>
 
       <div class="sidebar-footer">
