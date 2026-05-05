@@ -6,6 +6,7 @@
     </div>
 
     <div class="content">
+      <div class="content-wrap">
       <!-- Notifications Section -->
       <div class="setting-section">
         <div class="section-label">🔔 {{ t('notifications') }}</div>
@@ -155,7 +156,8 @@
         </div>
       </div>
 
-      <div class="footer-note">Tursib Tracker v2.4.1 · made in Sibiu 🇷🇴</div>
+      <div class="footer-note">Tursib Tracker · Aplicație web pentru urmărirea în timp real a autobuzelor · v1.0.0 · made in Sibiu 🇷🇴</div>
+      </div><!-- /content-wrap -->
     </div>
   </div>
 </template>
@@ -220,37 +222,45 @@ const handleLogout = () => {
 
 <style scoped>
 .settings-page {
-  min-height: 100vh;
+  min-height: 100%;
   background: var(--gradient-bg);
-  padding-bottom: 100px;
+  padding-bottom: var(--space-6);
 }
 
 .header {
   background: var(--gradient-primary);
-  padding: 32px 24px;
+  padding: var(--space-8) var(--space-6);
   color: white;
   text-align: center;
 }
 
 .header h1 {
-  margin: 0 0 8px 0;
-  font-size: 2rem;
+  margin: 0 0 var(--space-2) 0;
+  font-size: var(--text-3xl);
   font-weight: 800;
   color: white;
 }
 
 .subtitle {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
   opacity: 0.9;
   color: white;
 }
 
 .content {
-  padding: 24px 16px;
+  padding: var(--space-6) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+}
+
+.content-wrap {
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
 
 /* Section container */
@@ -408,10 +418,25 @@ const handleLogout = () => {
 /* Footer */
 .footer-note {
   text-align: center;
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-medium);
   color: var(--text-tertiary);
-  line-height: 1.4;
-  padding: 8px 0 16px;
+  line-height: 1.5;
+  padding: var(--space-2) 0 var(--space-4);
+}
+
+/* Responsive: segmented control pe telefoane mici */
+@media (max-width: 400px) {
+  .section-row {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .segmented {
+    flex-wrap: wrap;
+  }
+  .seg-btn {
+    font-size: 11px;
+    padding: 5px 7px;
+  }
 }
 </style>

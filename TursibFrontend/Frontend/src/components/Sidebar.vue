@@ -6,7 +6,7 @@
       <div class="header-icon">🚌</div>
       <div>
         <h1>Tursib Tracker</h1>
-        <p>Sibiu — Transport Public</p>
+        <p>Aplicație web pentru urmărirea în timp real a autobuzelor</p>
       </div>
     </div>
 

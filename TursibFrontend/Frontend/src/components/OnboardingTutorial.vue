@@ -76,8 +76,8 @@ const currentStep = ref(0)
 const steps = [
   {
     icon: '🚌',
-    title: 'Bine ai venit la Tursib!',
-    description: 'Aplicația ta de transport public din Sibiu. Hai să explorăm funcțiile principale.',
+    title: 'Bine ai venit la Tursib Tracker!',
+    description: 'Aplicație web pentru urmărirea în timp real a autobuzelor din Sibiu. Hai să explorăm funcțiile principale.',
     illustration: defineComponent({
       render: () => h('div', { class: 'illust-bus' }, [
         h('div', { class: 'bus-body' }),

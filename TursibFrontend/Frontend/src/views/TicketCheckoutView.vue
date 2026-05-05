@@ -417,4 +417,21 @@ function onCardUpdate(payload: { data: CardData; valid: boolean }) {
   .section-actions { flex-direction: column-reverse; }
   .section-actions .btn { width: 100%; }
 }
+
+/* Telefoane foarte mici: ascunde textul din stepper, afișează doar numere */
+@media (max-width: 360px) {
+  .stepper-item span:not(.stepper-num) {
+    display: none;
+  }
+  .stepper-item {
+    justify-content: center;
+    padding: var(--space-2);
+    flex: none;
+    width: 40px;
+  }
+  .stepper {
+    justify-content: center;
+    gap: var(--space-2);
+  }
+}
 </style>
