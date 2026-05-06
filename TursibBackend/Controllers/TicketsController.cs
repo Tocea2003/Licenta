@@ -12,11 +12,23 @@ namespace TursibBackend.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly PaymentSimulatorService _payments;
+        private readonly ILogger<TicketsController> _logger;
 
-        public TicketsController(ApplicationDbContext context, PaymentSimulatorService payments)
+        // Catalog of Tursib Sibiu ticket types (tarife în vigoare de la 1 aprilie 2025)
+        private static readonly Dictionary<string, (decimal Price, int ValidityMinutes, int? RidesTotal)> TicketCatalog = new()
+        {
+            ["single"]           = (3.50m,  60,           null),   // Bilet intern 60 min
+            ["daily"]            = (7.00m,  60 * 24,      null),   // Legitimație zilnică internă
+            ["weekly"]           = (24.00m, 60 * 24 * 7,  null),   // Abonament 7 zile intern
+            ["monthly_nominal"]  = (90.00m, 60 * 24 * 30, null),   // Abonament nominal 30 zile
+            ["monthly_nonnominal"] = (126.00m, 60 * 24 * 30, null), // Abonament nenominal 30 zile
+        };
+
+        public TicketsController(ApplicationDbContext context, PaymentSimulatorService payments, ILogger<TicketsController> logger)
         {
             _context = context;
             _payments = payments;
+            _logger = logger;
         }
 
         // POST: api/Tickets/purchase
@@ -27,17 +39,30 @@ namespace TursibBackend.Controllers
             if (string.IsNullOrEmpty(username))
                 return Unauthorized(new { message = "Token invalid sau lipsa" });
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == username);
             if (user == null)
                 return NotFound(new { message = "Utilizator inexistent" });
 
             if (string.IsNullOrWhiteSpace(request.CardholderName))
                 return BadRequest(new { message = "Numele detinatorului cardului este obligatoriu" });
 
-            // Momentan doar bilet simplu
-            var price = 3.00m;
+            if (string.IsNullOrWhiteSpace(request.CardNumber))
+                return BadRequest(new { message = "Numarul cardului este obligatoriu" });
+
+            if (string.IsNullOrWhiteSpace(request.ExpiryMonth) || string.IsNullOrWhiteSpace(request.ExpiryYear))
+                return BadRequest(new { message = "Data expirarii cardului este obligatorie" });
+
+            if (string.IsNullOrWhiteSpace(request.Cvv))
+                return BadRequest(new { message = "CVV-ul este obligatoriu" });
+
+            // Resolve ticket type from catalog
+            var ticketType = (request.TicketType ?? "single").ToLower();
+            if (!TicketCatalog.TryGetValue(ticketType, out var catalog))
+                return BadRequest(new { message = $"Tip bilet necunoscut: {ticketType}" });
+
+            var price = catalog.Price;
             var validFrom = DateTime.UtcNow;
-            var validUntil = validFrom.AddMinutes(60);
+            var validUntil = validFrom.AddMinutes(catalog.ValidityMinutes);
 
             var digits = PaymentSimulatorService.Normalize(request.CardNumber);
             var brand = _payments.DetectBrand(request.CardNumber);
@@ -78,7 +103,7 @@ namespace TursibBackend.Controllers
             var ticket = new Ticket
             {
                 UserId = user.Id,
-                TicketType = "single",
+                TicketType = ticketType,
                 PriceRon = price,
                 Status = "active",
                 PurchasedAt = DateTime.UtcNow,
@@ -101,7 +126,7 @@ namespace TursibBackend.Controllers
             if (string.IsNullOrEmpty(username))
                 return Unauthorized(new { message = "Token invalid sau lipsa" });
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == username);
             if (user == null)
                 return NotFound(new { message = "Utilizator inexistent" });
 
@@ -122,7 +147,7 @@ namespace TursibBackend.Controllers
             if (string.IsNullOrEmpty(username))
                 return Unauthorized(new { message = "Token invalid sau lipsa" });
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == username);
             if (user == null)
                 return NotFound(new { message = "Utilizator inexistent" });
 
@@ -146,6 +171,7 @@ namespace TursibBackend.Controllers
             validFrom = t.ValidFrom,
             validUntil = t.ValidUntil,
             qrToken = t.QrToken,
+            ridesTotal = TicketCatalog.TryGetValue(t.TicketType ?? "single", out var cat) ? cat.RidesTotal : null,
             payment = p == null ? null : new
             {
                 id = p.Id,
@@ -174,8 +200,9 @@ namespace TursibBackend.Controllers
                     c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name");
                 return claim?.Value;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning("JWT parsing failed: {Message}", ex.Message);
                 return null;
             }
         }

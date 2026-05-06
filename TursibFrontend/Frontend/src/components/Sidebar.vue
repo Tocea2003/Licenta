@@ -6,7 +6,7 @@
       <div class="header-icon">🚌</div>
       <div>
         <h1>Tursib Tracker</h1>
-        <p>Sibiu — Transport Public</p>
+        <p>Aplicație web pentru urmărirea în timp real a autobuzelor</p>
       </div>
     </div>
 
@@ -645,20 +645,21 @@ const getSuggestions = async (query: string): Promise<Suggestion[]> => {
   return [...stationMatches, ...geocoded.slice(0, Math.max(0, 6 - stationMatches.length))]
 }
 
-let debounceTimer: number | null = null
+let originDebounceTimer: number | null = null
+let destDebounceTimer: number | null = null
 const debouncedOriginInput = () => {
   planOrigin.value = null
-  if (debounceTimer) clearTimeout(debounceTimer)
+  if (originDebounceTimer) clearTimeout(originDebounceTimer)
   if (!planOriginQuery.value.trim()) { originSuggestions.value = []; return }
-  debounceTimer = window.setTimeout(async () => {
+  originDebounceTimer = window.setTimeout(async () => {
     originSuggestions.value = await getSuggestions(planOriginQuery.value)
   }, 300)
 }
 const debouncedDestInput = () => {
   planDest.value = null
-  if (debounceTimer) clearTimeout(debounceTimer)
+  if (destDebounceTimer) clearTimeout(destDebounceTimer)
   if (!planDestQuery.value.trim()) { destSuggestions.value = []; return }
-  debounceTimer = window.setTimeout(async () => {
+  destDebounceTimer = window.setTimeout(async () => {
     destSuggestions.value = await getSuggestions(planDestQuery.value)
   }, 300)
 }
@@ -738,10 +739,13 @@ const buildDepartureDateTime = (time: string) => {
   return departure.toISOString()
 }
 
+let currentSearchId = 0
+
 const searchRoutes = async () => {
   const hasLocations = await ensurePlanLocationsResolved()
   if (!hasLocations) return
 
+  const mySearchId = ++currentSearchId
   isSearching.value = true; searchDone.value = false; planResults.value = []
 
   try {
@@ -959,6 +963,7 @@ const searchRoutes = async () => {
       if (a.minutesUntil !== b.minutesUntil) return a.minutesUntil - b.minutesUntil
       return a.arrivalTime.localeCompare(b.arrivalTime)
     })
+    if (currentSearchId !== mySearchId) return // superseded by a newer search
     planResults.value = results.slice(0, 8)
     searchDone.value = true
   } catch {

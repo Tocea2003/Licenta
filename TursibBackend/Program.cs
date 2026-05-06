@@ -75,6 +75,13 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -82,6 +89,9 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+// Enable response compression (must be before UseCors / static files)
+app.UseResponseCompression();
 
 // Activează politica CORS
 app.UseCors("AllowVueApp");
@@ -132,7 +142,8 @@ app.MapGet("/api/debug/routestations", () =>
     
     return Results.Ok(new { totalRouteStations = count, byRoute = results });
 })
-.WithName("DebugRouteStations");
+.WithName("DebugRouteStations")
+.RequireAuthorization(policy => policy.RequireRole("Admin"));
 
 // Endpoint DEBUG pentru Trips și StopTimes
 app.MapGet("/api/debug/gtfs", () =>
@@ -191,7 +202,8 @@ app.MapGet("/api/debug/gtfs", () =>
     
     return Results.Ok(info);
 })
-.WithName("DebugGTFS");
+.WithName("DebugGTFS")
+.RequireAuthorization(policy => policy.RequireRole("Admin"));
 
 var summaries = new[]
 {

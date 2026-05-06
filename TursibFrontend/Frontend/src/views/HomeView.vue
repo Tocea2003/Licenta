@@ -82,34 +82,12 @@ const closeSidebarOnMobile = () => {
 
 // Watch pentru schimbări în vizibilitatea sidebar-ului
 watch(sidebarVisible, () => {
-  // Forțează refresh-ul hărții de mai multe ori pentru siguranță
-  nextTick(() => {
-    // Imediat după ce DOM-ul se actualizează
+  // Single call after the sidebar CSS transition ends (~350ms)
+  setTimeout(() => {
     if (mapRef.value && typeof mapRef.value.invalidateSize === 'function') {
       mapRef.value.invalidateSize()
     }
-    
-    // După 100ms
-    setTimeout(() => {
-      if (mapRef.value && typeof mapRef.value.invalidateSize === 'function') {
-        mapRef.value.invalidateSize()
-      }
-    }, 100)
-    
-    // După ce animația se termină (350ms)
-    setTimeout(() => {
-      if (mapRef.value && typeof mapRef.value.invalidateSize === 'function') {
-        mapRef.value.invalidateSize()
-      }
-    }, 350)
-    
-    // Un ultim refresh la 500ms
-    setTimeout(() => {
-      if (mapRef.value && typeof mapRef.value.invalidateSize === 'function') {
-        mapRef.value.invalidateSize()
-      }
-    }, 500)
-  })
+  }, 350)
 })
 
 onMounted(() => {

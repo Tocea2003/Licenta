@@ -1,8 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Ticket } from '@/services/ticketsService'
+import type { Ticket, TicketType } from '@/services/ticketsService'
 
 const props = defineProps<{ ticket: Ticket }>()
+
+const TICKET_META: Record<TicketType, { icon: string; name: string; sub: string }> = {
+  single:             { icon: '🎫', name: 'Bilet intern 60 min',         sub: 'O călătorie — valabil 60 min' },
+  daily:              { icon: '☀️', name: 'Legitimație zilnică',          sub: 'Călătorii nelimitate — 1 zi' },
+  weekly:             { icon: '📅', name: 'Abonament 7 zile',            sub: 'Călătorii nelimitate — 7 zile' },
+  monthly_nominal:    { icon: '🪪', name: 'Abonament nominal 30 zile',   sub: 'Călătorii nelimitate — 30 zile (nominal)' },
+  monthly_nonnominal: { icon: '📋', name: 'Abonament nenominal 30 zile', sub: 'Călătorii nelimitate — 30 zile (nenominal)' },
+}
+
+const meta = computed(() => TICKET_META[props.ticket.ticketType] ?? TICKET_META.single)
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso)
@@ -22,10 +32,10 @@ const computedStatus = computed(() => {
 
 const statusLabel = computed(() => {
   switch (computedStatus.value) {
-    case 'active': return 'Activ'
-    case 'used': return 'Folosit'
+    case 'active':  return 'Activ'
+    case 'used':    return 'Folosit'
     case 'expired': return 'Expirat'
-    default: return computedStatus.value
+    default:        return computedStatus.value
   }
 })
 </script>
@@ -34,10 +44,10 @@ const statusLabel = computed(() => {
   <article class="ticket-card card" :class="`status-${computedStatus}`">
     <div class="ticket-head">
       <div class="ticket-kind">
-        <span class="ticket-icon" aria-hidden="true">🎫</span>
+        <span class="ticket-icon" aria-hidden="true">{{ meta.icon }}</span>
         <div>
-          <h3 class="ticket-title">Bilet simplu</h3>
-          <p class="ticket-sub">O calatorie — 60 min</p>
+          <h3 class="ticket-title">{{ meta.name }}</h3>
+          <p class="ticket-sub">{{ meta.sub }}</p>
         </div>
       </div>
       <span class="badge status-badge">{{ statusLabel }}</span>
@@ -47,6 +57,10 @@ const statusLabel = computed(() => {
       <div class="ticket-field">
         <span class="field-label">Pret</span>
         <span class="field-value">{{ ticket.priceRon.toFixed(2) }} RON</span>
+      </div>
+      <div v-if="ticket.ridesTotal" class="ticket-field">
+        <span class="field-label">Calatorii incluse</span>
+        <span class="field-value rides-value">{{ ticket.ridesTotal }} ×</span>
       </div>
       <div class="ticket-field">
         <span class="field-label">Cumparat</span>

@@ -41,7 +41,12 @@ export default defineConfig({
     environment: 'happy-dom',
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html']
+      reporter: ['text', 'json', 'html'],
+      thresholds: {
+        lines: 40,
+        functions: 40,
+        branches: 30
+      }
     }
   }
 })

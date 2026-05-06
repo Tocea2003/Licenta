@@ -70,6 +70,11 @@ namespace TursibBackend.Data
                 .HasForeignKey(t => t.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Unique index on Username for fast lookup on every auth/favorites call
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Username)
+                .IsUnique();
+
             // ========== SEEDING DATA (Date de Test) ==========
             
             // Adăugăm 3 Trasee

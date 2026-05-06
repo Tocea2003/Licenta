@@ -482,6 +482,13 @@ onUnmounted(() => {
   gap: 12px;
 }
 
+@media (max-width: 360px) {
+  .routes-grid {
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 8px;
+  }
+}
+
 .route-card {
   background: white;
   border-radius: 12px;

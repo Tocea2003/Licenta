@@ -39,20 +39,23 @@ export interface PaymentInfo {
   status: string
 }
 
+export type TicketType = 'single' | 'daily' | 'weekly' | 'monthly_nominal' | 'monthly_nonnominal'
+
 export interface Ticket {
   id: number
-  ticketType: string
+  ticketType: TicketType
   priceRon: number
   status: string
   purchasedAt: string
   validFrom: string
   validUntil: string
   qrToken: string
+  ridesTotal?: number | null
   payment?: PaymentInfo | null
 }
 
 export interface PurchaseRequest {
-  ticketType: string
+  ticketType: TicketType
   cardNumber: string
   expiryMonth: string
   expiryYear: string
