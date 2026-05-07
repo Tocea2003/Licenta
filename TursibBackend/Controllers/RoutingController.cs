@@ -9,10 +9,12 @@ namespace TursibBackend.Controllers
     public class RoutingController : ControllerBase
     {
         private readonly RouteCalculatorService _routeCalculator;
+        private readonly ILogger<RoutingController> _logger;
 
-        public RoutingController(RouteCalculatorService routeCalculator)
+        public RoutingController(RouteCalculatorService routeCalculator, ILogger<RoutingController> logger)
         {
             _routeCalculator = routeCalculator;
+            _logger = logger;
         }
 
         // POST: api/routing/calculate
@@ -42,6 +44,7 @@ namespace TursibBackend.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Failed to calculate route from {Start} to {End}", request.StartStationId, request.EndStationId);
                 return StatusCode(500, new { message = "Failed to calculate route", error = ex.Message });
             }
         }
@@ -73,6 +76,7 @@ namespace TursibBackend.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Failed to calculate alternative routes from {Start} to {End}", request.StartStationId, request.EndStationId);
                 return StatusCode(500, new { message = "Failed to calculate alternative routes", error = ex.Message });
             }
         }

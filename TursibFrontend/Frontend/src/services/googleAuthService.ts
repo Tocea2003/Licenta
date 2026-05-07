@@ -1,7 +1,7 @@
 // Google OAuth 2.0 Service pentru autentificare
 
 // Configurare Google OAuth
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '440568678964-q85aak3e3r9ctvmqhsejdvnm1b6pn3ke.apps.googleusercontent.com'
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 const GOOGLE_REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI || 'http://localhost:5173'
 
 export interface GoogleUser {
@@ -21,6 +21,7 @@ export interface GoogleAuthResponse {
 class GoogleAuthService {
   private scriptLoaded = false
   private google: any = null
+  private lastError: string | null = null
 
   /**
    * Încarcă Google Identity Services script
@@ -56,21 +57,34 @@ class GoogleAuthService {
    * Inițializează Google Sign-In
    */
   async initialize(): Promise<void> {
+    if (!GOOGLE_CLIENT_ID) {
+      throw new Error('GOOGLE_NOT_CONFIGURED')
+    }
+
     await this.loadGoogleScript()
-    
+
     if (!this.google) {
       throw new Error('Google Identity Services not loaded')
     }
 
-    // Inițializare Google Accounts
+    this.lastError = null
+
     this.google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
-      callback: () => {}, // Callback-ul va fi setat în componente
+      callback: () => {},
       auto_select: false,
       cancel_on_tap_outside: true,
+      error_callback: (error: any) => {
+        console.error('❌ Google Identity Services error:', error)
+        this.lastError = error?.type || error?.message || 'unknown_error'
+      },
     })
 
     console.log('✅ Google Sign-In initialized')
+  }
+
+  getLastError(): string | null {
+    return this.lastError
   }
 
   /**
@@ -82,11 +96,14 @@ class GoogleAuthService {
       return
     }
 
-    // Setează callback-ul
     this.google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       callback: callback,
       auto_select: false,
+      error_callback: (error: any) => {
+        console.error('❌ Google Identity Services error:', error)
+        this.lastError = error?.type || error?.message || 'unknown_error'
+      },
     })
 
     // Render butonul

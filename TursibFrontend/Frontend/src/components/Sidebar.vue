@@ -943,8 +943,11 @@ const searchRoutes = async () => {
                 if (totalWalk < existingWalk) bestByRoute.set(key, result)
               }
             }
-          } catch {
-            // Skip combinații fără rută
+          } catch (err: any) {
+            const status = err?.response?.status
+            if (status && status !== 400 && status !== 404) {
+              console.warn(`Route search error (${status}) for pair ${boarding.id} → ${alighting.id}:`, err?.response?.data?.message || err.message)
+            }
           }
         })
       ))
@@ -966,7 +969,8 @@ const searchRoutes = async () => {
     if (currentSearchId !== mySearchId) return // superseded by a newer search
     planResults.value = results.slice(0, 8)
     searchDone.value = true
-  } catch {
+  } catch (err) {
+    console.error('Route search failed:', err)
     searchDone.value = true
   } finally {
     isSearching.value = false

@@ -14,6 +14,7 @@ namespace TursibBackend.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IMemoryCache _cache;
+        private readonly ILogger<RouteCalculatorService> _logger;
         private const double WALKING_SPEED_KM_PER_HOUR = 5.0; // Viteza medie de mers pe jos
         private const double MAX_WALKING_DISTANCE_KM = 0.5; // Distanța maximă pentru walking (500m)
         private const int TRANSFER_PENALTY_MINUTES = 5; // Penalitate pentru fiecare transfer
@@ -22,10 +23,11 @@ namespace TursibBackend.Services
 
         private record GraphCacheEntry(TransportGraph Graph, List<RouteModel> AllRoutes, List<Station> AllStations);
 
-        public RouteCalculatorService(ApplicationDbContext context, IMemoryCache cache)
+        public RouteCalculatorService(ApplicationDbContext context, IMemoryCache cache, ILogger<RouteCalculatorService> logger)
         {
             _context = context;
             _cache = cache;
+            _logger = logger;
         }
 
         private async Task<GraphCacheEntry> GetOrBuildGraphAsync()
@@ -518,7 +520,13 @@ namespace TursibBackend.Services
                         i++;
                     }
 
-                    var route = allRoutes.First(r => r.Id == routeId);
+                    var route = allRoutes.FirstOrDefault(r => r.Id == routeId);
+                    if (route == null)
+                    {
+                        _logger.LogWarning("Route with ID {RouteId} not found in allRoutes during path building — skipping segment", routeId);
+                        i++;
+                        continue;
+                    }
                     segments.Add(new RouteSegment
                     {
                         Type = "bus",

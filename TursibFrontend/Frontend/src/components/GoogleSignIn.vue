@@ -92,14 +92,18 @@ const handleGoogleLogin = () => {
 const initializeGoogleSignIn = async () => {
   try {
     await googleAuthService.initialize()
-    
+
     if (googleButtonRef.value) {
       googleAuthService.renderButton(googleButtonRef.value, handleGoogleResponse)
       isInitialized.value = true
     }
   } catch (error: any) {
     console.error('❌ Eroare la inițializarea Google Sign-In:', error)
-    errorMessage.value = 'Nu s-a putut inițializa autentificarea Google'
+    if (error?.message === 'GOOGLE_NOT_CONFIGURED') {
+      errorMessage.value = 'Autentificarea Google nu este configurată. Contactează administratorul.'
+    } else {
+      errorMessage.value = 'Nu s-a putut inițializa autentificarea Google'
+    }
   }
 }
 
