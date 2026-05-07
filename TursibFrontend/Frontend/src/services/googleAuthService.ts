@@ -1,7 +1,7 @@
 // Google OAuth 2.0 Service pentru autentificare
 
 // Configurare Google OAuth
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '173077967825-6ket277aflc9pj64bbulcjv794ikoi67.apps.googleusercontent.com'
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '173077967825-prrjoav0t8di4gle24iav1334ir1kj40.apps.googleusercontent.com'
 const GOOGLE_REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI || 'http://localhost:5173'
 
 export interface GoogleUser {
