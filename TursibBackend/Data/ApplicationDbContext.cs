@@ -18,6 +18,7 @@ namespace TursibBackend.Data
         public DbSet<User> Users { get; set; }
         public DbSet<Ticket> Tickets { get; set; }
         public DbSet<Payment> Payments { get; set; }
+        public DbSet<ServiceCalendar> ServiceCalendars { get; set; }
 
         // Aici configurăm relațiile (deși EF Core le-ar putea deduce singur,
         // e bine să fim expliciți pentru relația Many-to-Many)
@@ -74,6 +75,10 @@ namespace TursibBackend.Data
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.Username)
                 .IsUnique();
+
+            // ServiceCalendar - index pe ServiceId pentru join rapid cu Trips
+            modelBuilder.Entity<ServiceCalendar>()
+                .HasIndex(sc => sc.ServiceId);
 
             // ========== SEEDING DATA (Date de Test) ==========
             

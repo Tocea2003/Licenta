@@ -68,19 +68,6 @@ class GoogleAuthService {
     }
 
     this.lastError = null
-
-    this.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: () => {},
-      auto_select: false,
-      cancel_on_tap_outside: true,
-      error_callback: (error: any) => {
-        console.error('❌ Google Identity Services error:', error)
-        this.lastError = error?.type || error?.message || 'unknown_error'
-      },
-    })
-
-    console.log('✅ Google Sign-In initialized')
   }
 
   getLastError(): string | null {
@@ -96,17 +83,17 @@ class GoogleAuthService {
       return
     }
 
+    // Re-initialize with the actual callback for this button
     this.google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       callback: callback,
       auto_select: false,
+      cancel_on_tap_outside: true,
       error_callback: (error: any) => {
-        console.error('❌ Google Identity Services error:', error)
         this.lastError = error?.type || error?.message || 'unknown_error'
       },
     })
 
-    // Render butonul
     this.google.accounts.id.renderButton(element, {
       type: 'standard',
       theme: 'outline',

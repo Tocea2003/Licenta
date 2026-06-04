@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useOnboarding } from '@/composables/useOnboarding'
 import OnboardingTutorial from '@/components/OnboardingTutorial.vue'
@@ -25,9 +25,6 @@ function goHome() {
   router.push('/')
 }
 
-onMounted(() => {
-  console.log('🚀 App mounted')
-})
 </script>
 
 <template>
@@ -135,8 +132,8 @@ html, body, #app {
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-primary);

@@ -32,6 +32,10 @@ export default defineConfig({
       }
     },
     chunkSizeWarningLimit: 1000,
+    minify: 'esbuild',
+  },
+  esbuild: {
+    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
   },
   optimizeDeps: {
     include: ['leaflet', 'chart.js', 'firebase/database']

@@ -29,6 +29,7 @@ namespace TursibBackend
             ImportStops();
             ImportShapes();
             ImportTrips();
+            ImportCalendar();
             ImportStopTimes();
             ImportRouteStations();
             UpdateBusRoutes();
@@ -100,6 +101,29 @@ namespace TursibBackend
                     cmd.CommandText = createStopTimesSql;
                     cmd.ExecuteNonQuery();
                 }
+
+                // Create ServiceCalendars table (din calendar.txt)
+                var createCalendarSql = @"
+                CREATE TABLE IF NOT EXISTS ServiceCalendars (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ServiceId TEXT NOT NULL,
+                    Monday INTEGER NOT NULL DEFAULT 0,
+                    Tuesday INTEGER NOT NULL DEFAULT 0,
+                    Wednesday INTEGER NOT NULL DEFAULT 0,
+                    Thursday INTEGER NOT NULL DEFAULT 0,
+                    Friday INTEGER NOT NULL DEFAULT 0,
+                    Saturday INTEGER NOT NULL DEFAULT 0,
+                    Sunday INTEGER NOT NULL DEFAULT 0,
+                    StartDate TEXT NOT NULL,
+                    EndDate TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS IX_ServiceCalendars_ServiceId ON ServiceCalendars(ServiceId);";
+
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = createCalendarSql;
+                    cmd.ExecuteNonQuery();
+                }
             }
             Console.WriteLine("✅ Tables created");
         }
@@ -115,6 +139,7 @@ namespace TursibBackend
                     "DELETE FROM StopTimes",
                     "DELETE FROM Trips",
                     "DELETE FROM Shapes",
+                    "DELETE FROM ServiceCalendars",
                     "DELETE FROM RouteStations",
                     "DELETE FROM Stations",
                     "DELETE FROM Routes"
@@ -327,6 +352,76 @@ namespace TursibBackend
                     
                     transaction.Commit();
                     Console.WriteLine($"✅ Imported {records.Count} trips");
+                }
+            }
+        }
+
+        private void ImportCalendar()
+        {
+            Console.WriteLine("📅 Importing calendar (service days)...");
+            var calendarPath = Path.Combine(gtfsPath, "calendar.txt");
+            if (!File.Exists(calendarPath))
+            {
+                Console.WriteLine("  ⚠️ calendar.txt not found, skipping calendar import");
+                return;
+            }
+
+            var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+            {
+                HasHeaderRecord = true,
+            };
+
+            using (var reader = new StreamReader(calendarPath))
+            using (var csv = new CsvReader(reader, config))
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+
+                using (var transaction = conn.BeginTransaction())
+                {
+                    var records = csv.GetRecords<dynamic>().ToList();
+
+                    foreach (var record in records)
+                    {
+                        var dict = (IDictionary<string, object>)record;
+                        var serviceId = dict["service_id"].ToString();
+                        var monday = int.Parse(dict["monday"].ToString());
+                        var tuesday = int.Parse(dict["tuesday"].ToString());
+                        var wednesday = int.Parse(dict["wednesday"].ToString());
+                        var thursday = int.Parse(dict["thursday"].ToString());
+                        var friday = int.Parse(dict["friday"].ToString());
+                        var saturday = int.Parse(dict["saturday"].ToString());
+                        var sunday = int.Parse(dict["sunday"].ToString());
+
+                        // GTFS dates are YYYYMMDD format → convert to yyyy-MM-dd
+                        var startDateRaw = dict["start_date"].ToString();
+                        var endDateRaw = dict["end_date"].ToString();
+                        var startDate = $"{startDateRaw.Substring(0,4)}-{startDateRaw.Substring(4,2)}-{startDateRaw.Substring(6,2)}";
+                        var endDate = $"{endDateRaw.Substring(0,4)}-{endDateRaw.Substring(4,2)}-{endDateRaw.Substring(6,2)}";
+
+                        var sql = @"INSERT INTO ServiceCalendars
+                                    (ServiceId, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday, StartDate, EndDate)
+                                    VALUES (@ServiceId, @Monday, @Tuesday, @Wednesday, @Thursday, @Friday, @Saturday, @Sunday, @StartDate, @EndDate)";
+
+                        using (var cmd = conn.CreateCommand())
+                        {
+                            cmd.CommandText = sql;
+                            cmd.Parameters.Add(new SqliteParameter("@ServiceId", serviceId));
+                            cmd.Parameters.Add(new SqliteParameter("@Monday", monday));
+                            cmd.Parameters.Add(new SqliteParameter("@Tuesday", tuesday));
+                            cmd.Parameters.Add(new SqliteParameter("@Wednesday", wednesday));
+                            cmd.Parameters.Add(new SqliteParameter("@Thursday", thursday));
+                            cmd.Parameters.Add(new SqliteParameter("@Friday", friday));
+                            cmd.Parameters.Add(new SqliteParameter("@Saturday", saturday));
+                            cmd.Parameters.Add(new SqliteParameter("@Sunday", sunday));
+                            cmd.Parameters.Add(new SqliteParameter("@StartDate", startDate));
+                            cmd.Parameters.Add(new SqliteParameter("@EndDate", endDate));
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    transaction.Commit();
+                    Console.WriteLine($"✅ Imported {records.Count} calendar entries");
                 }
             }
         }

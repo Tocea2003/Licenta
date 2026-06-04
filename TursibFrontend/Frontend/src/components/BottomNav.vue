@@ -54,7 +54,7 @@
           <path d="M10 8V14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 2"/>
         </svg>
       </div>
-      <span>Bilete</span>
+      <span>{{ t('tickets') }}</span>
     </router-link>
 
     <router-link
@@ -84,7 +84,7 @@ const router = useRouter()
 const { t } = useLanguage()
 
 const isActive = (path: string) => {
-  return computed(() => route.path === path)
+  return route.path === path
 }
 
 const isPlanActive = computed(() => route.path === '/' && route.query.tab === 'plan')

@@ -137,7 +137,7 @@ onMounted(() => {
 /* Container (folosit pentru layout) */
 .app-container {
   position: relative;
-  height: 100vh;
+  height: 100dvh;
   width: 100%;
   display: flex;
   overflow: hidden;
@@ -172,7 +172,7 @@ onMounted(() => {
 /* Map Wrapper */
 .map-wrapper {
   flex: 1;
-  height: 100vh;
+  height: 100dvh;
   position: relative;
   min-width: 0;
   overflow: hidden;

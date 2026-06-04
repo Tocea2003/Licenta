@@ -60,9 +60,11 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowVueApp", policy =>
     {
         policy.WithOrigins(
-                  "http://localhost:8080", 
+                  "http://localhost:8080",
                   "http://localhost:5173",
-                  "http://localhost:5174") // Pentru AdminApp
+                  "http://localhost:5174",
+                  "https://tursib.onrender.com",
+                  "https://tursib.vercel.app")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -118,7 +120,8 @@ app.MapPost("/api/import-gtfs", () =>
         return Results.Problem($"Import failed: {ex.Message}");
     }
 })
-.WithName("ImportGTFS");
+.WithName("ImportGTFS")
+.RequireAuthorization(policy => policy.RequireRole("Admin"));
 
 // Endpoint DEBUG pentru RouteStations
 app.MapGet("/api/debug/routestations", () =>
@@ -205,30 +208,6 @@ app.MapGet("/api/debug/gtfs", () =>
 .WithName("DebugGTFS")
 .RequireAuthorization(policy => policy.RequireRole("Admin"));
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
 
 public partial class Program { }

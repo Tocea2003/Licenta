@@ -2,6 +2,7 @@ using TursibBackend.Data;
 using TursibBackend.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Data.Sqlite;
 using RouteModel = TursibBackend.Models.Route;
 
 namespace TursibBackend.Services
@@ -30,9 +31,15 @@ namespace TursibBackend.Services
             _logger = logger;
         }
 
-        private async Task<GraphCacheEntry> GetOrBuildGraphAsync()
+        private async Task<GraphCacheEntry> GetOrBuildGraphAsync(HashSet<int>? activeRouteIds = null)
         {
-            if (_cache.TryGetValue("transport_graph", out GraphCacheEntry? cached) && cached != null)
+            // Cache key include ziua săptămânii pentru grafuri diferite per zi
+            var cacheKeySuffix = activeRouteIds != null
+                ? string.Join(",", activeRouteIds.OrderBy(x => x))
+                : "all";
+            var cacheKey = $"transport_graph_{cacheKeySuffix}";
+
+            if (_cache.TryGetValue(cacheKey, out GraphCacheEntry? cached) && cached != null)
                 return cached;
 
             var allRoutes = await _context.Routes
@@ -42,9 +49,9 @@ namespace TursibBackend.Services
                 .ToListAsync();
             var allStations = await _context.Stations.AsNoTracking().ToListAsync();
 
-            var graph = BuildTransportGraph(allRoutes, allStations);
+            var graph = BuildTransportGraph(allRoutes, allStations, activeRouteIds);
             var entry = new GraphCacheEntry(graph, allRoutes, allStations);
-            _cache.Set("transport_graph", entry, TimeSpan.FromMinutes(5));
+            _cache.Set(cacheKey, entry, TimeSpan.FromMinutes(5));
             return entry;
         }
 
@@ -75,8 +82,34 @@ namespace TursibBackend.Services
         {
             var alternativeRoutes = new List<CalculatedRoute>();
 
-            // Load graph and route data (cached for 5 minutes)
-            var (graph, allRoutes, allStations) = await GetOrBuildGraphAsync();
+            // Determină data efectivă pentru filtrarea pe ziua săptămânii
+            var effectiveDate = arrivalTime ?? departureTime ?? DateTime.Now;
+
+            // Obține rutele active în ziua selectată (din GTFS calendar)
+            HashSet<int>? activeRouteIds = null;
+            try
+            {
+                activeRouteIds = await GetActiveRouteIdsForDate(effectiveDate);
+                if (activeRouteIds.Count == 0)
+                {
+                    _logger.LogWarning("📅 Nu s-au găsit rute active pentru data {Date} ({Day}), fallback la toate rutele",
+                        effectiveDate.ToString("yyyy-MM-dd"), effectiveDate.DayOfWeek);
+                    activeRouteIds = null; // Fallback: include toate rutele
+                }
+                else
+                {
+                    _logger.LogInformation("📅 Rute active pentru {Day} ({Date}): {Count} rute",
+                        effectiveDate.DayOfWeek, effectiveDate.ToString("yyyy-MM-dd"), activeRouteIds.Count);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "📅 Eroare la interogarea calendarului, fallback la toate rutele");
+                activeRouteIds = null;
+            }
+
+            // Load graph and route data (cached for 5 minutes, per set de rute active)
+            var (graph, allRoutes, allStations) = await GetOrBuildGraphAsync(activeRouteIds);
 
             if (graph.Nodes.Count == 0)
             {
@@ -332,6 +365,79 @@ namespace TursibBackend.Services
 
         #endregion
 
+        #region Calendar / Day-of-Week Filtering
+
+        /// <summary>
+        /// Interogă tabelele ServiceCalendars + Trips pentru a determina ce rute
+        /// circulă într-o anumită zi. Folosește raw SQL deoarece Trips și
+        /// ServiceCalendars nu sunt (încă) în EF DbContext.
+        /// </summary>
+        private async Task<HashSet<int>> GetActiveRouteIdsForDate(DateTime targetDate)
+        {
+            var activeRouteIds = new HashSet<int>();
+
+            var dayColumn = targetDate.DayOfWeek switch
+            {
+                DayOfWeek.Monday => "Monday",
+                DayOfWeek.Tuesday => "Tuesday",
+                DayOfWeek.Wednesday => "Wednesday",
+                DayOfWeek.Thursday => "Thursday",
+                DayOfWeek.Friday => "Friday",
+                DayOfWeek.Saturday => "Saturday",
+                DayOfWeek.Sunday => "Sunday",
+                _ => "Monday"
+            };
+
+            var connString = _context.Database.GetConnectionString();
+            if (string.IsNullOrEmpty(connString))
+                return activeRouteIds;
+
+            using var conn = new SqliteConnection(connString);
+            await conn.OpenAsync();
+
+            // Verifică dacă tabelul ServiceCalendars există
+            using (var checkCmd = conn.CreateCommand())
+            {
+                checkCmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ServiceCalendars'";
+                var tableExists = Convert.ToInt64(await checkCmd.ExecuteScalarAsync()) > 0;
+                if (!tableExists)
+                    return activeRouteIds;
+            }
+
+            // Verifică dacă tabelul are date
+            using (var countCmd = conn.CreateCommand())
+            {
+                countCmd.CommandText = "SELECT COUNT(*) FROM ServiceCalendars";
+                var count = Convert.ToInt64(await countCmd.ExecuteScalarAsync());
+                if (count == 0)
+                    return activeRouteIds;
+            }
+
+            // Query: găsește RouteId-urile care au cel puțin un Trip cu ServiceId
+            // activ în ziua selectată și în intervalul de date valid
+            var sql = $@"
+                SELECT DISTINCT t.RouteId
+                FROM Trips t
+                INNER JOIN ServiceCalendars sc ON sc.ServiceId = t.ServiceId
+                WHERE sc.{dayColumn} = 1
+                  AND @TargetDate >= sc.StartDate
+                  AND @TargetDate <= sc.EndDate";
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new SqliteParameter("@TargetDate", targetDate.ToString("yyyy-MM-dd")));
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                activeRouteIds.Add(reader.GetInt32(0));
+            }
+
+            return activeRouteIds;
+        }
+
+        #endregion
+
         #region Graph Construction
 
         /// <summary>
@@ -341,7 +447,7 @@ namespace TursibBackend.Services
         /// - Transferuri între trasee diferite la aceeași stație
         /// - Walking între stații apropiate (sub MAX_WALKING_DISTANCE_KM)
         /// </summary>
-        private TransportGraph BuildTransportGraph(List<RouteModel> routes, List<Station> stations)
+        private TransportGraph BuildTransportGraph(List<RouteModel> routes, List<Station> stations, HashSet<int>? activeRouteIds = null)
         {
             var graph = new TransportGraph();
 
@@ -359,6 +465,10 @@ namespace TursibBackend.Services
             // 2. Adaugă muchii pentru fiecare traseu de autobuz
             foreach (var route in routes)
             {
+                // Skip rutele care nu circulă în ziua selectată
+                if (activeRouteIds != null && !activeRouteIds.Contains(route.Id))
+                    continue;
+
                 var routeStations = route.RouteStations
                     .OrderBy(rs => rs.Order)
                     .ToList();

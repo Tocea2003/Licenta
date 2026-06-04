@@ -566,33 +566,7 @@
         <l-popup><strong>{{ savedDestination.name }}</strong></l-popup>
       </l-marker>
 
-      <!-- Markere pentru autobuze LIVE - ascunse când e afișată o rută -->
-      <l-marker
-        v-if="!showMultimodal && !showTransfer"
-        v-for="bus in liveBuses"
-        :key="bus.id"
-        :lat-lng="[bus.latitude, bus.longitude]"
-      >
-        <l-icon
-          :icon-size="[20, 20]"
-          :icon-anchor="[10, 10]"
-          icon-url="/front-of-bus.png"
-        />
-        <l-popup>
-          <div class="bus-popup">
-            <strong :style="{ color: getBusColor(bus.routeId) }">Autobuz {{ bus.id }}</strong><br>
-            <small>Traseu: {{ bus.routeId }}</small><br>
-            <small>Viteză: {{ bus.speed?.toFixed(1) }} km/h</small><br>
-            <div class="occupancy-indicator" :class="getOccupancyClass(bus.occupancy)">
-              <span class="occupancy-icon">👥</span>
-              <span class="occupancy-text">{{ getOccupancyLabel(bus.occupancy) }}</span>
-              <div class="occupancy-bar">
-                <div class="occupancy-fill" :style="{ width: bus.occupancy + '%' }"></div>
-              </div>
-            </div>
-          </div>
-        </l-popup>
-      </l-marker>
+      <!-- Autobuzele LIVE sunt gestionate imperativ (watch pe liveBuses) pentru animație smooth -->
 
     </l-map>
 
@@ -1030,6 +1004,100 @@ const liveBuses = computed(() => {
   // Sortare eficientă - top 50 cele mai apropiate
   busesNearby.sort((a, b) => a.distance - b.distance)
   return busesNearby.slice(0, 50)
+})
+
+// ========================
+// AUTOBUZE LIVE — markeri imperativi Leaflet
+// Când Firebase trimite o poziție nouă → setLatLng direct.
+// CSS transition 0.5s face glisarea vizuală. Simplu.
+// ========================
+const busLayerGroup = L.layerGroup()
+const busMarkerInstances = new Map<string, L.Marker>()
+let busLayerAdded = false
+
+watch(liveBuses, (buses) => {
+  if (!map.value?.leafletObject) return
+  const leafletMap = map.value.leafletObject
+
+  if (!busLayerAdded) {
+    busLayerGroup.addTo(leafletMap)
+    busLayerAdded = true
+  }
+
+  const currentIds = new Set<string>()
+
+  for (const bus of buses) {
+    currentIds.add(bus.id)
+    const existing = busMarkerInstances.get(bus.id)
+
+    if (existing) {
+      // Mută markerul la noua poziție — CSS transition 0.5s animează glisarea
+      existing.setLatLng([bus.latitude, bus.longitude])
+      // Actualizare popup dacă e deschis
+      const popup = existing.getPopup()
+      if (popup?.isOpen()) popup.setContent(buildBusPopupHTML(bus))
+    } else {
+      // Marker nou — iconița dreaptă, fără rotație
+      const icon = L.divIcon({
+        className: 'bus-marker-animated',
+        html: `<img src="/front-of-bus.png" style="width:20px;height:20px;" />`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      })
+      const marker = L.marker([bus.latitude, bus.longitude], { icon })
+      marker.bindPopup(buildBusPopupHTML(bus))
+      marker.addTo(busLayerGroup)
+      busMarkerInstances.set(bus.id, marker)
+    }
+  }
+
+  // Elimină markeri pentru autobuze dispărute
+  for (const [id, marker] of busMarkerInstances) {
+    if (!currentIds.has(id)) {
+      marker.remove()
+      busMarkerInstances.delete(id)
+    }
+  }
+}, { deep: true })
+
+// Toggle vizibilitate: ascunde autobuzele când e afișată o rută
+watch([showMultimodal, showTransfer], ([multi, transfer]) => {
+  if (!map.value?.leafletObject) return
+  if (multi || transfer) {
+    busLayerGroup.removeFrom(map.value.leafletObject)
+    busLayerAdded = false
+  } else {
+    busLayerGroup.addTo(map.value.leafletObject)
+    busLayerAdded = true
+  }
+})
+
+// Generează HTML-ul popup-ului pentru un autobuz
+const buildBusPopupHTML = (bus: any): string => {
+  const color = getBusColor(bus.routeId)
+  const occupancyLabel = getOccupancyLabel(bus.occupancy)
+  const occupancyClass = getOccupancyClass(bus.occupancy)
+  const occupancy = bus.occupancy ?? 0
+  const speed = bus.speed?.toFixed(1) ?? '0.0'
+  return `<div class="bus-popup">
+    <strong style="color: ${color}">Autobuz ${bus.id}</strong><br>
+    <small>Traseu: ${bus.routeId}</small><br>
+    <small>Viteză: ${speed} km/h</small><br>
+    <div class="occupancy-indicator ${occupancyClass}">
+      <span class="occupancy-icon">👥</span>
+      <span class="occupancy-text">${occupancyLabel}</span>
+      <div class="occupancy-bar">
+        <div class="occupancy-fill" style="width: ${occupancy}%"></div>
+      </div>
+    </div>
+  </div>`
+}
+
+// Cleanup la unmount
+onUnmounted(() => {
+  busMarkerInstances.forEach(m => m.remove())
+  busMarkerInstances.clear()
+  busLayerGroup.clearLayers()
 })
 
 // Funcție pentru calcularea distanței dintre două puncte GPS (Haversine formula)
@@ -2737,7 +2805,7 @@ const getStationETAs = (stationId: number) => {
 
 <style scoped>
 .map-container {
-  height: 100vh;
+  height: 100dvh;
   width: 100%;
   position: relative;
   overflow: hidden;
@@ -3070,7 +3138,7 @@ const getStationETAs = (stationId: number) => {
   .top-right-buttons {
     top: 10px;
     right: 10px;
-    grid-template-columns: repeat(3, 36px);
+    grid-template-columns: repeat(3, 44px);
     gap: 6px;
   }
 
@@ -3081,8 +3149,8 @@ const getStationETAs = (stationId: number) => {
   }
 
   .action-btn {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
   }
 
   .action-btn.language-btn {
@@ -3090,8 +3158,8 @@ const getStationETAs = (stationId: number) => {
   }
 
   .action-btn svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
   }
 }
 
@@ -3336,5 +3404,22 @@ const getStationETAs = (stationId: number) => {
   background: #eff6ff;
   color: #1e40af;
   border-color: #93c5fd;
+}
+</style>
+
+<!-- CSS non-scoped pentru markeri Leaflet (generați în afara arborelui Vue) -->
+<style>
+/* Markeri autobuze live */
+.bus-marker-animated {
+  background: transparent !important;
+  border: none !important;
+  /* 0.5s ease-out pe transform (translate3d setat de Leaflet la setLatLng).
+     !important bate orice "transition: all" din stiluri globale. */
+  transition: transform 0.5s ease-out !important;
+  will-change: transform;
+}
+.bus-marker-animated img {
+  display: block;
+  transition: none !important;
 }
 </style>

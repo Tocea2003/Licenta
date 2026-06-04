@@ -210,7 +210,7 @@
           </div>
         </div>
 
-        <!-- Mod căutare + ora -->
+        <!-- Mod căutare + data + ora -->
         <div class="form-group">
           <label class="form-label">🕐 Când</label>
           <select v-model="planMode" class="time-input">
@@ -218,6 +218,10 @@
             <option value="departAt">Pleacă la ora</option>
             <option value="arriveBy">Ajunge la ora</option>
           </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">📅 {{ t('date') || 'Data' }}</label>
+          <input v-model="planDate" type="date" class="time-input" />
         </div>
         <div v-if="planMode !== 'leaveNow'" class="form-group">
           <label class="form-label">{{ planMode === 'arriveBy' ? '🏁 Ora sosirii' : '🕐 Ora plecării' }}</label>
@@ -538,6 +542,7 @@ export interface PlanResult {
 const planOriginQuery   = ref('')
 const planDestQuery     = ref('')
 const planTime          = ref(new Date().toTimeString().substring(0, 5))
+const planDate          = ref(new Date().toISOString().split('T')[0]) // Data selectată (azi implicit)
 const planMode           = ref<'leaveNow' | 'departAt' | 'arriveBy'>('leaveNow')
 const planOrigin        = ref<PlanLocation | null>(null)
 const planDest          = ref<PlanLocation | null>(null)
@@ -734,8 +739,8 @@ const buildDepartureDateTime = (time: string) => {
   const [hoursRaw, minutesRaw] = time.split(':')
   const hours = Number(hoursRaw)
   const minutes = Number(minutesRaw)
-  const now = new Date()
-  const departure = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0)
+  const [year, month, day] = planDate.value.split('-').map(Number)
+  const departure = new Date(year, month - 1, day, hours, minutes, 0, 0)
   return departure.toISOString()
 }
 
@@ -824,7 +829,11 @@ const searchRoutes = async () => {
             // Pentru arriveBy, scade timpul de mers de la destinație (walkEnd) per pereche,
             // astfel încât ora de sosire afișată (incl. walking final) să fie <= target.
             let apiOptions: { mode: 'departAt' | 'arriveBy'; dateTime: string } | undefined
-            if (planMode.value === 'departAt') {
+            const today = new Date().toISOString().split('T')[0]
+            if (planMode.value === 'leaveNow' && planDate.value !== today) {
+              // Utilizatorul a selectat o altă zi dar modul „Pleacă acum" — trimite data selectată cu ora curentă
+              apiOptions = { mode: 'departAt', dateTime: buildDepartureDateTime(effectiveTime) }
+            } else if (planMode.value === 'departAt') {
               apiOptions = { mode: 'departAt', dateTime: buildDepartureDateTime(planTime.value) }
             } else if (planMode.value === 'arriveBy' && targetArrivalMin !== null) {
               const walkEndMin = dest.type === 'address'
