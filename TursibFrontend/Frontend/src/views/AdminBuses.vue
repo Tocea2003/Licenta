@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="buses-management">
     <div class="page-header">
       <h2>Flotă Autobuze</h2>
@@ -36,7 +36,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="bus in buses" :key="bus.id">
+          <tr v-for="bus in paginatedBuses" :key="bus.id">
             <td class="id-col">{{ bus.id }}</td>
             <td><strong>{{ bus.licensePlate }}</strong></td>
             <td>{{ bus.internalName }}</td>
@@ -64,6 +64,13 @@
           </tr>
         </tbody>
       </table>
+
+      <div v-if="totalPages > 1" class="pagination">
+        <button @click="prevPage" :disabled="currentPage === 1" class="page-btn">&laquo;</button>
+        <button v-for="p in visiblePages" :key="p" @click="goToPage(p)" :class="['page-btn', { active: p === currentPage }]">{{ p }}</button>
+        <button @click="nextPage" :disabled="currentPage === totalPages" class="page-btn">&raquo;</button>
+        <span class="page-info">{{ buses.length }} total</span>
+      </div>
     </div>
 
     <!-- Create / Edit modal -->
@@ -101,8 +108,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { adminBusesService, adminRoutesService, type Bus, type Route } from '@/services/adminService'
+import { usePagination } from '@/composables/usePagination'
 
 const buses = ref<Bus[]>([])
+const { paginatedItems: paginatedBuses, currentPage, totalPages, visiblePages, goToPage, prevPage, nextPage } = usePagination(buses, 10)
 const routes = ref<Route[]>([])
 const isLoading = ref(true)
 const showModal = ref(false)
@@ -409,4 +418,11 @@ onMounted(loadData)
 }
 
 .btn-secondary:hover { background: var(--bg-tertiary); }
+
+.pagination { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 16px; padding: 12px 0; }
+.page-btn { min-width: 36px; height: 36px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s; }
+.page-btn:hover:not(:disabled) { background: var(--bg-secondary); }
+.page-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-info { margin-left: 12px; font-size: 13px; color: var(--text-secondary); }
 </style>

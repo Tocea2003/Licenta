@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="stations-management">
     <div class="page-header">
       <h2>{{ t('manageStations') }}</h2>
@@ -21,7 +21,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="station in stations" :key="station.id">
+          <tr v-for="station in paginatedStations" :key="station.id">
             <td>{{ station.id }}</td>
             <td><strong>{{ station.name }}</strong></td>
             <td>{{ station.latitude.toFixed(6) }}</td>
@@ -42,6 +42,13 @@
           </tr>
         </tbody>
       </table>
+
+      <div v-if="totalPages > 1" class="pagination">
+        <button @click="prevPage" :disabled="currentPage === 1" class="page-btn">&laquo;</button>
+        <button v-for="p in visiblePages" :key="p" @click="goToPage(p)" :class="['page-btn', { active: p === currentPage }]">{{ p }}</button>
+        <button @click="nextPage" :disabled="currentPage === totalPages" class="page-btn">&raquo;</button>
+        <span class="page-info">{{ stations.length }} {{ t('total') || 'total' }}</span>
+      </div>
     </div>
 
     <!-- Modal Create/Edit Station -->
@@ -91,12 +98,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { adminStationsService, type Station } from '@/services/adminService'
+import { usePagination } from '@/composables/usePagination'
 import { useLanguage } from '@/composables/useLanguage'
 
 const { t } = useLanguage()
 
 const stations = ref<Station[]>([])
 const isLoading = ref(true)
+const { paginatedItems: paginatedStations, currentPage, totalPages, visiblePages, goToPage, prevPage, nextPage } = usePagination(stations, 10)
 
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
@@ -372,4 +381,11 @@ onMounted(() => {
 .btn-secondary:hover {
   background: var(--bg-tertiary);
 }
+
+.pagination { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 16px; padding: 12px 0; }
+.page-btn { min-width: 36px; height: 36px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s; }
+.page-btn:hover:not(:disabled) { background: var(--bg-secondary); }
+.page-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-info { margin-left: 12px; font-size: 13px; color: var(--text-secondary); }
 </style>

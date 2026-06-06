@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="tickets-management">
     <div class="page-header">
       <h2>Bilete & Revenue</h2>
@@ -64,7 +64,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="ticket in filteredTickets" :key="ticket.id">
+          <tr v-for="ticket in paginatedTickets" :key="ticket.id">
             <td class="id-col">#{{ ticket.id }}</td>
             <td>
               <span class="username-chip">{{ ticket.username || `User #${ticket.userId}` }}</span>
@@ -92,13 +92,21 @@
           </tr>
         </tbody>
       </table>
+
+      <div v-if="totalPages > 1" class="pagination">
+        <button @click="prevPage" :disabled="currentPage === 1" class="page-btn">&laquo;</button>
+        <button v-for="p in visiblePages" :key="p" @click="goToPage(p)" :class="['page-btn', { active: p === currentPage }]">{{ p }}</button>
+        <button @click="nextPage" :disabled="currentPage === totalPages" class="page-btn">&raquo;</button>
+        <span class="page-info">{{ filteredTickets.length }} / {{ tickets.length }}</span>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { adminTicketsService, type AdminTicket } from '@/services/adminService'
+import { usePagination } from '@/composables/usePagination'
 
 const tickets = ref<AdminTicket[]>([])
 const isLoading = ref(true)
@@ -126,6 +134,9 @@ const filteredTickets = computed(() =>
     return matchesSearch && matchesStatus
   })
 )
+
+const { paginatedItems: paginatedTickets, currentPage, totalPages, visiblePages, goToPage, prevPage, nextPage, resetPage } = usePagination(filteredTickets, 10)
+watch([searchQuery, statusFilter], () => resetPage())
 
 const statusLabel = (status: string) => {
   const map: Record<string, string> = { active: 'Activ', expired: 'Expirat', used: 'Folosit' }
@@ -310,4 +321,11 @@ onMounted(loadTickets)
 @media (max-width: 1100px) {
   .kpi-cards { grid-template-columns: repeat(2, 1fr); }
 }
+
+.pagination { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 16px; padding: 12px 0; }
+.page-btn { min-width: 36px; height: 36px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s; }
+.page-btn:hover:not(:disabled) { background: var(--bg-secondary); }
+.page-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-info { margin-left: 12px; font-size: 13px; color: var(--text-secondary); }
 </style>
