@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./TursibBackend
+      dockerfile: Dockerfile
+    ports:
+      - "5022:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - JWT_KEY=${JWT_KEY}
+      - GTFS_PATH=/app/gtfs
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./TursibFrontend/Frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  bus-simulator:
+    build:
+      context: ./BusSimulator
+      dockerfile: Dockerfile
+    environment:
+      - TURSIB_API_URL=http://backend:8080/api
+      - FIREBASE_URL=${FIREBASE_URL}
+    depends_on:
+      - backend
+    restart: unless-stopped

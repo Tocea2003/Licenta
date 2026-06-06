@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using TursibBackend.Data;
 using TursibBackend.Models;
@@ -238,11 +239,14 @@ public class AuthWebAppFactory : WebApplicationFactory<Program>
     {
         builder.ConfigureServices(services =>
         {
-            // Remove the real DB context registration
-            var descriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>));
-            if (descriptor != null)
-                services.Remove(descriptor);
+            // Remove ALL DbContext-related registrations (SQLite provider + options)
+            var descriptorsToRemove = services
+                .Where(d => d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>)
+                         || d.ServiceType == typeof(DbContextOptions)
+                         || d.ServiceType.FullName?.Contains("EntityFrameworkCore") == true)
+                .ToList();
+            foreach (var d in descriptorsToRemove)
+                services.Remove(d);
 
             // Add in-memory database
             services.AddDbContext<ApplicationDbContext>(options =>
@@ -255,14 +259,12 @@ public class AuthWebAppFactory : WebApplicationFactory<Program>
             db.Database.EnsureCreated();
         });
 
+        // Set JWT config via environment for tests (avoids Microsoft.Extensions.Configuration.Memory dependency)
+        Environment.SetEnvironmentVariable("JWT_KEY", "integration-test-key-that-is-long-enough-for-hs256!");
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Jwt:Key"]      = "integration-test-key-that-is-long-enough-for-hs256!",
-                ["Jwt:Issuer"]   = "TursibIntegrationTest",
-                ["Jwt:Audience"] = "TursibIntegrationTestUsers"
-            });
+            config.AddJsonFile("appsettings.json", optional: true);
+            config.AddEnvironmentVariables();
         });
     }
 }

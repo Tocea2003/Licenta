@@ -11,7 +11,7 @@ namespace TursibBackend
 {
     public class RunGTFSImport
     {
-        public static void ExecuteImport()
+        public static void ExecuteImport(string? overridePath = null)
         {
             Console.WriteLine("🚌 Tursib GTFS Importer");
             Console.WriteLine("========================\n");
@@ -22,7 +22,10 @@ namespace TursibBackend
                 .Build();
 
             var connectionString = configuration.GetConnectionString("DefaultConnection");
-            var gtfsPath = @"D:\Licenta\tursib.gtfs_2025-10-v1";
+            var gtfsPath = overridePath
+                ?? Environment.GetEnvironmentVariable("GTFS_PATH")
+                ?? configuration["GtfsPath"]
+                ?? @"D:\Licenta\tursib.gtfs_2025-10-v1";
 
             if (string.IsNullOrEmpty(connectionString))
             {

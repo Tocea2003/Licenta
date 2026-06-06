@@ -5,10 +5,17 @@ interface BusLocation {
   latitude: number
   longitude: number
   routeId: number
+  routeNumber?: string
+  routeName?: string
   speed: number
   occupancy?: number
   timestamp?: number
   heading?: number
+  status?: string
+  directionId?: number
+  nextStationId?: number
+  nextStationName?: string
+  nextStationEta?: number
 }
 
 interface Station {

@@ -16,8 +16,8 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.10" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Memory" Version="9.0.10" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.15.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
   </ItemGroup>

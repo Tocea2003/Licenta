@@ -290,7 +290,7 @@ namespace TursibBackend.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Failed to retrieve statistics", error = ex.Message });
+                return StatusCode(500, new { message = "Failed to retrieve statistics. Please try again later." });
             }
         }
 

@@ -704,10 +704,17 @@ interface BusLocation {
   latitude: number
   longitude: number
   routeId: number
+  routeNumber?: string
+  routeName?: string
   timestamp: number
   speed: number
   heading: number
-  occupancy?: number // Grad de ocupare 0-100
+  occupancy?: number
+  status?: string
+  directionId?: number
+  nextStationId?: number
+  nextStationName?: string
+  nextStationEta?: number
 }
 
 // API Base URL
@@ -970,9 +977,17 @@ const liveBuses = computed(() => {
         latitude: data.latitude,
         longitude: data.longitude,
         routeId: data.routeId,
+        routeNumber: data.routeNumber,
+        routeName: data.routeName,
         timestamp: data.timestamp,
         speed: data.speed,
-        heading: data.heading
+        heading: data.heading,
+        occupancy: data.occupancy,
+        status: data.status,
+        directionId: data.directionId,
+        nextStationId: data.nextStationId,
+        nextStationName: data.nextStationName,
+        nextStationEta: data.nextStationEta
       })
     }
   }
@@ -1073,16 +1088,57 @@ watch([showMultimodal, showTransfer], ([multi, transfer]) => {
 })
 
 // Generează HTML-ul popup-ului pentru un autobuz
+const getStatusLabel = (status: string | undefined): string => {
+  switch (status) {
+    case 'at_station': return 'La stație'
+    case 'approaching': return 'Se apropie de stație'
+    case 'departing': return 'Pleacă din stație'
+    case 'in_transit': return 'În tranzit'
+    default: return 'În tranzit'
+  }
+}
+
+const getStatusColor = (status: string | undefined): string => {
+  switch (status) {
+    case 'at_station': return '#16a34a'
+    case 'approaching': return '#f59e0b'
+    case 'departing': return '#3b82f6'
+    default: return '#6b7280'
+  }
+}
+
+const formatEta = (seconds: number | undefined): string => {
+  if (!seconds || seconds <= 0) return ''
+  if (seconds < 60) return `< 1 min`
+  const mins = Math.round(seconds / 60)
+  return `~${mins} min`
+}
+
 const buildBusPopupHTML = (bus: any): string => {
   const color = getBusColor(bus.routeId)
   const occupancyLabel = getOccupancyLabel(bus.occupancy)
   const occupancyClass = getOccupancyClass(bus.occupancy)
   const occupancy = bus.occupancy ?? 0
   const speed = bus.speed?.toFixed(1) ?? '0.0'
+  const routeLabel = bus.routeNumber ? `Linia ${bus.routeNumber}` : `Traseu ${bus.routeId}`
+  const routeNameStr = bus.routeName ? `<br><small style="color:#6b7280">${bus.routeName}</small>` : ''
+  const directionStr = bus.directionId === 1 ? 'Retur' : 'Tur'
+  const statusLabel = getStatusLabel(bus.status)
+  const statusColor = getStatusColor(bus.status)
+  const etaStr = formatEta(bus.nextStationEta)
+  const nextStationStr = bus.nextStationName
+    ? `<div style="margin:4px 0;padding:4px 6px;background:#f0f9ff;border-radius:4px;font-size:12px">
+        <span style="color:#64748b">Următoarea:</span> <strong>${bus.nextStationName}</strong>
+        ${etaStr ? `<span style="color:#2563eb;margin-left:4px">${etaStr}</span>` : ''}
+      </div>`
+    : ''
+
   return `<div class="bus-popup">
-    <strong style="color: ${color}">Autobuz ${bus.id}</strong><br>
-    <small>Traseu: ${bus.routeId}</small><br>
+    <strong style="color: ${color}">${routeLabel}</strong>${routeNameStr}<br>
+    <span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:11px;color:white;background:${statusColor};margin:3px 0">${statusLabel}</span>
+    <span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:11px;color:#475569;background:#e2e8f0;margin:3px 0">${directionStr}</span><br>
     <small>Viteză: ${speed} km/h</small><br>
+    ${nextStationStr}
     <div class="occupancy-indicator ${occupancyClass}">
       <span class="occupancy-icon">👥</span>
       <span class="occupancy-text">${occupancyLabel}</span>

@@ -16,7 +16,9 @@ namespace TursibBackend
                 .Build();
 
             var connectionString = configuration.GetConnectionString("DefaultConnection");
-            var gtfsPath = @"D:\Licenta\tursib.gtfs_2025-10-v1";
+            var gtfsPath = Environment.GetEnvironmentVariable("GTFS_PATH")
+                ?? configuration["GtfsPath"]
+                ?? @"D:\Licenta\tursib.gtfs_2025-10-v1";
 
             if (string.IsNullOrEmpty(connectionString))
             {

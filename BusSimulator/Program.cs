@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Linq;
 using Firebase.Database;
 using Firebase.Database.Query;
 using Newtonsoft.Json;
@@ -10,52 +11,50 @@ namespace BusSimulator
 {
     class Program
     {
-        // URL-ul Firebase Realtime Database
-        private const string FirebaseUrl = "https://licenta-ulbs-default-rtdb.europe-west1.firebasedatabase.app/";
-        
-        // URL-ul API-ului .NET
-        public const string ApiUrl = "http://localhost:5022/api";
-        
+        public static readonly string FirebaseUrl = Environment.GetEnvironmentVariable("FIREBASE_URL")
+            ?? "https://licenta-ulbs-default-rtdb.europe-west1.firebasedatabase.app/";
+        public static readonly string ApiUrl = Environment.GetEnvironmentVariable("TURSIB_API_URL")
+            ?? "http://localhost:5022/api";
+        private const int BusesPerRoute = 3;
+
         static async Task Main(string[] args)
         {
             Console.WriteLine("🚌 Tursib Bus Simulator - Starting...");
             Console.WriteLine("========================================");
-            
+
             var firebaseClient = new FirebaseClient(FirebaseUrl);
             var httpClient = new HttpClient();
-            
-            // Încarcă toate traseele din API
+
             var routes = await LoadAllRoutes(httpClient);
-            
+
             if (routes.Count == 0)
             {
                 Console.WriteLine("❌ No routes found!");
                 return;
             }
-            
+
             Console.WriteLine($"📍 Found {routes.Count} routes in GTFS");
-            
-            // Creează simulatoare pentru toate traseele
+
             var simulators = new List<Task>();
             var busId = 1;
-            
+
             foreach (var route in routes)
             {
-                var simulator = new BusSimulator(busId++, route.Id, firebaseClient, httpClient);
-                simulators.Add(simulator.StartSimulation());
-                
-                // Delay mic între porniri pentru a nu supraîncărca API-ul
-                await Task.Delay(200);
+                for (int i = 0; i < BusesPerRoute; i++)
+                {
+                    var simulator = new BusSimulator(busId++, route, i, BusesPerRoute, firebaseClient, httpClient);
+                    simulators.Add(simulator.StartSimulation());
+                    await Task.Delay(100);
+                }
             }
-            
-            Console.WriteLine($"✅ {simulators.Count} simulators initialized!");
+
+            Console.WriteLine($"✅ {simulators.Count} simulators initialized ({BusesPerRoute} per route)!");
             Console.WriteLine("📡 Sending location updates...");
             Console.WriteLine("Press Ctrl+C to stop.\n");
-            
-            // Rulează toate simulatoarele în paralel
+
             await Task.WhenAll(simulators);
         }
-        
+
         static async Task<List<RouteInfo>> LoadAllRoutes(HttpClient httpClient)
         {
             try
@@ -70,75 +69,112 @@ namespace BusSimulator
             }
         }
     }
-    
+
     class BusSimulator
     {
         private readonly int busId;
-        private readonly int routeId;
+        private readonly RouteInfo route;
+        private readonly int busIndex;
+        private readonly int totalBuses;
         private readonly FirebaseClient firebase;
         private readonly HttpClient httpClient;
         private List<Station> stations = new List<Station>();
         private List<(double Latitude, double Longitude)> routePoints = new List<(double, double)>();
         private int currentPointIndex = 0;
-        private int occupancy = 0; // Grad de ocupare: 0-100
+        private bool isReturning = false;
+        private int occupancy = 0;
+        private string status = "in_transit";
         private Random random = new Random();
-        private int stationsSinceLastUpdate = 0;
-        
-        public BusSimulator(int busId, int routeId, FirebaseClient firebase, HttpClient httpClient)
+        private bool isDwelling = false;
+        private DateTime dwellEndTime = DateTime.MinValue;
+
+        public BusSimulator(int busId, RouteInfo route, int busIndex, int totalBuses,
+            FirebaseClient firebase, HttpClient httpClient)
         {
             this.busId = busId;
-            this.routeId = routeId;
+            this.route = route;
+            this.busIndex = busIndex;
+            this.totalBuses = totalBuses;
             this.firebase = firebase;
             this.httpClient = httpClient;
         }
-        
+
         public async Task StartSimulation()
         {
-            // Încarcă stațiile pentru traseu
             await LoadStations();
-            
+
             if (stations.Count == 0)
             {
-                Console.WriteLine($"❌ Bus {busId}: No stations found for route {routeId}");
+                Console.WriteLine($"❌ Bus {busId}: No stations found for route {route.Id}");
                 return;
             }
-            
-            Console.WriteLine($"✅ Bus {busId} (Route {routeId}): Loaded {stations.Count} stations");
-            
-            // Calculează traseul folosind GTFS shapes (cu fallback la OSRM)
+
+            Console.WriteLine($"✅ Bus {busId} (Route {route.RouteNumber}, #{busIndex + 1}/{totalBuses}): Loaded {stations.Count} stations");
+
             await CalculateRoutePoints();
-            
+
             if (routePoints.Count == 0)
             {
                 Console.WriteLine($"❌ Bus {busId}: Failed to calculate route");
                 return;
             }
-            
-            Console.WriteLine($"✅ Bus {busId}: Route calculated with {routePoints.Count} points");
-            
+
+            currentPointIndex = (busIndex * routePoints.Count) / totalBuses;
+            Console.WriteLine($"✅ Bus {busId}: Route calculated with {routePoints.Count} points, starting at point {currentPointIndex}");
+
             while (true)
             {
                 try
                 {
-                    var location = GetCurrentLocation();
-                    
-                    // Actualizează gradul de ocupare când ajunge la o stație
-                    if (IsNearStation(location))
+                    if (isDwelling && DateTime.Now < dwellEndTime)
                     {
-                        UpdateOccupancy();
-                        stationsSinceLastUpdate = 0;
+                        status = "at_station";
+                        var dwellLocation = GetCurrentLocation();
+                        await SendLocationWithRetry(dwellLocation);
+                        await Task.Delay(1000);
+                        continue;
                     }
-                    
-                    // Trimite locația la Firebase cu rate limiting și retry
-                    await SendLocationWithRetry(location);
-                    
-                    Console.WriteLine($"📍 Bus {busId}: [{location.Latitude:F6}, {location.Longitude:F6}] " +
-                                    $"Point {currentPointIndex + 1}/{routePoints.Count} | Ocupare: {occupancy}%");
-                    
-                    // Mută autobuzul la următorul punct
+
+                    if (isDwelling)
+                    {
+                        isDwelling = false;
+                        status = "departing";
+                    }
+
+                    var location = GetCurrentLocation();
+                    var nearestStation = GetNearestStation(location);
+                    var distToNearest = nearestStation != null
+                        ? HaversineMeters(location.Latitude, location.Longitude, nearestStation.Latitude, nearestStation.Longitude)
+                        : double.MaxValue;
+
+                    if (distToNearest < 15)
+                    {
+                        UpdateOccupancy(nearestStation);
+                        int dwellMs = CalculateDwellTime();
+                        isDwelling = true;
+                        dwellEndTime = DateTime.Now.AddMilliseconds(dwellMs);
+                        status = "at_station";
+                    }
+                    else if (distToNearest < 80)
+                    {
+                        status = "approaching";
+                    }
+                    else
+                    {
+                        status = "in_transit";
+                    }
+
+                    var speed = CalculateRealisticSpeed(distToNearest);
+                    var nextStation = GetNextStation();
+                    var etaSeconds = nextStation != null ? CalculateEtaSeconds(nextStation, speed) : 0;
+
+                    await SendLocationWithRetry(location, speed, nextStation, etaSeconds);
+
+                    Console.WriteLine($"📍 Bus {busId} (R{route.RouteNumber}): [{location.Latitude:F5}, {location.Longitude:F5}] " +
+                                    $"Pt {currentPointIndex + 1}/{routePoints.Count} | {status} | " +
+                                    $"Dir:{(isReturning ? "←" : "→")} | Ocp:{occupancy}% | Spd:{speed:F0}km/h");
+
                     MoveToNextPoint();
-                    
-                    // Delay optimizat - 2 secunde între update-uri pentru reducerea load-ului
                     await Task.Delay(2000);
                 }
                 catch (Exception ex)
@@ -148,83 +184,189 @@ namespace BusSimulator
                 }
             }
         }
-        
-        private async Task SendLocationWithRetry((double Latitude, double Longitude) location, int maxRetries = 3)
+
+        private async Task SendLocationWithRetry(
+            (double Latitude, double Longitude) location,
+            double speed = 0,
+            Station? nextStation = null,
+            int etaSeconds = 0,
+            int maxRetries = 3)
         {
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
                 {
+                    var payload = new Dictionary<string, object>
+                    {
+                        ["latitude"] = location.Latitude,
+                        ["longitude"] = location.Longitude,
+                        ["routeId"] = route.Id,
+                        ["routeNumber"] = route.RouteNumber,
+                        ["routeName"] = route.Name,
+                        ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                        ["speed"] = Math.Round(speed, 1),
+                        ["heading"] = Math.Round(CalculateHeading(), 1),
+                        ["occupancy"] = occupancy,
+                        ["status"] = status,
+                        ["directionId"] = isReturning ? 1 : 0,
+                        ["busIndex"] = busIndex
+                    };
+
+                    if (nextStation != null)
+                    {
+                        payload["nextStationId"] = nextStation.Id;
+                        payload["nextStationName"] = nextStation.Name;
+                        payload["nextStationEta"] = etaSeconds;
+                    }
+
                     await firebase
                         .Child("bus_locations")
-                        .Child(busId.ToString())
-                        .PutAsync(new
-                        {
-                            latitude = location.Latitude,
-                            longitude = location.Longitude,
-                            routeId = routeId,
-                            timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                            speed = 35.0 + random.NextDouble() * 15.0, // 35-50 km/h
-                            heading = CalculateHeading(),
-                            occupancy = occupancy // Grad de ocupare 0-100
-                        });
-                    
-                    // Success - exit retry loop
+                        .Child($"route_{route.Id}_bus_{busIndex}")
+                        .PutAsync(payload);
+
                     return;
                 }
                 catch (Exception ex)
                 {
                     if (attempt == maxRetries)
                     {
-                        // Last attempt failed - log detailed error
-                        Console.WriteLine($"❌ Bus {busId} error: {ex.Message}");
-                        if (ex.InnerException != null)
-                        {
-                            Console.WriteLine($"   Inner: {ex.InnerException.Message}");
-                        }
+                        Console.WriteLine($"❌ Bus {busId} Firebase error: {ex.Message}");
                     }
                     else
                     {
-                        // Retry with exponential backoff
                         await Task.Delay(500 * attempt);
                     }
                 }
             }
         }
-        
+
+        private double CalculateRealisticSpeed(double distToNearestStation)
+        {
+            double baseSpeed;
+
+            if (distToNearestStation < 30)
+                baseSpeed = 5 + random.NextDouble() * 10;
+            else if (distToNearestStation < 100)
+                baseSpeed = 15 + random.NextDouble() * 10;
+            else if (distToNearestStation < 200)
+                baseSpeed = 25 + random.NextDouble() * 10;
+            else
+                baseSpeed = 35 + random.NextDouble() * 15;
+
+            var hour = DateTime.Now.Hour;
+            if ((hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18))
+                baseSpeed *= 0.75;
+            else if (hour >= 22 || hour <= 5)
+                baseSpeed *= 1.1;
+
+            return Math.Max(3, baseSpeed);
+        }
+
+        private int CalculateDwellTime()
+        {
+            int baseDwell = random.Next(10000, 30000);
+            var hour = DateTime.Now.Hour;
+
+            if ((hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18))
+                baseDwell += random.Next(5000, 15000);
+            else if (hour >= 22 || hour <= 5)
+                baseDwell = Math.Max(5000, baseDwell - 10000);
+
+            return baseDwell;
+        }
+
+        private Station? GetNearestStation((double Latitude, double Longitude) location)
+        {
+            Station? nearest = null;
+            double minDist = double.MaxValue;
+
+            foreach (var s in stations)
+            {
+                double dist = HaversineMeters(location.Latitude, location.Longitude, s.Latitude, s.Longitude);
+                if (dist < minDist)
+                {
+                    minDist = dist;
+                    nearest = s;
+                }
+            }
+
+            return nearest;
+        }
+
+        private Station? GetNextStation()
+        {
+            if (stations.Count == 0 || routePoints.Count == 0)
+                return null;
+
+            var current = GetCurrentLocation();
+            int direction = isReturning ? -1 : 1;
+            int searchIdx = currentPointIndex;
+
+            for (int step = 0; step < routePoints.Count; step++)
+            {
+                searchIdx += direction;
+                if (searchIdx >= routePoints.Count) searchIdx = routePoints.Count - 1;
+                if (searchIdx < 0) searchIdx = 0;
+
+                var point = routePoints[searchIdx];
+                foreach (var station in stations)
+                {
+                    double dist = HaversineMeters(point.Latitude, point.Longitude, station.Latitude, station.Longitude);
+                    if (dist < 30)
+                    {
+                        double currentDist = HaversineMeters(current.Latitude, current.Longitude, station.Latitude, station.Longitude);
+                        if (currentDist > 50)
+                            return station;
+                    }
+                }
+            }
+
+            return stations.LastOrDefault();
+        }
+
+        private int CalculateEtaSeconds(Station nextStation, double currentSpeed)
+        {
+            var location = GetCurrentLocation();
+            double distKm = HaversineMeters(location.Latitude, location.Longitude,
+                nextStation.Latitude, nextStation.Longitude) / 1000.0;
+
+            double avgSpeed = Math.Max(10, currentSpeed * 0.7);
+            double hours = distKm / avgSpeed;
+
+            return (int)(hours * 3600);
+        }
+
         private async Task LoadStations()
         {
             try
             {
-                var response = await httpClient.GetStringAsync($"{Program.ApiUrl}/routes/{routeId}/stations");
+                var response = await httpClient.GetStringAsync($"{Program.ApiUrl}/routes/{route.Id}/stations");
                 stations = JsonConvert.DeserializeObject<List<Station>>(response) ?? new List<Station>();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to load stations for route {routeId}: {ex.Message}");
+                Console.WriteLine($"❌ Failed to load stations for route {route.Id}: {ex.Message}");
             }
         }
-        
+
         private async Task CalculateRoutePoints()
         {
             try
             {
-                // Încearcă să folosești GTFS shapes mai întâi
-                Console.WriteLine($"🗺️  Bus {busId}: Loading GTFS shape for route {routeId}...");
-                
-                var shapeResponse = await httpClient.GetStringAsync($"{Program.ApiUrl}/shapes/route/{routeId}");
+                Console.WriteLine($"🗺️  Bus {busId}: Loading GTFS shape for route {route.Id}...");
+
+                var shapeResponse = await httpClient.GetStringAsync($"{Program.ApiUrl}/shapes/route/{route.Id}");
                 var shapeData = JsonConvert.DeserializeObject<dynamic>(shapeResponse);
-                
-                if (shapeData?.points != null && shapeData.points.Count > 0)
+
+                if (shapeData?.points != null && ((int)shapeData.points.Count) > 0)
                 {
-                    // Folosește punctele din GTFS shapes
-                    foreach (var point in shapeData.points)
+                    foreach (var point in shapeData!.points)
                     {
                         double lat = point.latitude;
                         double lon = point.longitude;
                         routePoints.Add((lat, lon));
                     }
-                    
+
                     Console.WriteLine($"   ✅ Loaded {routePoints.Count} GTFS shape points");
                     return;
                 }
@@ -233,136 +375,170 @@ namespace BusSimulator
             {
                 Console.WriteLine($"⚠️ Bus {busId}: GTFS shapes not available ({ex.Message}), trying OSRM...");
             }
-            
-            // Fallback: folosește OSRM
+
             try
             {
-                // Construiește URL pentru OSRM API
                 var coordinates = string.Join(";", stations.Select(s => $"{s.Longitude},{s.Latitude}"));
                 var url = $"https://router.project-osrm.org/route/v1/driving/{coordinates}" +
                           $"?overview=full&geometries=geojson";
-                
+
                 var response = await httpClient.GetStringAsync(url);
                 var data = JsonConvert.DeserializeObject<dynamic>(response);
-                
-                if (data?.code == "Ok" && data?.routes != null && data.routes.Count > 0)
+
+                if (data != null && data?.code == "Ok" && data?.routes != null && ((int)data!.routes.Count) > 0)
                 {
-                    var geometry = data.routes[0].geometry.coordinates;
-                    
-                    // Adaugă toate punctele din traseu
+                    dynamic geometry = data.routes[0].geometry.coordinates;
+
                     foreach (var coord in geometry)
                     {
-                        // OSRM returnează [lon, lat], convertim la (lat, lon)
                         double lon = coord[0];
                         double lat = coord[1];
                         routePoints.Add((lat, lon));
                     }
-                    
+
                     Console.WriteLine($"   ✅ Loaded {routePoints.Count} OSRM route points");
                 }
                 else
                 {
                     Console.WriteLine($"⚠️ Bus {busId}: OSRM failed, using straight lines");
-                    // Fallback final: folosim direct stațiile
                     routePoints = stations.Select(s => (s.Latitude, s.Longitude)).ToList();
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"⚠️ Bus {busId}: OSRM error: {ex.Message}");
-                // Fallback final: folosim direct stațiile
                 routePoints = stations.Select(s => (s.Latitude, s.Longitude)).ToList();
             }
         }
-        
+
         private (double Latitude, double Longitude) GetCurrentLocation()
         {
             if (routePoints.Count == 0)
-                return (45.7970, 24.1523); // Centrul Sibiului
-            
+                return (45.7970, 24.1523);
+
             return routePoints[currentPointIndex];
         }
-        
+
         private void MoveToNextPoint()
         {
-            currentPointIndex = (currentPointIndex + 1) % routePoints.Count;
+            if (isReturning)
+            {
+                currentPointIndex--;
+                if (currentPointIndex <= 0)
+                {
+                    currentPointIndex = 0;
+                    isReturning = false;
+                }
+            }
+            else
+            {
+                currentPointIndex++;
+                if (currentPointIndex >= routePoints.Count - 1)
+                {
+                    currentPointIndex = routePoints.Count - 1;
+                    isReturning = true;
+                }
+            }
         }
-        
+
         private double CalculateHeading()
         {
             if (routePoints.Count < 2)
                 return 0;
-            
+
+            int nextIdx;
+            if (isReturning)
+                nextIdx = Math.Max(0, currentPointIndex - 1);
+            else
+                nextIdx = Math.Min(routePoints.Count - 1, currentPointIndex + 1);
+
             var current = routePoints[currentPointIndex];
-            var next = routePoints[(currentPointIndex + 1) % routePoints.Count];
-            
+            var next = routePoints[nextIdx];
+
             var dLon = next.Longitude - current.Longitude;
             var dLat = next.Latitude - current.Latitude;
-            
+
             var heading = Math.Atan2(dLon, dLat) * 180 / Math.PI;
-            return (heading + 360) % 360; // Normalize to 0-360
+            return (heading + 360) % 360;
         }
-        
-        private bool IsNearStation((double Latitude, double Longitude) location)
+
+        private void UpdateOccupancy(Station? station)
         {
-            const double threshold = 0.0001; // ~11 meters
-            
-            return stations.Any(s => 
-                Math.Abs(s.Latitude - location.Latitude) < threshold &&
-                Math.Abs(s.Longitude - location.Longitude) < threshold);
-        }
-        
-        private void UpdateOccupancy()
-        {
-            // Simulare realistă a urcărilor/coborârilor
-            int change = random.Next(-15, 25); // Mai mulți urcă decât coboară în medie
+            bool isTerminal = station != null &&
+                (station == stations.FirstOrDefault() || station == stations.LastOrDefault());
+
+            if (isTerminal)
+            {
+                occupancy = random.Next(0, 10);
+                return;
+            }
+
+            int change = random.Next(-15, 25);
             occupancy = Math.Max(0, Math.Min(100, occupancy + change));
-            
-            // Variație în funcție de ora din zi (peak hours)
+
             var hour = DateTime.Now.Hour;
-            if ((hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18))
+            bool isPeak = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18);
+            bool isNight = hour >= 22 || hour <= 5;
+            bool isWeekend = DateTime.Now.DayOfWeek == DayOfWeek.Saturday ||
+                             DateTime.Now.DayOfWeek == DayOfWeek.Sunday;
+
+            if (isPeak && !isWeekend)
             {
-                // Ore de vârf - mai plin
-                if (occupancy < 60)
-                    occupancy += random.Next(5, 15);
+                if (!isReturning && occupancy < 70)
+                    occupancy += random.Next(5, 20);
+                else if (isReturning && occupancy < 50)
+                    occupancy += random.Next(3, 10);
             }
-            else if (hour >= 22 || hour <= 5)
+            else if (isNight)
             {
-                // Noapte - mai gol
-                if (occupancy > 30)
-                    occupancy -= random.Next(5, 10);
+                if (occupancy > 20)
+                    occupancy -= random.Next(5, 15);
             }
-            
-            stationsSinceLastUpdate++;
+
+            if (isWeekend)
+                occupancy = (int)(occupancy * 0.7);
+
+            occupancy = Math.Max(0, Math.Min(100, occupancy));
+        }
+
+        private static double HaversineMeters(double lat1, double lon1, double lat2, double lon2)
+        {
+            const double R = 6371000;
+            var dLat = (lat2 - lat1) * Math.PI / 180;
+            var dLon = (lon2 - lon1) * Math.PI / 180;
+            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                    Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180) *
+                    Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+            return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
         }
     }
-    
+
     class Station
     {
         [JsonProperty("id")]
         public int Id { get; set; }
-        
+
         [JsonProperty("name")]
         public string Name { get; set; } = string.Empty;
-        
+
         [JsonProperty("latitude")]
         public double Latitude { get; set; }
-        
+
         [JsonProperty("longitude")]
         public double Longitude { get; set; }
     }
-    
+
     class RouteInfo
     {
         [JsonProperty("id")]
         public int Id { get; set; }
-        
+
         [JsonProperty("routeNumber")]
         public string RouteNumber { get; set; } = string.Empty;
-        
+
         [JsonProperty("name")]
         public string Name { get; set; } = string.Empty;
-        
+
         [JsonProperty("color")]
         public string Color { get; set; } = string.Empty;
     }

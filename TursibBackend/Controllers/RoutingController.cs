@@ -45,7 +45,7 @@ namespace TursibBackend.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to calculate route from {Start} to {End}", request.StartStationId, request.EndStationId);
-                return StatusCode(500, new { message = "Failed to calculate route", error = ex.Message });
+                return StatusCode(500, new { message = "Failed to calculate route. Please try again later." });
             }
         }
 
@@ -77,7 +77,7 @@ namespace TursibBackend.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to calculate alternative routes from {Start} to {End}", request.StartStationId, request.EndStationId);
-                return StatusCode(500, new { message = "Failed to calculate alternative routes", error = ex.Message });
+                return StatusCode(500, new { message = "Failed to calculate alternative routes. Please try again later." });
             }
         }
     }

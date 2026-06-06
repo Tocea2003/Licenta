@@ -16,11 +16,13 @@ namespace TursibBackend.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly JwtService _jwtService;
+        private readonly IConfiguration _configuration;
 
-        public AuthController(ApplicationDbContext context, JwtService jwtService)
+        public AuthController(ApplicationDbContext context, JwtService jwtService, IConfiguration configuration)
         {
             _context = context;
             _jwtService = jwtService;
+            _configuration = configuration;
         }
 
         // POST: api/Auth/login
@@ -174,15 +176,36 @@ namespace TursibBackend.Controllers
         {
             try
             {
-                // Decodifică JWT token-ul de la Google
+                // Validează token-ul cu cheile publice Google (verifică semnătura)
                 var handler = new JwtSecurityTokenHandler();
-                var jwtToken = handler.ReadJwtToken(credential);
+                var googleClientId = _configuration["Google:ClientId"]
+                    ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID")
+                    ?? "";
 
-                // Extrage informațiile utilizatorului
-                var email = jwtToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
-                var name = jwtToken.Claims.FirstOrDefault(c => c.Type == "name")?.Value;
-                var picture = jwtToken.Claims.FirstOrDefault(c => c.Type == "picture")?.Value;
-                var sub = jwtToken.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
+                // Descarcă cheile publice Google pentru verificarea semnăturii
+                using var httpClient = new HttpClient();
+                var jwksJson = await httpClient.GetStringAsync("https://www.googleapis.com/oauth2/v3/certs");
+                var jwks = new Microsoft.IdentityModel.Tokens.JsonWebKeySet(jwksJson);
+
+                var validationParams = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuers = new[] { "accounts.google.com", "https://accounts.google.com" },
+                    ValidateAudience = !string.IsNullOrEmpty(googleClientId),
+                    ValidAudience = googleClientId,
+                    ValidateLifetime = true,
+                    IssuerSigningKeys = jwks.Keys
+                };
+
+                var principal = handler.ValidateToken(credential, validationParams, out _);
+
+                var email = principal.FindFirst("email")?.Value
+                    ?? principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+                var name = principal.FindFirst("name")?.Value
+                    ?? principal.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+                var picture = principal.FindFirst("picture")?.Value;
+                var sub = principal.FindFirst("sub")?.Value
+                    ?? principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
                 if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(sub))
                 {
