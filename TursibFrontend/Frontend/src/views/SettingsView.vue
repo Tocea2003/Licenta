@@ -108,16 +108,12 @@
       <div class="setting-section">
         <div class="section-label">👤 {{ t('account') }}</div>
         <div class="section-card">
-          <router-link to="/login" class="section-row link-row">
+          <router-link to="/statistics" class="section-row link-row">
             <span class="link-icon">👤</span>
-            <div class="row-info"><div class="row-title">Profil</div></div>
-            <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </router-link>
-          <router-link to="/login" class="section-row link-row">
-            <span class="link-icon">🔒</span>
-            <div class="row-info"><div class="row-title">Schimbă parola</div></div>
+            <div class="row-info">
+              <div class="row-title">{{ t('profile') || 'Profilul meu' }}</div>
+              <div class="row-desc">{{ t('profileDesc') || 'Statistici și activitate' }}</div>
+            </div>
             <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -144,6 +140,16 @@
             <div class="row-info"><div class="row-title">{{ t('version') }}</div></div>
             <span class="row-value">1.0.0</span>
           </div>
+          <div class="section-row link-row" @click="showTutorial" style="cursor:pointer">
+            <span class="link-icon">📖</span>
+            <div class="row-info">
+              <div class="row-title">{{ t('viewTutorial') || 'Vezi tutorialul' }}</div>
+              <div class="row-desc">{{ t('viewTutorialDesc') || 'Revedere ghidul de utilizare al aplicației' }}</div>
+            </div>
+            <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
           <router-link to="/about" class="section-row link-row last">
             <span class="link-icon">ℹ️</span>
             <div class="row-info">
@@ -164,8 +170,18 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useLanguage, type Language } from '@/composables/useLanguage'
+import { useOnboarding } from '@/composables/useOnboarding'
+
+const router = useRouter()
+const { startOnboarding } = useOnboarding()
+
+const showTutorial = () => {
+  startOnboarding()
+  router.push('/')
+}
 
 const { isDarkMode, toggleDarkMode } = useDarkMode()
 const { currentLanguage, setLanguage, t } = useLanguage()

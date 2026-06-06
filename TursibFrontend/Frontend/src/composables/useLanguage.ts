@@ -260,7 +260,17 @@ const dictionary: Dictionary = {
   fleet: { ro: 'Flotă', en: 'Fleet' },
   users: { ro: 'Utilizatori', en: 'Users' },
   ticketsAndRevenue: { ro: 'Bilete & Venituri', en: 'Tickets & Revenue' },
-  close: { ro: 'Închide', en: 'Close' }
+  close: { ro: 'Închide', en: 'Close' },
+  more: { ro: 'Mai mult', en: 'More' },
+  tripHistory: { ro: 'Istoric călătorii', en: 'Trip History' },
+  viewTutorial: { ro: 'Vezi tutorialul', en: 'View Tutorial' },
+  viewTutorialDesc: { ro: 'Revedere ghidul de utilizare al aplicației', en: 'Review the app usage guide' },
+  profile: { ro: 'Profilul meu', en: 'My Profile' },
+  profileDesc: { ro: 'Statistici și activitate', en: 'Statistics and activity' },
+  savedSuccessfully: { ro: 'Salvat cu succes!', en: 'Saved successfully!' },
+  deletedSuccessfully: { ro: 'Șters cu succes!', en: 'Deleted successfully!' },
+  addedToFavorites: { ro: 'Adăugat la favorite!', en: 'Added to favorites!' },
+  confirmDelete: { ro: 'Ești sigur că vrei să ștergi?', en: 'Are you sure you want to delete?' }
 }
 
 const germanOverrides: Record<string, string> = {
@@ -365,7 +375,21 @@ const germanOverrides: Record<string, string> = {
   occupancyMedium: 'Mittel (40-70%)',
   occupancyHigh: 'Hoch (>70%)',
   passCount: 'Anzahl Durchfahrten',
-  close: 'Schließen'
+  close: 'Schließen',
+  more: 'Mehr',
+  tripHistory: 'Reiseverlauf',
+  viewTutorial: 'Tutorial ansehen',
+  viewTutorialDesc: 'Nutzungsanleitung der App erneut ansehen',
+  profile: 'Mein Profil',
+  profileDesc: 'Statistiken und Aktivität',
+  savedSuccessfully: 'Erfolgreich gespeichert!',
+  deletedSuccessfully: 'Erfolgreich gelöscht!',
+  addedToFavorites: 'Zu Favoriten hinzugefügt!',
+  confirmDelete: 'Möchten Sie wirklich löschen?',
+  tickets: 'Fahrkarten',
+  ticketsAndRevenue: 'Fahrkarten & Einnahmen',
+  fleet: 'Flotte',
+  users: 'Benutzer'
 }
 
 const setLanguage = (language: Language) => {

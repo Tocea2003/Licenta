@@ -27,48 +27,16 @@
       @route-search-requested="handleRouteSearchRequested"
     />
     
-    <!-- Butoane din dreapta sus -->
+    <!-- Butoane principale dreapta sus -->
     <div
       class="top-right-buttons"
       :class="{ 'top-right-buttons--docked': showNearbyStations }"
     >
+      <!-- Butoane principale (mereu vizibile) -->
       <button @click="toggleLanguage" class="action-btn language-btn" :title="t('language')">
         {{ currentLanguage.toUpperCase() }}
       </button>
 
-      <!-- Buton pentru favorite -->
-      <button @click="goToFavorites" class="action-btn" :title="t('favorites')">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M20.84 4.61C20.3292 4.099 19.7228 3.69364 19.0554 3.41708C18.3879 3.14052 17.6725 2.99817 16.95 2.99817C16.2275 2.99817 15.5121 3.14052 14.8446 3.41708C14.1772 3.69364 13.5708 4.099 13.06 4.61L12 5.67L10.94 4.61C9.9083 3.57831 8.50903 2.99871 7.05 2.99871C5.59096 2.99871 4.19169 3.57831 3.16 4.61C2.1283 5.64169 1.54871 7.04097 1.54871 8.5C1.54871 9.95903 2.1283 11.3583 3.16 12.39L4.22 13.45L12 21.23L19.78 13.45L20.84 12.39C21.351 11.8792 21.7563 11.2728 22.0329 10.6053C22.3095 9.93789 22.4518 9.22248 22.4518 8.5C22.4518 7.77752 22.3095 7.06211 22.0329 6.39469C21.7563 5.72728 21.351 5.12084 20.84 4.61V4.61Z" 
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-      
-      <!-- Buton pentru bilete -->
-      <button v-if="isAuthenticated" @click="goToTickets" class="action-btn" title="Biletele mele">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M4 9V7C4 6.44772 4.44772 6 5 6H19C19.5523 6 20 6.44772 20 7V9C18.8954 9 18 9.89543 18 11C18 12.1046 18.8954 13 20 13V15C20 15.5523 19.5523 16 19 16H5C4.44772 16 4 15.5523 4 15V13C5.10457 13 6 12.1046 6 11C6 9.89543 5.10457 9 4 9Z"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M10 8V14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 2"/>
-        </svg>
-      </button>
-
-      <!-- Buton pentru statistici -->
-      <button @click="goToStatistics" class="action-btn" :title="t('statistics')">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M3 3v18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M18 17V9M13 17V5M8 17v-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-      
-      <!-- Buton pentru istoric călătorii -->
-      <button @click="showTripHistory = !showTripHistory" class="action-btn" title="Istoric călătorii" :class="{ 'active': showTripHistory }">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-      
-      <!-- Buton pentru dark mode -->
       <button @click="toggleDarkMode" class="action-btn" :title="t('darkMode')">
         <svg v-if="!isDarkMode" width="20" height="20" viewBox="0 0 24 24" fill="none">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -78,51 +46,60 @@
           <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </button>
-      
-      <!-- Buton pentru admin (doar dacă e admin) -->
-      <button 
-        v-if="isAdmin" 
-        @click="goToAdmin" 
-        class="action-btn admin-btn" 
-        :title="t('adminPanel')"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="3" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <rect x="14" y="3" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <rect x="14" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <rect x="3" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-      
-      <!-- Buton pentru login/logout -->
-      <button 
-        v-if="!isAuthenticated" 
-        @click="router.push('/login')" 
-        class="action-btn" 
-        title="Login"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <polyline points="10 17 15 12 10 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <line x1="15" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-      <button 
-        v-else 
-        @click="handleLogout" 
-        class="action-btn logout-btn" 
-        :title="t('logout')"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-      
-      <!-- Buton pentru locație -->
+
       <LocationButton @location-found="handleLocationFound" />
+
+      <!-- Meniu expandabil pentru butoane secundare -->
+      <button @click="showMoreMenu = !showMoreMenu" class="action-btn more-btn" :title="t('more') || 'Mai mult'">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
+          <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+          <circle cx="12" cy="19" r="1.5" fill="currentColor"/>
+        </svg>
+      </button>
+
+      <!-- Dropdown meniu secundar -->
+      <transition name="fade">
+        <div v-if="showMoreMenu" class="more-menu" @click="showMoreMenu = false">
+          <button @click="goToFavorites" class="more-menu-item">
+            <span class="more-menu-icon">&#x2764;</span>
+            <span>{{ t('favorites') }}</span>
+          </button>
+          <button v-if="isAuthenticated" @click="goToTickets" class="more-menu-item">
+            <span class="more-menu-icon">&#x1F3AB;</span>
+            <span>{{ t('tickets') || 'Bilete' }}</span>
+          </button>
+          <button @click="goToStatistics" class="more-menu-item">
+            <span class="more-menu-icon">&#x1F4CA;</span>
+            <span>{{ t('statistics') }}</span>
+          </button>
+          <button @click="showTripHistory = !showTripHistory" class="more-menu-item">
+            <span class="more-menu-icon">&#x1F553;</span>
+            <span>{{ t('tripHistory') || 'Istoric' }}</span>
+          </button>
+          <div class="more-menu-divider"></div>
+          <button v-if="isAdmin" @click="goToAdmin" class="more-menu-item">
+            <span class="more-menu-icon">&#x2699;</span>
+            <span>{{ t('adminPanel') }}</span>
+          </button>
+          <button v-if="!isAuthenticated" @click="router.push('/login')" class="more-menu-item">
+            <span class="more-menu-icon">&#x1F511;</span>
+            <span>Login</span>
+          </button>
+          <button v-else @click="handleLogout" class="more-menu-item more-menu-item--danger">
+            <span class="more-menu-icon">&#x1F6AA;</span>
+            <span>{{ t('logout') }}</span>
+          </button>
+        </div>
+      </transition>
     </div>
+
+    <!-- Toast Notifications -->
+    <transition name="toast">
+      <div v-if="toastMessage" class="toast-notification" :class="'toast--' + toastType">
+        {{ toastMessage }}
+      </div>
+    </transition>
 
     <div class="map-aura"></div>
 
@@ -823,6 +800,31 @@ const selectedAlternative = ref<any | null>(null)
 
 // State pentru istoric călătorii
 const showTripHistory = ref(false)
+
+// State pentru meniu expandabil
+const showMoreMenu = ref(false)
+
+// Toast notifications
+const toastMessage = ref('')
+const toastType = ref<'success' | 'error' | 'info'>('success')
+let toastTimeout: ReturnType<typeof setTimeout> | null = null
+
+const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+  toastMessage.value = message
+  toastType.value = type
+  if (toastTimeout) clearTimeout(toastTimeout)
+  toastTimeout = setTimeout(() => { toastMessage.value = '' }, 3000)
+}
+
+// Close more menu when clicking outside
+const handleGlobalClick = (e: MouseEvent) => {
+  const target = e.target as HTMLElement
+  if (!target.closest('.more-btn') && !target.closest('.more-menu')) {
+    showMoreMenu.value = false
+  }
+}
+onMounted(() => document.addEventListener('click', handleGlobalClick))
+onUnmounted(() => document.removeEventListener('click', handleGlobalClick))
 
 // State pentru afișarea/ascunderea sidebar-ului
 const isMobile = ref(window.innerWidth < 768)
@@ -3180,6 +3182,106 @@ const getStationETAs = (stationId: number) => {
 .action-btn.admin-btn:hover {
   background: #f5f3ff;
   color: #7c3aed;
+}
+
+/* More Menu Dropdown */
+.more-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  background: var(--bg-primary);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  min-width: 200px;
+  padding: 6px;
+  z-index: 100;
+  border: 1px solid var(--border-primary);
+}
+
+.more-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: background 0.15s;
+}
+
+.more-menu-item:hover {
+  background: var(--bg-secondary);
+}
+
+.more-menu-item--danger {
+  color: var(--danger, #ef4444);
+}
+
+.more-menu-item--danger:hover {
+  background: #fef2f2;
+}
+
+.more-menu-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.more-menu-divider {
+  height: 1px;
+  background: var(--border-primary);
+  margin: 4px 8px;
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.15s, transform 0.15s;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* Toast Notifications */
+.toast-notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 9999;
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+}
+
+.toast--success {
+  background: #16a34a;
+  color: white;
+}
+
+.toast--error {
+  background: #ef4444;
+  color: white;
+}
+
+.toast--info {
+  background: #3b82f6;
+  color: white;
+}
+
+.toast-enter-active, .toast-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+.toast-enter-from, .toast-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -20px);
 }
 
 /* Responsive mobile */

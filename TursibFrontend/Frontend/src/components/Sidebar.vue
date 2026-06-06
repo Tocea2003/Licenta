@@ -339,11 +339,11 @@ const emit = defineEmits<{
 
 // ===================== TABS =====================
 type TabId = 'routes' | 'schedule' | 'plan'
-const activeTab = ref<TabId>('routes')
+const activeTab = ref<TabId>('plan')
 const tabs = computed(() => [
-  { id: 'routes' as TabId, icon: '🗺️', label: t('routes') },
-  { id: 'schedule' as TabId, icon: '🕐', label: t('schedule') },
   { id: 'plan' as TabId, icon: '🧭', label: t('planning') },
+  { id: 'schedule' as TabId, icon: '🕐', label: t('schedule') },
+  { id: 'routes' as TabId, icon: '🗺️', label: t('routes') },
 ])
 
 // ===================== TAB: TRASEE =====================
