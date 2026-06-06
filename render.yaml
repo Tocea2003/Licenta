@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: tursib-backend
+    runtime: docker
+    dockerfilePath: ./TursibBackend/Dockerfile
+    dockerContext: ./TursibBackend
+    plan: free
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: JWT_KEY
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+    healthCheckPath: /api/routes

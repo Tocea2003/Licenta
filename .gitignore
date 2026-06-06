@@ -1,4 +1,4 @@
-# Keep only these top-level folders in the repository
+# Keep only these top-level folders and deploy configs in the repository
 *
 !.gitignore
 !BusSimulator/
@@ -9,6 +9,10 @@
 !TursibBackend.Tests/**
 !TursibFrontend/
 !TursibFrontend/**
+!render.yaml
+!docker-compose.yml
+!Lucrare_Licenta_Lavu_Cristian_Ioan_IMBUNATATITA.docx
+!Lucrare_Licenta_IMBUNATATITA.md
 
 # Sensitive files
 **/.env
