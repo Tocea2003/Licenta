@@ -35,24 +35,46 @@ namespace BusSimulator
 
             Console.WriteLine($"📍 Found {routes.Count} routes in GTFS");
 
-            var simulators = new List<Task>();
+            // Initialize all buses
+            var allBuses = new List<BusSimulator>();
             var busId = 1;
 
             foreach (var route in routes)
             {
                 for (int i = 0; i < BusesPerRoute; i++)
                 {
-                    var simulator = new BusSimulator(busId++, route, i, BusesPerRoute, firebaseClient, httpClient);
-                    simulators.Add(simulator.StartSimulation());
-                    await Task.Delay(100);
+                    var sim = new BusSimulator(busId++, route, i, BusesPerRoute, firebaseClient, httpClient);
+                    allBuses.Add(sim);
                 }
             }
 
-            Console.WriteLine($"✅ {simulators.Count} simulators initialized ({BusesPerRoute} per route)!");
-            Console.WriteLine("📡 Sending location updates...");
+            // Load routes for all buses in parallel
+            Console.WriteLine($"⏳ Initializing {allBuses.Count} buses...");
+            await Task.WhenAll(allBuses.Select(b => b.Initialize()));
+
+            var readyBuses = allBuses.Where(b => b.IsReady).ToList();
+            Console.WriteLine($"✅ {readyBuses.Count} buses ready!");
+            Console.WriteLine("📡 Moving all buses simultaneously every 1 second...");
             Console.WriteLine("Press Ctrl+C to stop.\n");
 
-            await Task.WhenAll(simulators);
+            // Central loop: move ALL buses at once, then send ALL updates
+            int tick = 0;
+            while (true)
+            {
+                var updates = new List<Task>();
+                foreach (var bus in readyBuses)
+                {
+                    bus.Tick();
+                    updates.Add(bus.SendUpdate());
+                }
+                await Task.WhenAll(updates);
+
+                tick++;
+                if (tick % 30 == 0)
+                    Console.WriteLine($"📡 Tick {tick}: {readyBuses.Count} buses updated");
+
+                await Task.Delay(500);
+            }
         }
 
         static async Task<List<RouteInfo>> LoadAllRoutes(HttpClient httpClient)
@@ -87,6 +109,9 @@ namespace BusSimulator
         private Random random = new Random();
         private bool isDwelling = false;
         private DateTime dwellEndTime = DateTime.MinValue;
+        private double lastSpeed = 30;
+
+        public bool IsReady => routePoints.Count > 0;
 
         public BusSimulator(int busId, RouteInfo route, int busIndex, int totalBuses,
             FirebaseClient firebase, HttpClient httpClient)
@@ -99,90 +124,64 @@ namespace BusSimulator
             this.httpClient = httpClient;
         }
 
-        public async Task StartSimulation()
+        public async Task Initialize()
         {
             await LoadStations();
-
-            if (stations.Count == 0)
-            {
-                Console.WriteLine($"❌ Bus {busId}: No stations found for route {route.Id}");
-                return;
-            }
-
-            Console.WriteLine($"✅ Bus {busId} (Route {route.RouteNumber}, #{busIndex + 1}/{totalBuses}): Loaded {stations.Count} stations");
+            if (stations.Count == 0) return;
 
             await CalculateRoutePoints();
+            if (routePoints.Count == 0) return;
 
-            if (routePoints.Count == 0)
+            currentPointIndex = (busIndex * routePoints.Count) / totalBuses;
+            Console.WriteLine($"✅ Bus {busId} (R{route.RouteNumber} #{busIndex+1}): {routePoints.Count} pts, start at {currentPointIndex}");
+        }
+
+        public void Tick()
+        {
+            if (isDwelling && DateTime.Now < dwellEndTime)
             {
-                Console.WriteLine($"❌ Bus {busId}: Failed to calculate route");
+                status = "at_station";
                 return;
             }
 
-            currentPointIndex = (busIndex * routePoints.Count) / totalBuses;
-            Console.WriteLine($"✅ Bus {busId}: Route calculated with {routePoints.Count} points, starting at point {currentPointIndex}");
-
-            while (true)
+            if (isDwelling)
             {
-                try
-                {
-                    if (isDwelling && DateTime.Now < dwellEndTime)
-                    {
-                        status = "at_station";
-                        var dwellLocation = GetCurrentLocation();
-                        await SendLocationWithRetry(dwellLocation);
-                        await Task.Delay(1000);
-                        continue;
-                    }
-
-                    if (isDwelling)
-                    {
-                        isDwelling = false;
-                        status = "departing";
-                    }
-
-                    var location = GetCurrentLocation();
-                    var nearestStation = GetNearestStation(location);
-                    var distToNearest = nearestStation != null
-                        ? HaversineMeters(location.Latitude, location.Longitude, nearestStation.Latitude, nearestStation.Longitude)
-                        : double.MaxValue;
-
-                    if (distToNearest < 15)
-                    {
-                        UpdateOccupancy(nearestStation);
-                        int dwellMs = CalculateDwellTime();
-                        isDwelling = true;
-                        dwellEndTime = DateTime.Now.AddMilliseconds(dwellMs);
-                        status = "at_station";
-                    }
-                    else if (distToNearest < 80)
-                    {
-                        status = "approaching";
-                    }
-                    else
-                    {
-                        status = "in_transit";
-                    }
-
-                    var speed = CalculateRealisticSpeed(distToNearest);
-                    var nextStation = GetNextStation();
-                    var etaSeconds = nextStation != null ? CalculateEtaSeconds(nextStation, speed) : 0;
-
-                    await SendLocationWithRetry(location, speed, nextStation, etaSeconds);
-
-                    Console.WriteLine($"📍 Bus {busId} (R{route.RouteNumber}): [{location.Latitude:F5}, {location.Longitude:F5}] " +
-                                    $"Pt {currentPointIndex + 1}/{routePoints.Count} | {status} | " +
-                                    $"Dir:{(isReturning ? "←" : "→")} | Ocp:{occupancy}% | Spd:{speed:F0}km/h");
-
-                    MoveToNextPoint();
-                    await Task.Delay(2000);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"❌ Bus {busId} error: {ex.Message}");
-                    await Task.Delay(5000);
-                }
+                isDwelling = false;
+                status = "departing";
             }
+
+            var location = GetCurrentLocation();
+            var nearestStation = GetNearestStation(location);
+            var distToNearest = nearestStation != null
+                ? HaversineMeters(location.Latitude, location.Longitude, nearestStation.Latitude, nearestStation.Longitude)
+                : double.MaxValue;
+
+            if (distToNearest < 15)
+            {
+                UpdateOccupancy(nearestStation);
+                isDwelling = true;
+                dwellEndTime = DateTime.Now.AddMilliseconds(CalculateDwellTime());
+                status = "at_station";
+            }
+            else if (distToNearest < 80)
+            {
+                status = "approaching";
+            }
+            else
+            {
+                status = "in_transit";
+            }
+
+            lastSpeed = CalculateRealisticSpeed(distToNearest);
+            MoveToNextPoint();
+        }
+
+        public async Task SendUpdate()
+        {
+            var location = GetCurrentLocation();
+            var nextStation = GetNextStation();
+            var etaSeconds = nextStation != null ? CalculateEtaSeconds(nextStation, lastSpeed) : 0;
+            await SendLocationWithRetry(location, lastSpeed, nextStation, etaSeconds);
         }
 
         private async Task SendLocationWithRetry(
@@ -421,9 +420,26 @@ namespace BusSimulator
 
         private void MoveToNextPoint()
         {
+            // Move ~25 meters per tick by measuring actual GPS distance
+            const double targetMeters = 25.0;
+            double moved = 0;
+            int dir = isReturning ? -1 : 1;
+
+            while (moved < targetMeters)
+            {
+                int next = currentPointIndex + dir;
+                if (next <= 0) { currentPointIndex = 0; isReturning = false; return; }
+                if (next >= routePoints.Count - 1) { currentPointIndex = routePoints.Count - 1; isReturning = true; return; }
+
+                moved += HaversineMeters(
+                    routePoints[currentPointIndex].Latitude, routePoints[currentPointIndex].Longitude,
+                    routePoints[next].Latitude, routePoints[next].Longitude);
+                currentPointIndex = next;
+            }
+
+            // Keep the old boundary checks just in case
             if (isReturning)
             {
-                currentPointIndex--;
                 if (currentPointIndex <= 0)
                 {
                     currentPointIndex = 0;
@@ -432,7 +448,6 @@ namespace BusSimulator
             }
             else
             {
-                currentPointIndex++;
                 if (currentPointIndex >= routePoints.Count - 1)
                 {
                     currentPointIndex = routePoints.Count - 1;

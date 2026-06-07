@@ -400,15 +400,15 @@ const selectRouteForNavigation = (index: number) => {
 }
 
 .route-card.fastest {
-  border-color: #48bb78;
-  background: linear-gradient(135deg, rgba(72, 187, 120, 0.03), rgba(56, 161, 105, 0.05));
+  border-color: #667eea;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.03), rgba(90, 103, 216, 0.05));
 }
 
 .fastest-badge {
   position: absolute;
   top: -8px;
   right: 12px;
-  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  background: linear-gradient(135deg, #667eea 0%, #5a67d8 100%);
   color: white;
   padding: 5px 12px;
   border-radius: 20px;
@@ -416,8 +416,8 @@ const selectRouteForNavigation = (index: number) => {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  box-shadow: 
-    0 3px 8px rgba(72, 187, 120, 0.4),
+  box-shadow:
+    0 3px 8px rgba(102, 126, 234, 0.4),
     0 1px 3px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
@@ -441,12 +441,12 @@ const selectRouteForNavigation = (index: number) => {
 }
 
 .category-badge.direct {
-  background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+  background: linear-gradient(135deg, #667eea 0%, #5a67d8 100%);
   color: white;
 }
 
 .category-badge.transfer {
-  background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+  background: linear-gradient(135deg, #667eea 0%, #5a67d8 100%);
   color: white;
 }
 

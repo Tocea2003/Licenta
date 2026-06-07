@@ -47,6 +47,12 @@
         </svg>
       </button>
 
+      <button @click="showAllBuses = !showAllBuses" class="action-btn" :class="{ active: showAllBuses }" :title="showAllBuses ? 'Arată 30 autobuze' : 'Arată toate autobuzele'">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+
       <LocationButton @location-found="handleLocationFound" />
 
       <!-- Meniu expandabil pentru butoane secundare -->
@@ -99,6 +105,20 @@
       <div v-if="toastMessage" class="toast-notification" :class="'toast--' + toastType">
         {{ toastMessage }}
       </div>
+    </transition>
+
+    <!-- Buton închidere vizualizare traseu -->
+    <transition name="fade">
+      <button
+        v-if="routePath.length > 0 && !showMultimodal && !showTransfer"
+        @click="closeRouteView"
+        class="close-route-btn"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+        {{ t('closeRoute') || 'Închide traseu' }}
+      </button>
     </transition>
 
     <div class="map-aura"></div>
@@ -556,7 +576,7 @@
 <script setup lang="ts">
 
 import { ref, computed, onMounted, onActivated, onUnmounted, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useDatabaseObject } from 'vuefire'
 import { ref as dbRef, getDatabase } from 'firebase/database'
 
@@ -665,12 +685,28 @@ onUnmounted(() => {
 // Also check when component becomes active (after navigation, keep-alive)
 onActivated(() => {
   checkAuthStatus()
-  // Recalculează dimensiunea hărții după reactivare (keep-alive)
   nextTick(() => {
     if (map.value && map.value.leafletObject) {
       map.value.leafletObject.invalidateSize()
     }
   })
+})
+
+// Force map refresh when returning to home route (panel closes)
+const currentRoute = useRoute()
+watch(() => currentRoute.path, (newPath) => {
+  if (newPath === '/') {
+    nextTick(() => {
+      if (map.value?.leafletObject) {
+        map.value.leafletObject.invalidateSize()
+        // Re-attach bus layer if it was detached
+        if (!busLayerAdded && !showMultimodal.value && !showTransfer.value && routePath.value.length === 0) {
+          busLayerGroup.addTo(map.value.leafletObject)
+          busLayerAdded = true
+        }
+      }
+    })
+  }
 })
 
 // Am scos 'leaflet/dist/leaflet.css' de aici, deoarece este deja în main.ts
@@ -803,6 +839,7 @@ const showTripHistory = ref(false)
 
 // State pentru meniu expandabil
 const showMoreMenu = ref(false)
+const showAllBuses = ref(false)
 
 // Toast notifications
 const toastMessage = ref('')
@@ -814,6 +851,11 @@ const showToast = (message: string, type: 'success' | 'error' | 'info' = 'succes
   toastType.value = type
   if (toastTimeout) clearTimeout(toastTimeout)
   toastTimeout = setTimeout(() => { toastMessage.value = '' }, 3000)
+}
+
+// Close route view — reset route path and show buses again
+const closeRouteView = () => {
+  routePath.value = []
 }
 
 // Close more menu when clicking outside
@@ -931,6 +973,20 @@ const database = getDatabase()
 const busLocationsRef = dbRef(database, 'bus_locations')
 const busLocationsData = useDatabaseObject(busLocationsRef)
 
+// Debug: monitor Firebase connection
+import { onValue } from 'firebase/database'
+onValue(busLocationsRef, (snapshot) => {
+  const val = snapshot.val()
+  const count = val ? Object.keys(val).length : 0
+  console.log(`🔥 Firebase onValue: ${count} entries, exists=${snapshot.exists()}`)
+}, (error) => {
+  console.error('🔥 Firebase ERROR:', error)
+})
+
+watch(busLocationsData, (val) => {
+  console.log('🔥 busLocationsData changed:', val ? Object.keys(val).length + ' keys' : 'null/undefined', typeof val)
+}, { immediate: true })
+
 // Cache pentru distanțe calculate recent
 const distanceCache = new Map<string, { distance: number, timestamp: number }>()
 const DISTANCE_CACHE_TTL = 5000 // 5 secunde
@@ -970,9 +1026,10 @@ const liveBuses = computed(() => {
   const buses: BusLocation[] = []
   const entries = Object.entries(busLocationsData.value)
   
-  // Procesare optimizată - evită spread operator
+  // Procesare — doar intrări active (format route_X_bus_Y de la noul simulator)
   for (let i = 0; i < entries.length; i++) {
     const [id, data] = entries[i] as [string, any]
+    if (!id.startsWith('route_')) continue
     if (data?.latitude && data?.longitude) {
       buses.push({
         id,
@@ -994,9 +1051,9 @@ const liveBuses = computed(() => {
     }
   }
   
-  // Dacă nu avem locația utilizatorului, returnăm primele 50 (mai eficient decât toate)
+  // Dacă nu avem locația utilizatorului, returnăm primele N
   if (!userLocation.value?.lat || !userLocation.value?.lon) {
-    return buses.slice(0, 50)
+    return showAllBuses.value ? buses : buses.slice(0, 30)
   }
   
   const userLat = userLocation.value.lat
@@ -1018,9 +1075,9 @@ const liveBuses = computed(() => {
     }
   }
   
-  // Sortare eficientă - top 50 cele mai apropiate
+  // Sortare după distanță
   busesNearby.sort((a, b) => a.distance - b.distance)
-  return busesNearby.slice(0, 50)
+  return showAllBuses.value ? busesNearby : busesNearby.slice(0, 30)
 })
 
 // ========================
@@ -1033,6 +1090,11 @@ const busMarkerInstances = new Map<string, L.Marker>()
 let busLayerAdded = false
 
 watch(liveBuses, (buses) => {
+  console.log(`🚌 liveBuses updated: ${buses.length} buses, markers: ${busMarkerInstances.size}`)
+  if (buses.length > 0) {
+    const sample = buses[0]
+    console.log(`  Sample: id=${sample.id} lat=${sample.latitude} lng=${sample.longitude} speed=${sample.speed}`)
+  }
   if (!map.value?.leafletObject) return
   const leafletMap = map.value.leafletObject
 
@@ -1077,10 +1139,11 @@ watch(liveBuses, (buses) => {
   }
 }, { deep: true })
 
-// Toggle vizibilitate: ascunde autobuzele când e afișată o rută
-watch([showMultimodal, showTransfer], ([multi, transfer]) => {
+// Toggle vizibilitate: ascunde autobuzele când e afișată o rută (orice tip)
+watch([showMultimodal, showTransfer, routePath], ([multi, transfer, path]) => {
   if (!map.value?.leafletObject) return
-  if (multi || transfer) {
+  const routeActive = multi || transfer || (path && path.length > 0)
+  if (routeActive) {
     busLayerGroup.removeFrom(map.value.leafletObject)
     busLayerAdded = false
   } else {
@@ -3282,6 +3345,33 @@ const getStationETAs = (stationId: number) => {
 .toast-enter-from, .toast-leave-to {
   opacity: 0;
   transform: translate(-50%, -20px);
+}
+
+/* Close route button */
+.close-route-btn {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 20px;
+  box-shadow: var(--shadow-lg);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.close-route-btn:hover {
+  background: #ef4444;
+  color: white;
 }
 
 /* Responsive mobile */

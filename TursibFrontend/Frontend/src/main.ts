@@ -15,9 +15,14 @@ import { useDarkMode } from './composables/useDarkMode'
 useDarkMode() // This will load saved preference and apply it
 
 // Firebase configuration
-// Configurație minimală pentru Realtime Database în mod test
 const firebaseConfig = {
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || 'https://licenta-ulbs-default-rtdb.europe-west1.firebasedatabase.app'
+  apiKey: "AIzaSyCmoHsN90YRcoWN7ItrTpR4QKLDyHthFrY",
+  authDomain: "licenta-ulbs.firebaseapp.com",
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://licenta-ulbs-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "licenta-ulbs",
+  storageBucket: "licenta-ulbs.firebasestorage.app",
+  messagingSenderId: "414414048044",
+  appId: "1:414414048044:web:9e449f6135afa01f4bba89"
 }
 
 // Initialize Firebase
