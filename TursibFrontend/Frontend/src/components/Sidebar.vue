@@ -739,8 +739,8 @@ const buildDepartureDateTime = (time: string) => {
   const [hoursRaw, minutesRaw] = time.split(':')
   const hours = Number(hoursRaw)
   const minutes = Number(minutesRaw)
-  const [year, month, day] = planDate.value.split('-').map(Number)
-  const departure = new Date(year, month - 1, day, hours, minutes, 0, 0)
+  const [year, month, day] = planDate.value!.split('-').map(Number)
+  const departure = new Date(year!, month! - 1, day!, hours, minutes, 0, 0)
   return departure.toISOString()
 }
 

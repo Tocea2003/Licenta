@@ -143,7 +143,7 @@ describe('ticketsService', () => {
       }
       mockPost.mockResolvedValueOnce({ data: mockTicket })
 
-      const req = {
+      const req: import('@/services/ticketsService').PurchaseRequest = {
         ticketType: 'single',
         cardNumber: '4111111111111111',
         expiryMonth: '12',
@@ -162,7 +162,7 @@ describe('ticketsService', () => {
       mockPost.mockRejectedValueOnce(new Error('Network error'))
 
       await expect(ticketsService.purchase({
-        ticketType: 'single', cardNumber: '4111', expiryMonth: '12',
+        ticketType: 'single' as const, cardNumber: '4111', expiryMonth: '12',
         expiryYear: '2028', cvv: '123', cardholderName: 'Test'
       })).rejects.toThrow('Network error')
     })

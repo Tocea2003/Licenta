@@ -386,7 +386,6 @@ const germanOverrides: Record<string, string> = {
   deletedSuccessfully: 'Erfolgreich gelöscht!',
   addedToFavorites: 'Zu Favoriten hinzugefügt!',
   confirmDelete: 'Möchten Sie wirklich löschen?',
-  tickets: 'Fahrkarten',
   ticketsAndRevenue: 'Fahrkarten & Einnahmen',
   fleet: 'Flotte',
   users: 'Benutzer'

@@ -65,7 +65,7 @@ describe('useFavorites', () => {
     const { addFavorite, favorites } = useFavorites()
 
     const homeLocation = {
-      id: '1', name: 'Acasă', address: 'Strada Principală 123',
+      name: 'Acasă', address: 'Strada Principală 123',
       type: 'home' as const, icon: '🏠', lat: 45.7983, lon: 24.1256
     }
 
@@ -82,7 +82,7 @@ describe('useFavorites', () => {
     await clearFavorites()
 
     const workLocation = {
-      id: '2', name: 'Serviciu', address: 'Bulevardul Muncii 45',
+      name: 'Serviciu', address: 'Bulevardul Muncii 45',
       type: 'work' as const, icon: '💼', lat: 45.8020, lon: 24.1350
     }
 
@@ -99,11 +99,11 @@ describe('useFavorites', () => {
     await clearFavorites()
 
     await addFavorite({
-      id: '3', name: 'Sala de Sport', address: 'Strada Fitness 10',
+      name: 'Sala de Sport', address: 'Strada Fitness 10',
       type: 'custom' as const, icon: '🏋️', lat: 45.8000, lon: 24.1300
     })
     await addFavorite({
-      id: '4', name: 'Cafenea', address: 'Piața Centrală 5',
+      name: 'Cafenea', address: 'Piața Centrală 5',
       type: 'custom' as const, icon: '☕', lat: 45.8010, lon: 24.1320
     })
 
@@ -115,7 +115,7 @@ describe('useFavorites', () => {
     await clearFavorites()
 
     const location = {
-      id: '1', name: 'Test', address: 'Test Address',
+      name: 'Test', address: 'Test Address',
       type: 'custom' as const, icon: '📍', lat: 45.7983, lon: 24.1256
     }
 
@@ -133,7 +133,7 @@ describe('useFavorites', () => {
     const { addFavorite, updateFavorite, favorites } = useFavorites()
 
     const location = {
-      id: '1', name: 'Original Name', address: 'Original Address',
+      name: 'Original Name', address: 'Original Address',
       type: 'custom' as const, icon: '📍', lat: 45.7983, lon: 24.1256
     }
 
@@ -151,7 +151,7 @@ describe('useFavorites', () => {
     await clearFavorites()
 
     await addFavorite({
-      id: '1', name: 'Test', address: 'Test Address',
+      name: 'Test', address: 'Test Address',
       type: 'custom' as const, icon: '📍', lat: 45.7983, lon: 24.1256
     })
 
@@ -164,7 +164,7 @@ describe('useFavorites', () => {
     const { addFavorite, getFavorite } = useFavorites()
 
     const location = {
-      id: 'test-id', name: 'Test Location', address: 'Test Address',
+      name: 'Test Location', address: 'Test Address',
       type: 'custom' as const, icon: '📍', lat: 45.7983, lon: 24.1256
     }
 
@@ -183,11 +183,11 @@ describe('useFavorites', () => {
     const { addFavorite, favorites } = useFavorites()
 
     await addFavorite({
-      id: '1', name: 'Acasă 1', address: 'Address 1',
+      name: 'Acasă 1', address: 'Address 1',
       type: 'home' as const, icon: '🏠', lat: 45.7983, lon: 24.1256
     })
     await addFavorite({
-      id: '2', name: 'Acasă 2', address: 'Address 2',
+      name: 'Acasă 2', address: 'Address 2',
       type: 'home' as const, icon: '🏠', lat: 45.8000, lon: 24.1300
     })
 
@@ -200,11 +200,11 @@ describe('useFavorites', () => {
     const { addFavorite, favorites } = useFavorites()
 
     await addFavorite({
-      id: '1', name: 'Serviciu 1', address: 'Address 1',
+      name: 'Serviciu 1', address: 'Address 1',
       type: 'work' as const, icon: '💼', lat: 45.7983, lon: 24.1256
     })
     await addFavorite({
-      id: '2', name: 'Serviciu 2', address: 'Address 2',
+      name: 'Serviciu 2', address: 'Address 2',
       type: 'work' as const, icon: '💼', lat: 45.8000, lon: 24.1300
     })
 
@@ -221,7 +221,7 @@ describe('useFavorites', () => {
       await clearFavorites()
 
       await addFavorite({
-        id: '1', name: 'Piața Unirii', address: 'Piața Unirii',
+        name: 'Piața Unirii', address: 'Piața Unirii',
         type: 'custom' as const, icon: '📍', lat: 45.7983, lon: 24.1256
       })
 
@@ -233,7 +233,7 @@ describe('useFavorites', () => {
       await clearFavorites()
 
       await addFavorite({
-        id: '1', name: 'Piața Unirii', address: '',
+        name: 'Piața Unirii', address: '',
         type: 'custom' as const, icon: '📍', lat: 45.7983, lon: 24.1256
       })
 
@@ -259,11 +259,11 @@ describe('useFavorites', () => {
       await clearFavorites()
 
       await addFavorite({
-        id: 'a', name: 'Close', address: '',
+        name: 'Close', address: '',
         type: 'custom' as const, icon: '📍', lat: 45.7910, lon: 24.1490
       })
       await addFavorite({
-        id: 'b', name: 'Far', address: '',
+        name: 'Far', address: '',
         type: 'custom' as const, icon: '📍', lat: 46.0, lon: 25.0
       })
 
@@ -281,7 +281,7 @@ describe('useFavorites', () => {
       mockPost.mockRejectedValueOnce(new Error('Network error'))
 
       const result = await addFavorite({
-        id: '1', name: 'Test', address: 'Test',
+        name: 'Test', address: 'Test',
         type: 'custom' as const, icon: '📍', lat: 45.79, lon: 24.14
       })
 
@@ -292,7 +292,7 @@ describe('useFavorites', () => {
     it('removeFavorite returns false when the API rejects', async () => {
       const { addFavorite, removeFavorite, favorites } = useFavorites()
       const added = await addFavorite({
-        id: '1', name: 'Test', address: 'Test',
+        name: 'Test', address: 'Test',
         type: 'custom' as const, icon: '📍', lat: 45.79, lon: 24.14
       })
 
@@ -309,7 +309,7 @@ describe('useFavorites', () => {
       const { addFavorite } = useFavorites()
 
       const result = await addFavorite({
-        id: '1', name: 'Test', address: 'Test',
+        name: 'Test', address: 'Test',
         type: 'custom' as const, icon: '📍', lat: 45.79, lon: 24.14
       })
 
@@ -332,7 +332,7 @@ describe('useFavorites', () => {
 
       const { addFavorite } = useFavorites()
       const result = await addFavorite({
-        id: '1', name: 'Test', address: 'Test',
+        name: 'Test', address: 'Test',
         type: 'custom' as const, icon: '📍', lat: 45.79, lon: 24.14
       })
 
@@ -347,7 +347,7 @@ describe('useFavorites', () => {
 
       // Should not throw - just treat as unauthenticated
       const result = await addFavorite({
-        id: '1', name: 'Test', address: 'Test',
+        name: 'Test', address: 'Test',
         type: 'custom' as const, icon: '📍', lat: 45.79, lon: 24.14
       })
 

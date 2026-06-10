@@ -1092,7 +1092,7 @@ let busLayerAdded = false
 watch(liveBuses, (buses) => {
   console.log(`🚌 liveBuses updated: ${buses.length} buses, markers: ${busMarkerInstances.size}`)
   if (buses.length > 0) {
-    const sample = buses[0]
+    const sample = buses[0]!
     console.log(`  Sample: id=${sample.id} lat=${sample.latitude} lng=${sample.longitude} speed=${sample.speed}`)
   }
   if (!map.value?.leafletObject) return

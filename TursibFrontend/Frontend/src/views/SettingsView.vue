@@ -192,7 +192,7 @@ const hapticsEnabled = ref(false)
 
 const languageOptions: Language[] = ['ro', 'en', 'de']
 
-const themeOptions = [
+const themeOptions: { value: 'light' | 'dark' | 'auto'; label: string }[] = [
   { value: 'light', label: '☀️ Light' },
   { value: 'dark',  label: '🌙 Dark' },
   { value: 'auto',  label: 'Auto' },
