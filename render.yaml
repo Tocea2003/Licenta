@@ -14,7 +14,7 @@ services:
         sync: false
     healthCheckPath: /api/routes
 
-  - type: worker
+  - type: web
     name: tursib-bus-simulator
     runtime: docker
     dockerfilePath: ./BusSimulator/Dockerfile

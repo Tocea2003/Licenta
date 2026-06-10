@@ -19,6 +19,10 @@ namespace BusSimulator
 
         static async Task Main(string[] args)
         {
+            // Start a minimal HTTP server so Render sees this as a healthy web service
+            var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+            var healthServer = StartHealthServer(port);
+
             Console.WriteLine("🚌 Tursib Bus Simulator - Starting...");
             Console.WriteLine("========================================");
 
@@ -75,6 +79,26 @@ namespace BusSimulator
 
                 await Task.Delay(500);
             }
+        }
+
+        static Task StartHealthServer(string port)
+        {
+            return Task.Run(async () =>
+            {
+                var listener = new System.Net.HttpListener();
+                listener.Prefixes.Add($"http://+:{port}/");
+                listener.Start();
+                Console.WriteLine($"🌐 Health endpoint listening on port {port}");
+                while (true)
+                {
+                    var ctx = await listener.GetContextAsync();
+                    var response = System.Text.Encoding.UTF8.GetBytes("OK");
+                    ctx.Response.StatusCode = 200;
+                    ctx.Response.ContentType = "text/plain";
+                    await ctx.Response.OutputStream.WriteAsync(response);
+                    ctx.Response.Close();
+                }
+            });
         }
 
         static async Task<List<RouteInfo>> LoadAllRoutes(HttpClient httpClient)
