@@ -13,3 +13,15 @@ services:
       - key: GOOGLE_CLIENT_ID
         sync: false
     healthCheckPath: /api/routes
+
+  - type: worker
+    name: tursib-bus-simulator
+    runtime: docker
+    dockerfilePath: ./BusSimulator/Dockerfile
+    dockerContext: ./BusSimulator
+    plan: free
+    envVars:
+      - key: TURSIB_API_URL
+        value: https://aplicatie-web-pentru-urmarirea-in-timp.onrender.com/api
+      - key: FIREBASE_URL
+        value: https://licenta-ulbs-default-rtdb.europe-west1.firebasedatabase.app/
