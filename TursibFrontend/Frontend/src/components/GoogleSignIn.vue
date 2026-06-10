@@ -42,15 +42,15 @@ const handleGoogleLogin = () => {
   googleAuthService.startLogin()
 }
 
-const handleTokenFromRedirect = async (idToken: string) => {
+const handleCodeFromRedirect = async (code: string) => {
   isLoading.value = true
   errorMessage.value = ''
-  googleAuthService.clearUrlToken()
+  googleAuthService.clearUrlCode()
 
   try {
-    const result = await googleAuthService.validateToken(idToken)
+    const result = await googleAuthService.exchangeCode(code)
     if (!result) {
-      throw new Error('Nu s-a putut valida token-ul Google')
+      throw new Error('Nu s-a putut autentifica cu Google')
     }
     emit('success', result)
   } catch (error: any) {
@@ -62,9 +62,9 @@ const handleTokenFromRedirect = async (idToken: string) => {
 }
 
 onMounted(() => {
-  const token = googleAuthService.getTokenFromUrl()
-  if (token) {
-    handleTokenFromRedirect(token)
+  const code = googleAuthService.getCodeFromUrl()
+  if (code) {
+    handleCodeFromRedirect(code)
   }
 })
 </script>
@@ -118,7 +118,6 @@ onMounted(() => {
   }
   .google-signin-btn:hover:not(:disabled) {
     background: #3c3c3c;
-    border-color: #6f7378;
   }
 }
 

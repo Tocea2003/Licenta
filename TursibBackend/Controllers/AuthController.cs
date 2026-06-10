@@ -109,9 +109,21 @@ namespace TursibBackend.Controllers
         {
             try
             {
-                // Verifică și validează token-ul Google
-                var googleUser = await ValidateGoogleToken(request.Credential);
-                
+                GoogleUserInfo? googleUser;
+
+                if (!string.IsNullOrEmpty(request.Code))
+                {
+                    googleUser = await ExchangeCodeForUser(request.Code, request.RedirectUri ?? "");
+                }
+                else if (!string.IsNullOrEmpty(request.Credential))
+                {
+                    googleUser = await ValidateGoogleToken(request.Credential);
+                }
+                else
+                {
+                    return BadRequest(new { message = "Code or credential required" });
+                }
+
                 if (googleUser == null)
                 {
                     return Unauthorized(new { message = "Token Google invalid" });
@@ -169,6 +181,49 @@ namespace TursibBackend.Controllers
             {
                 Console.WriteLine($"❌ Error in Google login: {ex.Message}");
                 return StatusCode(500, new { message = "Eroare la autentificare cu Google" });
+            }
+        }
+
+        private async Task<GoogleUserInfo?> ExchangeCodeForUser(string code, string redirectUri)
+        {
+            try
+            {
+                var clientId = _configuration["Google:ClientId"]
+                    ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID") ?? "";
+                var clientSecret = _configuration["Google:ClientSecret"]
+                    ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET") ?? "";
+
+                using var httpClient = new HttpClient();
+                var tokenResponse = await httpClient.PostAsync("https://oauth2.googleapis.com/token",
+                    new FormUrlEncodedContent(new Dictionary<string, string>
+                    {
+                        ["code"] = code,
+                        ["client_id"] = clientId,
+                        ["client_secret"] = clientSecret,
+                        ["redirect_uri"] = redirectUri,
+                        ["grant_type"] = "authorization_code"
+                    }));
+
+                var tokenJson = await tokenResponse.Content.ReadAsStringAsync();
+
+                if (!tokenResponse.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"❌ Google token exchange failed: {tokenJson}");
+                    return null;
+                }
+
+                var tokenData = JsonSerializer.Deserialize<JsonElement>(tokenJson);
+                var idToken = tokenData.GetProperty("id_token").GetString();
+
+                if (string.IsNullOrEmpty(idToken))
+                    return null;
+
+                return await ValidateGoogleToken(idToken);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error exchanging Google code: {ex.Message}");
+                return null;
             }
         }
 
@@ -231,6 +286,8 @@ namespace TursibBackend.Controllers
     public class GoogleLoginRequest
     {
         public string Credential { get; set; } = "";
+        public string Code { get; set; } = "";
+        public string? RedirectUri { get; set; }
     }
 
     public class GoogleUserInfo
