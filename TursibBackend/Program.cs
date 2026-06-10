@@ -89,6 +89,7 @@ builder.Services.AddCors(options =>
                   "http://localhost:8080",
                   "http://localhost:5173",
                   "http://localhost:5174",
+                  "https://aplicatie-web-pentru-urmarirea-in-timp.onrender.com",
                   "https://tursib.onrender.com",
                   "https://tursib.vercel.app")
               .AllowAnyHeader()
