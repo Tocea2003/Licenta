@@ -29,7 +29,8 @@ builder.Services.AddLogging(logging =>
 
 // Configurare DbContext pentru Entity Framework Core cu SQLite
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"))
+           .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 // Register Services
 builder.Services.AddScoped<JwtService>();
