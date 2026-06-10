@@ -180,7 +180,10 @@ namespace TursibBackend.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine($"❌ Error in Google login: {ex.Message}");
-                return StatusCode(500, new { message = "Eroare la autentificare cu Google" });
+                Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                    Console.WriteLine($"❌ Inner exception: {ex.InnerException.Message}");
+                return StatusCode(500, new { message = "Eroare la autentificare cu Google", error = ex.Message });
             }
         }
 

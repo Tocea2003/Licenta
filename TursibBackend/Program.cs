@@ -14,6 +14,9 @@ var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
     ?? builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("JWT Key not configured. Set JWT_KEY environment variable.");
 
+// Inject the resolved key back into configuration so JwtService can read it
+builder.Configuration["Jwt:Key"] = jwtKey;
+
 // Add services to the container.
 builder.Services.AddOpenApi();
 
