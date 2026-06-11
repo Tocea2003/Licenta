@@ -237,7 +237,7 @@
       <!-- Rezultate -->
       <div v-if="planResults.length > 0" class="plan-results">
         <div class="results-header">
-          <strong>{{ planResults.length }} {{ t('selectedResults') }}</strong>
+          <strong>{{ planResults.length }} {{ planResults.length === 1 ? (currentLanguage === 'en' ? 'result' : 'rezultat') : t('selectedResults') }}</strong>
           <span class="results-sub">{{ planOrigin?.name }} → {{ planDest?.name }}</span>
         </div>
 
@@ -319,7 +319,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import apiService, { type Route, type Station, type StationScheduleEntry } from '@/services/apiService'
 import { useLanguage } from '@/composables/useLanguage'
 import { searchAddresses, getTypeIcon } from '@/services/geocodingService'
@@ -345,6 +345,14 @@ const tabs = computed(() => [
   { id: 'schedule' as TabId, icon: '🕐', label: t('schedule') },
   { id: 'routes' as TabId, icon: '🗺️', label: t('routes') },
 ])
+
+watch(activeTab, (newTab) => {
+  if (newTab !== 'routes' && selectedRouteId.value !== null) {
+    selectedRouteId.value = null
+    currentStations.value = []
+    emit('routeSelected', 0, [])
+  }
+})
 
 // ===================== TAB: TRASEE =====================
 const routes = ref<Route[]>([])

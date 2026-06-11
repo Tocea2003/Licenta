@@ -20,7 +20,7 @@
               id="username"
               v-model="credentials.username"
               type="text"
-              :placeholder="t('chooseUsername')"
+              :placeholder="t('enterUsername')"
               required
               autocomplete="username"
               :disabled="isLoading"
@@ -45,7 +45,7 @@
               id="password"
               v-model="credentials.password"
               :type="showPassword ? 'text' : 'password'"
-              :placeholder="t('choosePassword')"
+              :placeholder="t('enterPassword')"
               required
               autocomplete="current-password"
               :disabled="isLoading"
@@ -590,6 +590,8 @@ input:disabled {
   flex-direction: column;
   gap: 16px;
   align-items: center;
+  position: relative;
+  z-index: 2;
 }
 
 .signup-link {

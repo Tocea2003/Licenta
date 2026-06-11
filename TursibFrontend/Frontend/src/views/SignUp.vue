@@ -435,7 +435,7 @@ const toggleConfirmPasswordVisibility = () => {
 h1 {
   font-size: 28px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #0f172a;
   margin: 0;
 }
 
@@ -462,7 +462,7 @@ label {
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #0f172a;
   font-size: 14px;
 }
 

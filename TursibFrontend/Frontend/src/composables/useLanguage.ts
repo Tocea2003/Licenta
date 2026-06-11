@@ -83,6 +83,8 @@ const dictionary: Dictionary = {
   signupSubtitle: { ro: 'Creează un cont pentru a salva favoritele tale', en: 'Create an account to save your favorites' },
   chooseUsername: { ro: 'Alege un username', en: 'Choose a username' },
   choosePassword: { ro: 'Alege o parolă', en: 'Choose a password' },
+  enterUsername: { ro: 'Introdu username-ul', en: 'Enter your username' },
+  enterPassword: { ro: 'Introdu parola', en: 'Enter your password' },
   confirmPassword: { ro: 'Confirmă parola', en: 'Confirm password' },
   confirmYourPassword: { ro: 'Confirmă parola', en: 'Confirm your password' },
   min3Chars: { ro: 'Minim 3 caractere', en: 'Minimum 3 characters' },
