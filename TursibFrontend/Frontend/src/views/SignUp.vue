@@ -383,6 +383,16 @@ const toggleConfirmPasswordVisibility = () => {
   position: relative;
   z-index: 1;
   animation: slideIn 0.5s ease-out;
+
+  /* Force light-mode colors — card is always white regardless of theme */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --border-primary: #e2e8f0;
+  --accent-primary: #3b82f6;
+  --accent-secondary: #8b5cf6;
+  --color-success: #22c55e;
+  --color-danger: #ef4444;
+  --color-danger-soft: #fef2f2;
 }
 
 @keyframes slideIn {
