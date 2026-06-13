@@ -28,6 +28,24 @@ watch(() => vueRoute.query.tab, (tab) => {
   }
 }, { immediate: true })
 
+watch(() => vueRoute.query, (query) => {
+  if (query.lat && query.lon) {
+    const lat = parseFloat(query.lat as string)
+    const lon = parseFloat(query.lon as string)
+    const zoom = query.zoom ? parseInt(query.zoom as string) : 17
+    if (!isNaN(lat) && !isNaN(lon)) {
+      nextTick(() => {
+        if (mapRef.value?.showAddressLocation) {
+          mapRef.value.showAddressLocation({ lat, lon, name: (query.label as string) || '' })
+        } else if (mapRef.value?.centerMap) {
+          mapRef.value.centerMap(lat, lon, zoom)
+        }
+        router.replace({ query: {} })
+      })
+    }
+  }
+})
+
 // Mapare culori pentru fiecare traseu
 const routeColors: Record<number, string> = {
   1: '#FF0000',  // Linia 1 - Roșu

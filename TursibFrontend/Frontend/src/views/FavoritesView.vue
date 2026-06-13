@@ -38,13 +38,13 @@
     <!-- Favorites List -->
     <div class="favorites-list">
       <!-- Home -->
-      <div v-if="homeFavorite" class="favorite-item home">
+      <div v-if="homeFavorite" class="favorite-item home" @click="navigateToFavorite(homeFavorite)" style="cursor: pointer">
         <div class="favorite-icon">🏠</div>
         <div class="favorite-info">
           <h3>{{ homeFavorite.name }}</h3>
           <p>{{ homeFavorite.address }}</p>
         </div>
-        <div class="favorite-actions">
+        <div class="favorite-actions" @click.stop>
           <button @click="enableNotificationsForFavorite(homeFavorite)" class="action-btn notify" :disabled="notifyingFavoriteId === homeFavorite.id" title="Activează alerte pentru stația apropiată">
             🔔
           </button>
@@ -66,13 +66,13 @@
       </div>
 
       <!-- Work -->
-      <div v-if="workFavorite" class="favorite-item work">
+      <div v-if="workFavorite" class="favorite-item work" @click="navigateToFavorite(workFavorite)" style="cursor: pointer">
         <div class="favorite-icon">💼</div>
         <div class="favorite-info">
           <h3>{{ workFavorite.name }}</h3>
           <p>{{ workFavorite.address }}</p>
         </div>
-        <div class="favorite-actions">
+        <div class="favorite-actions" @click.stop>
           <button @click="enableNotificationsForFavorite(workFavorite)" class="action-btn notify" :disabled="notifyingFavoriteId === workFavorite.id" title="Activează alerte pentru stația apropiată">
             🔔
           </button>
@@ -94,17 +94,19 @@
       </div>
 
       <!-- Custom Favorites -->
-      <div 
-        v-for="favorite in customFavorites" 
+      <div
+        v-for="favorite in customFavorites"
         :key="favorite.id"
         class="favorite-item custom"
+        @click="navigateToFavorite(favorite)"
+        style="cursor: pointer"
       >
         <div class="favorite-icon">{{ favorite.icon }}</div>
         <div class="favorite-info">
           <h3>{{ favorite.name }}</h3>
           <p>{{ favorite.address }}</p>
         </div>
-        <div class="favorite-actions">
+        <div class="favorite-actions" @click.stop>
           <button @click="enableNotificationsForFavorite(favorite)" class="action-btn notify" :disabled="notifyingFavoriteId === favorite.id" title="Activează alerte pentru stația apropiată">
             🔔
           </button>
@@ -205,12 +207,26 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useFavorites, type FavoriteLocation } from '@/composables/useFavorites'
 import { useLanguage } from '@/composables/useLanguage'
 import apiService from '@/services/apiService'
 import { enableNotifications } from '@/composables/useNotifications'
 
+const router = useRouter()
 const { t } = useLanguage()
+
+const navigateToFavorite = (favorite: FavoriteLocation) => {
+  router.push({
+    path: '/',
+    query: {
+      lat: String(favorite.lat),
+      lon: String(favorite.lon),
+      zoom: '17',
+      label: favorite.name
+    }
+  })
+}
 
 const {
   favorites,

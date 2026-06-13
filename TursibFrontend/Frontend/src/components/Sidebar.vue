@@ -322,6 +322,8 @@
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import apiService, { type Route, type Station, type StationScheduleEntry } from '@/services/apiService'
 import { useLanguage } from '@/composables/useLanguage'
+import { useStatistics } from '@/composables/useStatistics'
+import { useRecentSearches } from '@/composables/useRecentSearches'
 import { searchAddresses, getTypeIcon } from '@/services/geocodingService'
 
 // Props
@@ -330,6 +332,8 @@ const props = defineProps<{
 }>()
 
 const { currentLanguage, t } = useLanguage()
+const { recordRouteUsage, incrementTrips } = useStatistics()
+const { addRecentSearch } = useRecentSearches()
 
 // Emits
 const emit = defineEmits<{
@@ -384,6 +388,13 @@ const loadRoutes = async () => {
 }
 
 const selectRoute = async (routeId: number) => {
+  if (selectedRouteId.value === routeId) {
+    selectedRouteId.value = null
+    currentStations.value = []
+    emit('routeSelected', 0, [])
+    return
+  }
+  recordRouteUsage(routeId)
   selectedRouteId.value = routeId
   if (stationsCache.has(routeId)) {
     currentStations.value = stationsCache.get(routeId)!
@@ -430,6 +441,11 @@ const selectScheduleStation = async (station: Station) => {
   selectedScheduleStation.value = station
   scheduleQuery.value = station.name
   filteredScheduleStations.value = []
+  addRecentSearch({
+    query: station.name,
+    type: 'station',
+    result: { name: station.name, lat: station.latitude, lon: station.longitude, stationId: station.id }
+  })
   loadingSchedule.value = true
   try {
     const schedule = await apiService.getStationSchedule(station.id)
@@ -677,8 +693,22 @@ const debouncedDestInput = () => {
   }, 300)
 }
 
-const selectOrigin = (s: Suggestion) => { planOrigin.value = s; planOriginQuery.value = ''; originSuggestions.value = [] }
-const selectDest   = (s: Suggestion) => { planDest.value = s;   planDestQuery.value = '';   destSuggestions.value = [] }
+const selectOrigin = (s: Suggestion) => {
+  planOrigin.value = s; planOriginQuery.value = ''; originSuggestions.value = []
+  addRecentSearch({
+    query: s.name,
+    type: s.type === 'station' ? 'station' : 'address',
+    result: { name: s.name, lat: s.lat, lon: s.lon, stationId: s.stationId }
+  })
+}
+const selectDest = (s: Suggestion) => {
+  planDest.value = s; planDestQuery.value = ''; destSuggestions.value = []
+  addRecentSearch({
+    query: s.name,
+    type: s.type === 'station' ? 'station' : 'address',
+    result: { name: s.name, lat: s.lat, lon: s.lon, stationId: s.stationId }
+  })
+}
 const clearOrigin  = () => { planOrigin.value = null; planOriginQuery.value = ''; originSuggestions.value = [] }
 const clearDest    = () => { planDest.value = null;   planDestQuery.value = '';   destSuggestions.value = [] }
 
@@ -995,6 +1025,7 @@ const searchRoutes = async () => {
 }
 
 const selectPlanResult = (result: PlanResult) => {
+  incrementTrips()
   emit('planSelected', result)
 }
 

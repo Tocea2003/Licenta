@@ -155,8 +155,8 @@ namespace TursibBackend.Controllers
             if (trip == null || string.IsNullOrEmpty(trip.ShapeId))
             {
                 stopwatch.Stop();
-                _logger.LogWarning("❌ Trip not found for route {RouteId} with stations {From}->{To} - Response time: {ElapsedMs}ms", routeId, fromStationId, toStationId, stopwatch.ElapsedMilliseconds);
-                return NotFound("Trip not found for route");
+                _logger.LogInformation("Trip not found for route {RouteId} with stations {From}->{To} - Response time: {ElapsedMs}ms", routeId, fromStationId, toStationId, stopwatch.ElapsedMilliseconds);
+                return NoContent();
             }
 
             // Găsește secvența stațiilor în trip

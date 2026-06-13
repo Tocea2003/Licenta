@@ -130,10 +130,12 @@ export default {
   },
 
   // GET /api/shapes/route/{routeId}/segment - Returnează segmentul de traseu între două stații
-  async getRouteSegment(routeId: number, fromStationId: number, toStationId: number): Promise<RouteShape> {
+  async getRouteSegment(routeId: number, fromStationId: number, toStationId: number): Promise<RouteShape | null> {
     const response = await apiClient.get<RouteShape>(
-      `/shapes/route/${routeId}/segment?fromStationId=${fromStationId}&toStationId=${toStationId}`
+      `/shapes/route/${routeId}/segment?fromStationId=${fromStationId}&toStationId=${toStationId}`,
+      { validateStatus: (status: number) => status === 200 || status === 204 }
     )
+    if (response.status === 204) return null
     return response.data
   },
 

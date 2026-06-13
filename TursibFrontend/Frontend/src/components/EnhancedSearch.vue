@@ -595,6 +595,12 @@ if (typeof window !== 'undefined') {
   max-width: calc(100vw - 100px);
 }
 
+@media (min-width: 768px) and (max-width: 900px) {
+  .enhanced-search-container {
+    max-width: calc(100vw - 230px);
+  }
+}
+
 @media (max-width: 767px) {
   .enhanced-search-container {
     left: 54px;

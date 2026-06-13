@@ -1,13 +1,23 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useOnboarding } from '@/composables/useOnboarding'
+import { useStatistics } from '@/composables/useStatistics'
 import OnboardingTutorial from '@/components/OnboardingTutorial.vue'
 import HomeView from '@/views/HomeView.vue'
 
 const { showOnboarding } = useOnboarding()
+const { addTimeUsed } = useStatistics()
 const route = useRoute()
 const router = useRouter()
+
+let sessionTimer: number | null = null
+onMounted(() => {
+  sessionTimer = window.setInterval(() => addTimeUsed(1), 60000)
+})
+onUnmounted(() => {
+  if (sessionTimer) clearInterval(sessionTimer)
+})
 
 // Routes that replace the map entirely (full-page)
 const FULL_PAGE_PREFIXES = ['/admin', '/loginadmin', '/login', '/signup']
@@ -84,7 +94,7 @@ html, body, #app {
 .panel-overlay {
   position: fixed;
   inset: 0;
-  z-index: 51;
+  z-index: 950;
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
