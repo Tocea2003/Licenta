@@ -392,7 +392,7 @@ const handleLogout = () => {
   left: 3px;
   width: 22px;
   height: 22px;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 50%;
   transition: transform 0.25s var(--ease-out-back, cubic-bezier(0.34, 1.56, 0.64, 1));
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);

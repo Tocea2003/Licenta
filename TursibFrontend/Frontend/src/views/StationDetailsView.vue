@@ -313,26 +313,25 @@ onUnmounted(() => {
 <style scoped>
 .station-details-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);
+  background: var(--bg-secondary);
   padding-bottom: 100px;
 }
 
 .header {
   background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  padding: 24px;
+  padding: 20px 24px;
   color: white;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .back-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
   border-radius: 10px;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -341,35 +340,32 @@ onUnmounted(() => {
 }
 
 .back-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.25);
   transform: scale(1.05);
 }
 
-.back-btn svg {
-  color: white;
-}
+.back-btn svg { color: white; }
 
 .station-info h1 {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-size: 1.35rem;
+  font-weight: 700;
 }
 
 .coordinates {
   margin: 4px 0 0 0;
-  font-size: 0.85rem;
-  opacity: 0.9;
+  font-size: 0.8rem;
+  opacity: 0.85;
 }
 
 .loading-state,
 .error-state {
   text-align: center;
   padding: 80px 24px;
+  color: var(--text-secondary);
 }
 
-.skeleton-container {
-  padding: 24px;
-}
+.skeleton-container { padding: 24px; }
 
 .skeleton-header {
   display: flex;
@@ -385,9 +381,7 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.skeleton-section {
-  margin-bottom: 24px;
-}
+.skeleton-section { margin-bottom: 24px; }
 
 .skeleton-cards {
   margin-top: 16px;
@@ -402,8 +396,8 @@ onUnmounted(() => {
   gap: 16px;
   padding: 16px;
   background: var(--bg-primary);
-  border-radius: 16px;
-  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  border: 1.5px solid var(--border-primary);
 }
 
 .skeleton-eta-info {
@@ -416,7 +410,7 @@ onUnmounted(() => {
 .retry-btn {
   margin-top: 16px;
   padding: 12px 24px;
-  background: #3b82f6;
+  background: var(--accent-primary);
   color: white;
   border: none;
   border-radius: 10px;
@@ -425,53 +419,52 @@ onUnmounted(() => {
 }
 
 .content {
-  padding: 24px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
 }
 
 .etas-section h2,
 .routes-section h2 {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  color: #111827;
-  margin: 0 0 16px 0;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
 }
 
 .etas-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .eta-card {
-  background: white;
-  border-radius: 14px;
-  padding: 16px;
+  background: var(--bg-primary);
+  border-radius: 10px;
+  padding: 12px 14px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border-left: 4px solid #3b82f6;
-  transition: all 0.2s;
+  gap: 12px;
+  border: 1.5px solid var(--border-primary);
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .eta-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-soft);
 }
 
 .route-badge {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-weight: 800;
-  font-size: 1.1rem;
+  font-weight: 700;
+  font-size: 0.95rem;
   flex-shrink: 0;
 }
 
@@ -481,10 +474,10 @@ onUnmounted(() => {
 }
 
 .eta-info h3 {
-  margin: 0 0 4px 0;
-  font-size: 0.95rem;
+  margin: 0 0 2px 0;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -492,8 +485,10 @@ onUnmounted(() => {
 
 .direction {
   margin: 0;
-  font-size: 0.8rem;
-  color: #6b7280;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .countdown {
@@ -503,23 +498,23 @@ onUnmounted(() => {
 
 .countdown .time {
   display: block;
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 800;
-  color: #3b82f6;
+  color: var(--accent-primary);
   line-height: 1;
 }
 
 .countdown .label {
   display: block;
-  font-size: 0.75rem;
-  color: #6b7280;
-  margin-top: 4px;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
 }
 
 .routes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
 }
 
 @media (max-width: 360px) {
@@ -530,51 +525,52 @@ onUnmounted(() => {
 }
 
 .route-card {
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-primary);
+  border-radius: 10px;
+  padding: 14px 10px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .route-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-soft);
 }
 
 .route-number {
-  width: 48px;
-  height: 48px;
-  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-weight: 800;
-  font-size: 1.1rem;
+  font-weight: 700;
+  font-size: 1rem;
   margin: 0 auto 8px;
 }
 
 .route-name {
-  font-size: 0.8rem;
-  color: #6b7280;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
   font-weight: 500;
+  line-height: 1.3;
 }
 
 .actions-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .action-btn {
-  padding: 14px 20px;
-  border-radius: 12px;
-  border: none;
+  padding: 13px 20px;
+  border-radius: 10px;
+  border: 1.5px solid transparent;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -586,31 +582,28 @@ onUnmounted(() => {
 .action-btn.favorite {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);
 }
 
 .action-btn.favorite:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+  filter: brightness(1.1);
+  transform: translateY(-1px);
 }
 
 .action-btn.notify {
-  background: white;
-  border: 2px solid #e5e7eb;
-  color: #374151;
+  background: var(--bg-primary);
+  border-color: var(--border-primary);
+  color: var(--text-primary);
 }
 
 .action-btn.notify:hover {
-  background: #f9fafb;
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
 }
 
 .action-btn.notify.active {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   border-color: #3b82f6;
   color: white;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
 }
 
 .action-btn.notify.active:hover {
@@ -619,30 +612,30 @@ onUnmounted(() => {
 }
 
 .notification-feedback {
-  padding: 12px 16px;
-  border-radius: 12px;
-  font-size: 0.9rem;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.85rem;
   font-weight: 500;
   text-align: center;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .notification-feedback.success {
-  background: #ecfdf5;
-  color: #065f46;
-  border: 1px solid #a7f3d0;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .notification-feedback.error {
-  background: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .notification-feedback.info {
-  background: #eff6ff;
-  color: #1e40af;
-  border: 1px solid #bfdbfe;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--accent-primary);
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .fade-enter-active,
@@ -658,7 +651,7 @@ onUnmounted(() => {
 .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 </style>

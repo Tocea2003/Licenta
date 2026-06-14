@@ -477,15 +477,15 @@ const enableNotificationsForFavorite = async (favorite: FavoriteLocation) => {
 }
 
 .notification-message.success {
-  background: #dcfce7;
-  border: 1px solid #86efac;
-  color: #166534;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #10b981;
 }
 
 .notification-message.error {
-  background: #fee2e2;
-  border: 1px solid #fca5a5;
-  color: #991b1b;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
 }
 
 .quick-add {
@@ -651,8 +651,8 @@ const enableNotificationsForFavorite = async (favorite: FavoriteLocation) => {
 }
 
 .action-btn.notify:hover {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: var(--accent-primary-soft);
+  color: var(--accent-primary);
 }
 
 .action-btn:disabled {
