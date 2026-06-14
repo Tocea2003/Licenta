@@ -162,6 +162,28 @@ function toResults(data: any[]): GeocodingResult[] {
  * Runs a free-form query + (when a house number is detected) a parallel
  * structured query, then merges, deduplicates and ranks.
  */
+export async function reverseGeocode(lat: number, lon: number): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1&accept-language=ro`,
+      { headers: { Accept: 'application/json' } }
+    )
+    const data = await res.json()
+    if (data?.address) {
+      const a = data.address
+      const road = a.road ?? a.pedestrian ?? a.footway ?? a.cycleway ?? a.path
+      const houseNum = a.house_number
+      const city = a.city ?? a.town ?? a.village ?? ''
+      if (road && houseNum) return `${road} ${houseNum}, ${city}`
+      if (road) return `${road}, ${city}`
+      if (data.display_name) return data.display_name.split(',').slice(0, 3).map((s: string) => s.trim()).join(', ')
+    }
+    return `${lat.toFixed(5)}, ${lon.toFixed(5)}`
+  } catch {
+    return `${lat.toFixed(5)}, ${lon.toFixed(5)}`
+  }
+}
+
 export async function searchAddresses(query: string): Promise<GeocodingResult[]> {
   if (query.trim().length < 2) return []
 

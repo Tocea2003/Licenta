@@ -19,6 +19,8 @@
       :stations="allStations"
       :user-location="userLocation"
       :trip-mode="tripMode"
+      :directions-active="showDirections || showMultimodal || showTransfer"
+      :pin-origin="pinOriginLocation"
       @station-selected="handleStationSelected"
       @station-notification-requested="handleStationNotificationRequested"
       @address-selected="handleAddressSelected"
@@ -193,6 +195,14 @@
       :bus-time3="transferData.busTime3"
       :second-walk-distance="transferData.secondWalkDistance"
       :second-walk-time="transferData.secondWalkTime"
+      :bus1-start-time="transferData.bus1StartTime"
+      :bus1-end-time="transferData.bus1EndTime"
+      :bus2-start-time="transferData.bus2StartTime"
+      :bus2-end-time="transferData.bus2EndTime"
+      :bus3-start-time="transferData.bus3StartTime"
+      :bus3-end-time="transferData.bus3EndTime"
+      :departure-time="transferData.departureTime"
+      :arrival-time="transferData.arrivalTime"
       @close="closeTransfer"
     />
     
@@ -295,6 +305,41 @@
         </l-popup>
       </l-marker>
       
+      <!-- Pin plasat de utilizator pe hartă -->
+      <l-marker
+        v-if="pinnedLocation"
+        :lat-lng="[pinnedLocation.lat, pinnedLocation.lon]"
+      >
+        <l-icon
+          :icon-size="[30, 45]"
+          :icon-anchor="[15, 45]"
+          :popup-anchor="[0, -40]"
+          icon-url="https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png"
+          shadow-url="https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png"
+        />
+        <l-popup :options="{ minWidth: 200, maxWidth: 280 }">
+          <div class="pin-popup">
+            <div class="pin-popup-address">
+              <strong>{{ pinnedLocation.name }}</strong>
+            </div>
+            <div class="pin-popup-actions">
+              <button class="pin-action-btn" @click="pinNavigateHere">
+                🧭 Navighează aici
+              </button>
+              <button class="pin-action-btn" @click="pinSearchFrom">
+                📍 Plecare de aici
+              </button>
+              <button class="pin-action-btn" @click="pinAddFavorite">
+                ⭐ Adaugă la favorite
+              </button>
+              <button class="pin-action-btn pin-action-btn--close" @click="pinClose">
+                ✕ Închide pinul
+              </button>
+            </div>
+          </div>
+        </l-popup>
+      </l-marker>
+
       <!-- Markere pentru coordonatele snapped (puncte exacte pe stradă) -->
       <l-marker
         v-if="snappedStart && showDirections"
@@ -601,6 +646,8 @@ import { authService } from '@/services/adminService'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { tripHistoryService, type TripHistoryItem } from '@/services/tripHistoryService'
 import { useLanguage } from '@/composables/useLanguage'
+import { reverseGeocode } from '@/services/geocodingService'
+import { useFavorites } from '@/composables/useFavorites'
 
 const router = useRouter()
 
@@ -791,6 +838,11 @@ const userLocation = ref<{lat: number, lon: number} | null>(null)
 // State pentru adresa selectată
 const selectedAddress = ref<{lat: number, lon: number, name: string} | null>(null)
 
+// State pentru pin pe hartă
+const pinnedLocation = ref<{lat: number, lon: number, name: string} | null>(null)
+const isPinLoading = ref(false)
+const { addFavorite } = useFavorites()
+
 // State pentru direcții de mers pe jos (primul traseu: de la user la stația de urcare)
 const showDirections = ref(false)
 const walkingStart = ref<{lat: number, lon: number, name: string} | null>(null)
@@ -872,6 +924,7 @@ onUnmounted(() => document.removeEventListener('click', handleGlobalClick))
 const isMobile = ref(window.innerWidth < 768)
 const showSidebar = ref(window.innerWidth >= 768)
 const tripMode = ref(false)
+const pinOriginLocation = ref<{lat: number, lon: number, name: string} | null>(null)
 
 
 // State pentru panoul multimodal
@@ -915,7 +968,15 @@ const transferData = ref({
   busTime2: 0,
   busTime3: 0,
   secondWalkDistance: 0,
-  secondWalkTime: 0
+  secondWalkTime: 0,
+  bus1StartTime: '',
+  bus1EndTime: '',
+  bus2StartTime: '',
+  bus2EndTime: '',
+  bus3StartTime: '',
+  bus3EndTime: '',
+  departureTime: '',
+  arrivalTime: ''
 })
 
 // Cache pentru stații apropiate
@@ -1244,6 +1305,15 @@ const onMapReady = (mapInstance: any) => {
     mapInstance.setView(pendingMapCenter.value, pendingMapZoom.value, { animate: false })
     pendingMapCenter.value = null
   }
+
+  mapInstance.on('click', async (e: any) => {
+    const { lat, lng } = e.latlng
+    isPinLoading.value = true
+    pinnedLocation.value = { lat, lon: lng, name: 'Se încarcă...' }
+    const address = await reverseGeocode(lat, lng)
+    pinnedLocation.value = { lat, lon: lng, name: address }
+    isPinLoading.value = false
+  })
 }
 
 
@@ -1543,6 +1613,44 @@ const centerMap = (lat: number, lon: number, newZoom: number = 15) => {
 
 }
 
+// ========== PIN ACTIONS ==========
+
+const pinNavigateHere = () => {
+  if (!pinnedLocation.value) return
+  const dest = { lat: pinnedLocation.value.lat, lon: pinnedLocation.value.lon, name: pinnedLocation.value.name }
+  pinnedLocation.value = null
+  if (userLocation.value) {
+    handleMultimodalRouteRequested(userLocation.value, dest)
+  } else {
+    handleAddressSelected(dest)
+  }
+}
+
+const pinSearchFrom = () => {
+  if (!pinnedLocation.value) return
+  const loc = pinnedLocation.value
+  pinnedLocation.value = null
+  tripMode.value = true
+  pinOriginLocation.value = { lat: loc.lat, lon: loc.lon, name: loc.name }
+}
+
+const pinAddFavorite = async () => {
+  if (!pinnedLocation.value) return
+  await addFavorite({
+    name: pinnedLocation.value.name,
+    address: pinnedLocation.value.name,
+    lat: pinnedLocation.value.lat,
+    lon: pinnedLocation.value.lon,
+    type: 'custom',
+    icon: '📍'
+  })
+  pinnedLocation.value = null
+}
+
+const pinClose = () => {
+  pinnedLocation.value = null
+}
+
 // Handler pentru locația găsită de LocationButton
 const handleLocationFound = (lat: number, lon: number) => {
   userLocation.value = { lat, lon }
@@ -1561,6 +1669,7 @@ const handleLocationFound = (lat: number, lon: number) => {
 
 // Handler pentru stația selectată din EnhancedSearch
 const handleStationSelected = (station: Station) => {
+  pinnedLocation.value = null
   centerMap(station.latitude, station.longitude, 16)
 }
 
@@ -1573,6 +1682,7 @@ const handleStationNotificationRequested = async (station: Station) => {
 // Handler pentru adresa selectată
 const handleAddressSelected = (location: { lat: number; lon: number; name: string }) => {
   selectedAddress.value = location
+  pinnedLocation.value = null
   centerMap(location.lat, location.lon, 15)
 }
 
@@ -2185,7 +2295,15 @@ const handleAlternativeRouteSelected = async (route: any) => {
         busTime2: segment2.duration || 0,
         busTime3: segment3?.duration || 0,
         secondWalkDistance: 0,
-        secondWalkTime: 0
+        secondWalkTime: 0,
+        bus1StartTime: segment1.startTime || '',
+        bus1EndTime: segment1.endTime || '',
+        bus2StartTime: segment2.startTime || '',
+        bus2EndTime: segment2.endTime || '',
+        bus3StartTime: segment3?.startTime || '',
+        bus3EndTime: segment3?.endTime || '',
+        departureTime: route.departureTime || '',
+        arrivalTime: route.arrivalTime || ''
       }
 
       showTransfer.value = true
@@ -2353,7 +2471,15 @@ const handleMultimodalRouteRequested = async (
           busTime2: calculateBusTime(route2StationsCount),
           busTime3: 0,
           secondWalkDistance: routingData.secondDistance,
-          secondWalkTime: routingData.secondTime
+          secondWalkTime: routingData.secondTime,
+          bus1StartTime: '',
+          bus1EndTime: '',
+          bus2StartTime: '',
+          bus2EndTime: '',
+          bus3StartTime: '',
+          bus3EndTime: '',
+          departureTime: '',
+          arrivalTime: ''
         }
         
         
@@ -2517,7 +2643,15 @@ const closeTransfer = () => {
     busTime2: 0,
     busTime3: 0,
     secondWalkDistance: 0,
-    secondWalkTime: 0
+    secondWalkTime: 0,
+    bus1StartTime: '',
+    bus1EndTime: '',
+    bus2StartTime: '',
+    bus2EndTime: '',
+    bus3StartTime: '',
+    bus3EndTime: '',
+    departureTime: '',
+    arrivalTime: ''
   }
 }
 
@@ -2707,7 +2841,15 @@ watch(() => props.tripPlan, async (plan) => {
       busTime2: route2Stations * 2,
       busTime3: route3Stations * 2,
       secondWalkDistance: 0,
-      secondWalkTime: plan.walkToEndMinutes ?? 0
+      secondWalkTime: plan.walkToEndMinutes ?? 0,
+      bus1StartTime: '',
+      bus1EndTime: '',
+      bus2StartTime: '',
+      bus2EndTime: '',
+      bus3StartTime: '',
+      bus3EndTime: '',
+      departureTime: '',
+      arrivalTime: ''
     }
     showTransfer.value = true
   }
@@ -3669,5 +3811,52 @@ const getStationETAs = (stationId: number) => {
 .bus-marker-animated img {
   display: block;
   transition: none !important;
+}
+
+/* Pin popup styles */
+.pin-popup {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.pin-popup-address {
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.3;
+  color: #1f2937;
+  word-break: break-word;
+}
+
+.pin-popup-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pin-action-btn {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.pin-action-btn:hover {
+  background: #dbeafe;
+}
+
+.pin-action-btn--close {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.pin-action-btn--close:hover {
+  background: #fee2e2;
 }
 </style>

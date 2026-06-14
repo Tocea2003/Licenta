@@ -10,12 +10,12 @@
         placeholder="🔍 Caută adresă sau stație de plecare..."
         class="search-input"
         @input="handleOriginSearch"
-        @focus="showOriginResults = true"
+        @focus="!directionsActive && (showOriginResults = true)"
       />
       <button v-if="originQuery" @click="clearOriginSearch" class="clear-btn">✕</button>
     </div>
     
-    <div v-if="tripMode && showOriginResults && (geocodeOriginResults.length > 0 || filteredOriginStations.length > 0)" class="search-results">
+    <div v-if="tripMode && showOriginResults && !directionsActive && (geocodeOriginResults.length > 0 || filteredOriginStations.length > 0)" class="search-results">
       <!-- Rezultate geocoding (adrese) -->
       <div v-if="geocodeOriginResults.length > 0" class="results-section">
         <div class="section-title">📍 Adrese</div>
@@ -61,13 +61,13 @@
         :placeholder="tripMode ? '🔍 Destinație...' : '🔍 Caută stație...'"
         class="search-input"
         @input="handleSearch"
-        @focus="showResults = true"
+        @focus="!directionsActive && (showResults = true)"
       />
       <button v-if="searchQuery" @click="clearSearch" class="clear-btn">✕</button>
     </div>
 
     <!-- Quick Access Favorites (dropdown when focused, no query) -->
-    <div v-if="showResults && !searchQuery && !originQuery && favorites.length > 0" class="quick-access">
+    <div v-if="showResults && !directionsActive && !searchQuery && !originQuery && favorites.length > 0" class="quick-access">
       <div class="section-title">⭐ Favorite</div>
       <div class="favorites-grid">
         <button
@@ -83,7 +83,7 @@
     </div>
 
     <!-- Recent Searches (dropdown when focused, no query) -->
-    <div v-if="showResults && !searchQuery && !originQuery && latestSearches.length > 0" class="recent-searches">
+    <div v-if="showResults && !directionsActive && !searchQuery && !originQuery && latestSearches.length > 0" class="recent-searches">
       <div class="section-title">
         🕒 Căutări Recente
         <button @click="clearAllSearches" class="clear-all-btn">Șterge tot</button>
@@ -103,7 +103,7 @@
       </div>
     </div>
 
-    <div v-if="showResults && (geocodeResults.length > 0 || filteredStations.length > 0)" class="search-results">
+    <div v-if="showResults && !directionsActive && (geocodeResults.length > 0 || filteredStations.length > 0)" class="search-results">
       <!-- Rezultate geocoding (adrese) -->
       <div v-if="geocodeResults.length > 0" class="results-section">
         <div class="section-title">📍 Adrese</div>
@@ -149,7 +149,7 @@
       </div>
     </div>
     
-    <div v-if="showResults && searchQuery && geocodeResults.length === 0 && filteredStations.length === 0 && !isSearching" class="no-results">
+    <div v-if="showResults && !directionsActive && searchQuery && geocodeResults.length === 0 && filteredStations.length === 0 && !isSearching" class="no-results">
       Nu s-au găsit rezultate
     </div>
     
@@ -170,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { Station, Route } from '@/services/apiService'
 import apiService from '@/services/apiService'
 import { useFavorites, type FavoriteLocation } from '@/composables/useFavorites'
@@ -182,12 +182,16 @@ interface Props {
   stations: Station[]
   userLocation?: { lat: number; lon: number } | null
   tripMode?: boolean
+  directionsActive?: boolean
+  pinOrigin?: { lat: number; lon: number; name: string } | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   stations: () => [],
   userLocation: null,
-  tripMode: false
+  tripMode: false,
+  directionsActive: false,
+  pinOrigin: null
 })
 
 const emit = defineEmits<{
@@ -218,6 +222,21 @@ const filteredOriginStations = ref<Station[]>([])
 const originLocation = ref<{ lat: number; lon: number; name: string } | null>(null)
 const destinationLocation = ref<{ lat: number; lon: number; name: string } | null>(null)
 const isSearchingRoutes = ref(false)
+
+watch(() => props.directionsActive, (active) => {
+  if (active) {
+    showResults.value = false
+    showOriginResults.value = false
+  }
+})
+
+watch(() => props.pinOrigin, (pin) => {
+  if (pin) {
+    originLocation.value = { lat: pin.lat, lon: pin.lon, name: pin.name }
+    originQuery.value = pin.name
+    showOriginResults.value = false
+  }
+})
 
 // Debounce timers
 let searchTimeout: number | null = null

@@ -49,8 +49,14 @@
             <span class="segment-duration">{{ formatDuration(busTime1) }}</span>
           </div>
           <div class="segment-stations">{{ route1StationsCount }} stații</div>
-          <div class="segment-from">Îmbarcă la <strong>{{ boardingStation?.name }}</strong></div>
-          <div class="segment-to">Coboară la <strong>{{ transferStation?.name }}</strong></div>
+          <div class="segment-from">
+            Îmbarcă la <strong>{{ boardingStation?.name }}</strong>
+            <span v-if="formatTime(bus1StartTime)" class="segment-time">{{ formatTime(bus1StartTime) }}</span>
+          </div>
+          <div class="segment-to">
+            Coboară la <strong>{{ transferStation?.name }}</strong>
+            <span v-if="formatTime(bus1EndTime)" class="segment-time">{{ formatTime(bus1EndTime) }}</span>
+          </div>
         </div>
       </div>
 
@@ -84,8 +90,14 @@
             <span class="segment-duration">{{ formatDuration(busTime2) }}</span>
           </div>
           <div class="segment-stations">{{ route2StationsCount }} stații</div>
-          <div class="segment-from">Îmbarcă la <strong>{{ transferStation?.name }}</strong></div>
-          <div class="segment-to">Coboară la <strong>{{ secondBusDropoffStation?.name }}</strong></div>
+          <div class="segment-from">
+            Îmbarcă la <strong>{{ transferStation?.name }}</strong>
+            <span v-if="formatTime(bus2StartTime)" class="segment-time">{{ formatTime(bus2StartTime) }}</span>
+          </div>
+          <div class="segment-to">
+            Coboară la <strong>{{ secondBusDropoffStation?.name }}</strong>
+            <span v-if="formatTime(bus2EndTime)" class="segment-time">{{ formatTime(bus2EndTime) }}</span>
+          </div>
         </div>
       </div>
 
@@ -119,8 +131,14 @@
             <span class="segment-duration">{{ formatDuration(busTime3 || 0) }}</span>
           </div>
           <div class="segment-stations">{{ route3StationsCount }} stații</div>
-          <div class="segment-from">Îmbarcă la <strong>{{ transferStation2?.name }}</strong></div>
-          <div class="segment-to">Coboară la <strong>{{ alightingStation?.name }}</strong></div>
+          <div class="segment-from">
+            Îmbarcă la <strong>{{ transferStation2?.name }}</strong>
+            <span v-if="formatTime(bus3StartTime)" class="segment-time">{{ formatTime(bus3StartTime) }}</span>
+          </div>
+          <div class="segment-to">
+            Coboară la <strong>{{ alightingStation?.name }}</strong>
+            <span v-if="formatTime(bus3EndTime)" class="segment-time">{{ formatTime(bus3EndTime) }}</span>
+          </div>
         </div>
       </div>
 
@@ -140,6 +158,19 @@
           <div class="segment-distance">{{ formatDistance(secondWalkDistance) }}</div>
           <div class="segment-from">De la <strong>{{ alightingStation?.name }}</strong></div>
           <div class="segment-to">Către <strong>{{ endName }}</strong></div>
+        </div>
+      </div>
+
+      <!-- Ore plecare/sosire -->
+      <div v-if="formatTime(departureTime) && formatTime(arrivalTime)" class="route-times">
+        <div class="time-item departure">
+          <span class="time-label">Plecare</span>
+          <span class="time-value">{{ formatTime(departureTime) }}</span>
+        </div>
+        <div class="time-arrow">→</div>
+        <div class="time-item arrival">
+          <span class="time-label">Sosire</span>
+          <span class="time-value">{{ formatTime(arrivalTime) }}</span>
         </div>
       </div>
 
@@ -196,6 +227,14 @@ const props = defineProps<{
   busTime3?: number
   secondWalkDistance: number
   secondWalkTime: number
+  bus1StartTime?: string
+  bus1EndTime?: string
+  bus2StartTime?: string
+  bus2EndTime?: string
+  bus3StartTime?: string
+  bus3EndTime?: string
+  departureTime?: string
+  arrivalTime?: string
 }>()
 
 defineEmits<{
@@ -220,6 +259,13 @@ const transferCount = computed(() => (hasThirdBus.value ? 2 : 1))
 const totalWalkDistance = computed(() => 
   props.firstWalkDistance + props.secondWalkDistance
 )
+
+const formatTime = (isoString?: string): string => {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  if (isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })
+}
 
 const formatDistance = (meters: number): string => {
   if (meters < 1000) {
@@ -477,6 +523,82 @@ const formatDuration = (minutes: number): string => {
   .segment-from strong,
   .segment-to strong {
     color: #f3f4f6;
+  }
+}
+
+.segment-time {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .segment-time {
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.15);
+  }
+}
+
+.route-times {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .route-times {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(16, 185, 129, 0.15) 100%);
+    border-color: rgba(59, 130, 246, 0.25);
+  }
+}
+
+.time-item {
+  text-align: center;
+}
+
+.time-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.time-value {
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1f2937;
+}
+
+.time-arrow {
+  font-size: 18px;
+  color: #9ca3af;
+  font-weight: 700;
+}
+
+@media (prefers-color-scheme: dark) {
+  .time-label {
+    color: #9ca3af;
+  }
+  .time-value {
+    color: #f3f4f6;
+  }
+  .time-arrow {
+    color: #6b7280;
   }
 }
 
