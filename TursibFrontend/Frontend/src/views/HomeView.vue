@@ -86,6 +86,20 @@ const handleLocationSelected = (location: { lat: number; lon: number; name: stri
   }
 }
 
+const handlePinSetOrigin = (location: { lat: number; lon: number; name: string }) => {
+  sidebarVisible.value = true
+  nextTick(() => {
+    sidebarRef.value?.setPlanOrigin(location)
+  })
+}
+
+const handlePinSetDestination = (location: { lat: number; lon: number; name: string }) => {
+  sidebarVisible.value = true
+  nextTick(() => {
+    sidebarRef.value?.setPlanDestination(location)
+  })
+}
+
 // Handler pentru toggle sidebar
 const handleSidebarToggle = (visible: boolean) => {
   sidebarVisible.value = visible
@@ -143,6 +157,8 @@ onMounted(() => {
         :trip-plan="activeTripPlan"
         @route-selected="handleRouteSelected"
         @sidebar-toggle="handleSidebarToggle"
+        @pin-set-origin="handlePinSetOrigin"
+        @pin-set-destination="handlePinSetDestination"
       />
     </div>
 

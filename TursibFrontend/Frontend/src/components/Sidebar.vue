@@ -1058,7 +1058,22 @@ onMounted(loadRoutes)
 onUnmounted(() => { if (countdownTimer) clearInterval(countdownTimer) })
 
 const openPlanTab = () => { activeTab.value = 'plan' }
-defineExpose({ openPlanTab })
+
+const setPlanOrigin = (location: { lat: number; lon: number; name: string }) => {
+  activeTab.value = 'plan'
+  planOrigin.value = { type: 'address', name: location.name, lat: location.lat, lon: location.lon }
+  planOriginQuery.value = ''
+  originSuggestions.value = []
+}
+
+const setPlanDestination = (location: { lat: number; lon: number; name: string }) => {
+  activeTab.value = 'plan'
+  planDest.value = { type: 'address', name: location.name, lat: location.lat, lon: location.lon }
+  planDestQuery.value = ''
+  destSuggestions.value = []
+}
+
+defineExpose({ openPlanTab, setPlanOrigin, setPlanDestination })
 </script>
 
 <style scoped>

@@ -183,15 +183,13 @@ interface Props {
   userLocation?: { lat: number; lon: number } | null
   tripMode?: boolean
   directionsActive?: boolean
-  pinOrigin?: { lat: number; lon: number; name: string } | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   stations: () => [],
   userLocation: null,
   tripMode: false,
-  directionsActive: false,
-  pinOrigin: null
+  directionsActive: false
 })
 
 const emit = defineEmits<{
@@ -230,13 +228,6 @@ watch(() => props.directionsActive, (active) => {
   }
 })
 
-watch(() => props.pinOrigin, (pin) => {
-  if (pin) {
-    originLocation.value = { lat: pin.lat, lon: pin.lon, name: pin.name }
-    originQuery.value = pin.name
-    showOriginResults.value = false
-  }
-})
 
 // Debounce timers
 let searchTimeout: number | null = null

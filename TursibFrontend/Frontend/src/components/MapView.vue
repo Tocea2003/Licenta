@@ -20,7 +20,6 @@
       :user-location="userLocation"
       :trip-mode="tripMode"
       :directions-active="showDirections || showMultimodal || showTransfer"
-      :pin-origin="pinOriginLocation"
       @station-selected="handleStationSelected"
       @station-notification-requested="handleStationNotificationRequested"
       @address-selected="handleAddressSelected"
@@ -812,6 +811,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   routeSelected: [routeId: number, stations: Station[]]
   sidebarToggle: [visible: boolean]
+  pinSetOrigin: [location: { lat: number; lon: number; name: string }]
+  pinSetDestination: [location: { lat: number; lon: number; name: string }]
 }>()
 
 // State pentru a verifica dacă componenta este gata
@@ -924,7 +925,6 @@ onUnmounted(() => document.removeEventListener('click', handleGlobalClick))
 const isMobile = ref(window.innerWidth < 768)
 const showSidebar = ref(window.innerWidth >= 768)
 const tripMode = ref(false)
-const pinOriginLocation = ref<{lat: number, lon: number, name: string} | null>(null)
 
 
 // State pentru panoul multimodal
@@ -1619,19 +1619,14 @@ const pinNavigateHere = () => {
   if (!pinnedLocation.value) return
   const dest = { lat: pinnedLocation.value.lat, lon: pinnedLocation.value.lon, name: pinnedLocation.value.name }
   pinnedLocation.value = null
-  if (userLocation.value) {
-    handleMultimodalRouteRequested(userLocation.value, dest)
-  } else {
-    handleAddressSelected(dest)
-  }
+  emit('pinSetDestination', dest)
 }
 
 const pinSearchFrom = () => {
   if (!pinnedLocation.value) return
-  const loc = pinnedLocation.value
+  const loc = { lat: pinnedLocation.value.lat, lon: pinnedLocation.value.lon, name: pinnedLocation.value.name }
   pinnedLocation.value = null
-  tripMode.value = true
-  pinOriginLocation.value = { lat: loc.lat, lon: loc.lon, name: loc.name }
+  emit('pinSetOrigin', loc)
 }
 
 const pinAddFavorite = async () => {
