@@ -751,7 +751,7 @@ watch(() => currentRoute.path, (newPath) => {
       if (map.value?.leafletObject) {
         map.value.leafletObject.invalidateSize()
         // Re-attach bus layer if it was detached
-        if (!busLayerAdded && !showMultimodal.value && !showTransfer.value && routePath.value.length === 0) {
+        if (!busLayerAdded && !showMultimodal.value && !showTransfer.value) {
           busLayerGroup.addTo(map.value.leafletObject)
           busLayerAdded = true
         }
@@ -794,6 +794,8 @@ interface Props {
 
   routeColor?: string
 
+  selectedRouteId?: number | null
+
   tripPlan?: PlanResult | null
 
 }
@@ -807,6 +809,8 @@ const props = withDefaults(defineProps<Props>(), {
   allStations: () => [],
 
   routeColor: '#2563eb', // Albastru
+
+  selectedRouteId: null,
 
   tripPlan: null
 
@@ -1122,33 +1126,48 @@ const liveBuses = computed(() => {
     }
   }
   
-  // Dacă nu avem locația utilizatorului, returnăm primele N
+  const activeRoute = props.selectedRouteId
+
+  // Dacă nu avem locația utilizatorului, returnăm primele N + toate autobuzele de pe ruta selectată
   if (!userLocation.value?.lat || !userLocation.value?.lon) {
-    return showAllBuses.value ? buses : buses.slice(0, 30)
+    if (showAllBuses.value) return buses
+    if (activeRoute != null) {
+      const onRoute = buses.filter(b => b.routeId === activeRoute)
+      const others = buses.filter(b => b.routeId !== activeRoute).slice(0, 30)
+      return [...onRoute, ...others]
+    }
+    return buses.slice(0, 30)
   }
-  
+
   const userLat = userLocation.value.lat
   const userLon = userLocation.value.lon
-  
+
   // Folosim un radius pentru filtrare rapidă (30km)
   const MAX_DISTANCE = 30
   const busesNearby: (BusLocation & { distance: number })[] = []
-  
+
   for (let i = 0; i < buses.length; i++) {
     const bus = buses[i]
     if (!bus || typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') {
       continue
     }
     const distance = getCachedDistance(bus.id, bus.latitude, bus.longitude, userLat, userLon)
-    
+
     if (distance <= MAX_DISTANCE) {
       busesNearby.push({ ...bus, distance })
     }
   }
-  
+
   // Sortare după distanță
   busesNearby.sort((a, b) => a.distance - b.distance)
-  return showAllBuses.value ? busesNearby : busesNearby.slice(0, 30)
+  if (showAllBuses.value) return busesNearby
+  // Asigură-te că autobuzele de pe ruta selectată sunt mereu incluse
+  if (activeRoute != null) {
+    const onRoute = busesNearby.filter(b => b.routeId === activeRoute)
+    const others = busesNearby.filter(b => b.routeId !== activeRoute).slice(0, 30)
+    return [...onRoute, ...others]
+  }
+  return busesNearby.slice(0, 30)
 })
 
 // ========================
@@ -1160,12 +1179,7 @@ const busLayerGroup = L.layerGroup()
 const busMarkerInstances = new Map<string, L.Marker>()
 let busLayerAdded = false
 
-watch(liveBuses, (buses) => {
-  console.log(`🚌 liveBuses updated: ${buses.length} buses, markers: ${busMarkerInstances.size}`)
-  if (buses.length > 0) {
-    const sample = buses[0]!
-    console.log(`  Sample: id=${sample.id} lat=${sample.latitude} lng=${sample.longitude} speed=${sample.speed}`)
-  }
+function renderBusMarkers(buses: BusLocation[]) {
   if (!map.value?.leafletObject) return
   const leafletMap = map.value.leafletObject
 
@@ -1175,46 +1189,57 @@ watch(liveBuses, (buses) => {
   }
 
   const currentIds = new Set<string>()
+  const activeRouteId = props.selectedRouteId
 
   for (const bus of buses) {
     currentIds.add(bus.id)
+    const isOnSelectedRoute = activeRouteId != null && bus.routeId === activeRouteId
+    const busColor = routeColors.value[bus.routeId] || '#2563eb'
     const existing = busMarkerInstances.get(bus.id)
 
+    const icon = L.divIcon({
+      className: isOnSelectedRoute ? 'bus-marker-animated bus-marker-highlighted' : (activeRouteId != null ? 'bus-marker-animated bus-marker-dimmed' : 'bus-marker-animated'),
+      html: isOnSelectedRoute
+        ? `<div class="bus-highlight-ring" style="border-color:${busColor}"><img src="/front-of-bus.png" style="width:24px;height:24px;" /><span class="bus-route-label" style="background:${busColor}">${bus.routeNumber || bus.routeId}</span></div>`
+        : `<img src="/front-of-bus.png" style="width:20px;height:20px;" />`,
+      iconSize: isOnSelectedRoute ? [36, 36] : [20, 20],
+      iconAnchor: isOnSelectedRoute ? [18, 18] : [10, 10]
+    })
+
     if (existing) {
-      // Mută markerul la noua poziție — CSS transition 0.5s animează glisarea
       existing.setLatLng([bus.latitude, bus.longitude])
-      // Actualizare popup dacă e deschis
+      existing.setIcon(icon)
+      existing.setZIndexOffset(isOnSelectedRoute ? 1000 : 0)
       const popup = existing.getPopup()
       if (popup?.isOpen()) popup.setContent(buildBusPopupHTML(bus))
     } else {
-      // Marker nou — iconița dreaptă, fără rotație
-      const icon = L.divIcon({
-        className: 'bus-marker-animated',
-        html: `<img src="/front-of-bus.png" style="width:20px;height:20px;" />`,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
-      })
-      const marker = L.marker([bus.latitude, bus.longitude], { icon })
+      const marker = L.marker([bus.latitude, bus.longitude], { icon, zIndexOffset: isOnSelectedRoute ? 1000 : 0 })
       marker.bindPopup(buildBusPopupHTML(bus))
       marker.addTo(busLayerGroup)
       busMarkerInstances.set(bus.id, marker)
     }
   }
 
-  // Elimină markeri pentru autobuze dispărute
   for (const [id, marker] of busMarkerInstances) {
     if (!currentIds.has(id)) {
       marker.remove()
       busMarkerInstances.delete(id)
     }
   }
+}
+
+watch(liveBuses, (buses) => {
+  renderBusMarkers(buses)
 }, { deep: true })
 
-// Toggle vizibilitate: ascunde autobuzele când e afișată o rută (orice tip)
-watch([showMultimodal, showTransfer, routePath], ([multi, transfer, path]) => {
+watch(() => props.selectedRouteId, () => {
+  renderBusMarkers(liveBuses.value)
+})
+
+// Toggle vizibilitate: ascunde autobuzele doar pentru direcții multimodale/transfer
+watch([showMultimodal, showTransfer], ([multi, transfer]) => {
   if (!map.value?.leafletObject) return
-  const routeActive = multi || transfer || (path && path.length > 0)
-  if (routeActive) {
+  if (multi || transfer) {
     busLayerGroup.removeFrom(map.value.leafletObject)
     busLayerAdded = false
   } else {
@@ -3836,6 +3861,49 @@ const getStationETAs = (stationId: number) => {
 .bus-marker-animated img {
   display: block;
   transition: none !important;
+}
+
+.bus-marker-highlighted {
+  z-index: 1000 !important;
+}
+
+.bus-marker-dimmed {
+  opacity: 0.3;
+  filter: grayscale(0.8);
+}
+
+.bus-highlight-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid #3b82f6;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 0 10px rgba(59,130,246,0.5), 0 2px 8px rgba(0,0,0,0.2);
+  position: relative;
+  animation: busPulse 2s ease-in-out infinite;
+}
+
+.bus-route-label {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 800;
+  color: white;
+  padding: 1px 5px;
+  border-radius: 6px;
+  white-space: nowrap;
+  line-height: 1.3;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+@keyframes busPulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(59,130,246,0.5), 0 2px 8px rgba(0,0,0,0.2); }
+  50% { box-shadow: 0 0 20px rgba(59,130,246,0.7), 0 2px 12px rgba(0,0,0,0.3); }
 }
 
 /* Pin popup styles */

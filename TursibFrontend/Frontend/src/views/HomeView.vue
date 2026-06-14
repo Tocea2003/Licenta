@@ -154,6 +154,7 @@ onMounted(() => {
         :stations="selectedStations"
         :all-stations="allStations"
         :route-color="selectedRouteId ? routeColors[selectedRouteId] : '#2563eb'"
+        :selected-route-id="selectedRouteId"
         :trip-plan="activeTripPlan"
         @route-selected="handleRouteSelected"
         @sidebar-toggle="handleSidebarToggle"
