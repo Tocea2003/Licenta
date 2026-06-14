@@ -20,7 +20,6 @@ class GoogleAuthService {
       redirect_uri: redirectUri,
       response_type: 'code',
       scope: 'openid email profile',
-      access_type: 'offline',
       prompt: 'select_account',
     })
 
