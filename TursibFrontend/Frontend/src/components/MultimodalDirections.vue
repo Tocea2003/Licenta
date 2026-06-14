@@ -1,118 +1,122 @@
 <template>
-  <div v-if="visible" class="multimodal-panel">
+  <div v-if="visible" class="transfer-route-panel">
     <div class="panel-header">
-      <div class="header-top">
-        <h3>🚌 Traseu complet</h3>
-        <button @click="$emit('close')" class="close-btn">✕</button>
-      </div>
-      
-      <div class="summary-info">
-        <div class="summary-item">
-          <span class="icon">📏</span>
-          <div>
-            <strong>{{ totalDistance }} km</strong>
-            <small>Distanță pe jos</small>
-          </div>
-        </div>
-        <div class="summary-item">
-          <span class="icon">⏱️</span>
-          <div>
-            <strong>{{ totalTime }} min</strong>
-            <small>Timp estimat</small>
-          </div>
-        </div>
-      </div>
+      <h3 class="panel-title">🚌 Traseu complet</h3>
+      <button @click="$emit('close')" class="close-btn">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
     </div>
-    
-    <div class="panel-body">
-      <!-- Pas 1: Mers pe jos la stația de urcare -->
-      <div v-if="showFirstWalk" class="route-section">
-        <div class="section-header walking">
-          <span class="icon">🚶</span>
-          <div class="section-title">
-            <strong>Mergi pe jos</strong>
-            <small>{{ firstWalkDistance }} m · {{ firstWalkTime }} min</small>
-          </div>
+
+    <div class="panel-content">
+      <!-- Segment 1: Mers pe jos către prima stație -->
+      <div v-if="showFirstWalk" class="route-segment walk">
+        <div class="segment-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M13.5 5.5C13.5 6.88071 12.3807 8 11 8C9.61929 8 8.5 6.88071 8.5 5.5C8.5 4.11929 9.61929 3 11 3C12.3807 3 13.5 4.11929 13.5 5.5Z" fill="currentColor"/>
+            <path d="M11 9L8 13L9 14L11 12.5L11 21H13V14L16 16L17 15L13 11L11 9Z" fill="currentColor"/>
+          </svg>
         </div>
-        
-        <div class="section-content">
-          <div class="location-point start">
-            <span class="marker">📍</span>
-            <span>{{ startLocation }}</span>
+        <div class="segment-details">
+          <div class="segment-header">
+            <span class="segment-type">Mers pe jos</span>
+            <span class="segment-duration">{{ formatDuration(firstWalkTime) }}</span>
           </div>
-          
-          <div v-for="(step, index) in firstWalkingSteps" :key="`walk1-${index}`" class="step-detail">
-            <span class="step-icon">{{ getStepIcon(step.type) }}</span>
-            <div class="step-text">
-              <strong>{{ step.instruction }}</strong>
-              <small>{{ step.distance }} m</small>
+          <div class="segment-distance">{{ formatDistance(firstWalkDistance) }}</div>
+          <div class="segment-from">De la <strong>{{ startLocation }}</strong></div>
+          <div class="segment-to">Către <strong>{{ boardingStation }}</strong></div>
+        </div>
+      </div>
+
+      <!-- Segment 2: Linia de autobuz -->
+      <div class="route-segment bus" :style="{ '--route-color': busColor }">
+        <div class="segment-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
+            <path d="M4 10h16M8 18v2M16 18v2M8 4v2M16 4v2" stroke="currentColor" stroke-width="2"/>
+            <circle cx="8" cy="15" r="1" fill="currentColor"/>
+            <circle cx="16" cy="15" r="1" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="segment-details">
+          <div class="segment-header">
+            <span class="segment-type">
+              <span class="route-badge" :style="{ backgroundColor: busColor }">
+                {{ busLine }}
+              </span>
+            </span>
+            <span class="segment-duration">{{ formatDuration(busTime) }}</span>
+          </div>
+          <div class="segment-stations">{{ displayStationsCount }} stații</div>
+          <div class="segment-from">
+            Îmbarcă la <strong>{{ boardingStation }}</strong>
+            <span v-if="formatTime(busStartTime)" class="segment-time">{{ formatTime(busStartTime) }}</span>
+          </div>
+          <div class="segment-to">
+            Coboară la <strong>{{ alightingStation }}</strong>
+            <span v-if="formatTime(busEndTime)" class="segment-time">{{ formatTime(busEndTime) }}</span>
+          </div>
+
+          <div v-if="busStationsList.length > 2" class="stations-toggle">
+            <button @click="showAllStations = !showAllStations" class="toggle-stations-btn">
+              {{ showAllStations ? '▲ Ascunde stațiile' : '▼ Arată toate stațiile' }}
+            </button>
+            <div v-if="showAllStations" class="bus-stations-list">
+              <div v-for="(station, idx) in busStationsList" :key="`bus-station-${idx}`" class="bus-station-item">
+                <span class="station-dot" :style="{ background: busColor }"></span>
+                <span>{{ station }}</span>
+              </div>
             </div>
-          </div>
-          
-          <div class="location-point station">
-            <span class="marker">🚏</span>
-            <span>{{ boardingStation }}</span>
           </div>
         </div>
       </div>
-      
-      <!-- Pas 2: Mergi cu autobuzul -->
-      <div class="route-section">
-        <div class="section-header bus" :style="{ borderLeftColor: busColor }">
-          <span class="icon">🚌</span>
-          <div class="section-title">
-            <strong>Linia {{ busLine }}</strong>
-            <small>{{ busStations }} stații · {{ busTime }} min</small>
-          </div>
+
+      <!-- Segment 3: Mers pe jos către destinație -->
+      <div v-if="showSecondWalk" class="route-segment walk">
+        <div class="segment-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M13.5 5.5C13.5 6.88071 12.3807 8 11 8C9.61929 8 8.5 6.88071 8.5 5.5C8.5 4.11929 9.61929 3 11 3C12.3807 3 13.5 4.11929 13.5 5.5Z" fill="currentColor"/>
+            <path d="M11 9L8 13L9 14L11 12.5L11 21H13V14L16 16L17 15L13 11L11 9Z" fill="currentColor"/>
+          </svg>
         </div>
-        
-        <div class="section-content">
-          <div class="bus-instructions">
-            <p>💺 Urcă în autobuzul Linia <strong>{{ busLine }}</strong></p>
-            <p>📍 Coboară la <strong>{{ alightingStation }}</strong></p>
+        <div class="segment-details">
+          <div class="segment-header">
+            <span class="segment-type">Mers pe jos</span>
+            <span class="segment-duration">{{ formatDuration(secondWalkTime) }}</span>
           </div>
-          
-          <div v-if="showBusStations" class="bus-stations-list">
-            <div v-for="(station, idx) in busStationsList" :key="`bus-station-${idx}`" class="bus-station-item">
-              <span class="station-dot"></span>
-              <span>{{ station }}</span>
-            </div>
-          </div>
-          
-          <button @click="showBusStations = !showBusStations" class="toggle-stations-btn">
-            {{ showBusStations ? '▲ Ascunde stațiile' : '▼ Arată toate stațiile' }}
-          </button>
+          <div class="segment-distance">{{ formatDistance(secondWalkDistance) }}</div>
+          <div class="segment-from">De la <strong>{{ alightingStation }}</strong></div>
+          <div class="segment-to">Către <strong>{{ endLocation }}</strong></div>
         </div>
       </div>
-      
-      <!-- Pas 3: Mers pe jos la destinație -->
-      <div v-if="showSecondWalk" class="route-section">
-        <div class="section-header walking">
-          <span class="icon">🚶</span>
-          <div class="section-title">
-            <strong>Mergi pe jos</strong>
-            <small>{{ secondWalkDistance }} m · {{ secondWalkTime }} min</small>
-          </div>
+
+      <!-- Ore plecare/sosire -->
+      <div v-if="formatTime(departureTime) && formatTime(arrivalTime)" class="route-times">
+        <div class="time-item departure">
+          <span class="time-label">Plecare</span>
+          <span class="time-value">{{ formatTime(departureTime) }}</span>
         </div>
-        
-        <div class="section-content">
-          <div class="location-point station">
-            <span class="marker">🚏</span>
-            <span>{{ alightingStation }}</span>
-          </div>
-          
-          <div v-for="(step, index) in secondWalkingSteps" :key="`walk2-${index}`" class="step-detail">
-            <span class="step-icon">{{ getStepIcon(step.type) }}</span>
-            <div class="step-text">
-              <strong>{{ step.instruction }}</strong>
-              <small>{{ step.distance }} m</small>
-            </div>
-          </div>
-          
-          <div class="location-point destination">
-            <span class="marker">🎯</span>
-            <span>{{ endLocation }}</span>
-          </div>
+        <div class="time-arrow">→</div>
+        <div class="time-item arrival">
+          <span class="time-label">Sosire</span>
+          <span class="time-value">{{ formatTime(arrivalTime) }}</span>
+        </div>
+      </div>
+
+      <!-- Rezumat total -->
+      <div class="route-summary">
+        <div class="summary-item">
+          <span class="summary-label">Durată totală</span>
+          <span class="summary-value">{{ formatDuration(totalTime) }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Distanță pe jos</span>
+          <span class="summary-value">{{ formatDistance(totalWalkDistance) }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Transferuri</span>
+          <span class="summary-value">0</span>
         </div>
       </div>
     </div>
@@ -122,7 +126,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 
-interface Props {
+const props = defineProps<{
   visible: boolean
   startLocation: string
   endLocation: string
@@ -136,334 +140,454 @@ interface Props {
   secondWalkDistance: number
   secondWalkTime: number
   busTime: number
-  firstWalkingSteps?: any[]
-  secondWalkingSteps?: any[]
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  visible: false,
-  firstWalkingSteps: () => [],
-  secondWalkingSteps: () => []
-})
+  busStationsCount?: number
+  busStartTime?: string
+  busEndTime?: string
+  departureTime?: string
+  arrivalTime?: string
+}>()
 
 defineEmits<{
   close: []
 }>()
 
-const showBusStations = ref(false)
+const showAllStations = ref(false)
 
-const totalDistance = computed(() => {
-  return ((props.firstWalkDistance + props.secondWalkDistance) / 1000).toFixed(2)
-})
+const showFirstWalk = computed(() => props.firstWalkDistance > 0 || props.firstWalkTime > 0)
+const showSecondWalk = computed(() => props.secondWalkDistance > 0 || props.secondWalkTime > 0)
+const totalTime = computed(() => props.firstWalkTime + props.busTime + props.secondWalkTime)
+const totalWalkDistance = computed(() => props.firstWalkDistance + props.secondWalkDistance)
+const displayStationsCount = computed(() => props.busStationsCount || props.busStationsList.length)
 
-const showFirstWalk = computed(() => {
-  return props.firstWalkDistance > 0 || props.firstWalkTime > 0
-})
+const formatTime = (isoString?: string): string => {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  if (isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })
+}
 
-const showSecondWalk = computed(() => {
-  return props.secondWalkDistance > 0 || props.secondWalkTime > 0
-})
+const formatDistance = (meters: number): string => {
+  if (meters < 1000) return `${Math.round(meters)} m`
+  return `${(meters / 1000).toFixed(1)} km`
+}
 
-const totalTime = computed(() => {
-  return props.firstWalkTime + props.busTime + props.secondWalkTime
-})
-
-const busStations = computed(() => {
-  return props.busStationsList.length
-})
-
-const getStepIcon = (type: string) => {
-  const icons: Record<string, string> = {
-    'turn left': '↰',
-    'turn right': '↱',
-    'continue': '↑',
-    'depart': '🚶',
-    'arrive': '🎯',
-    'straight': '↑'
-  }
-  return icons[type] || '→'
+const formatDuration = (minutes: number): string => {
+  if (minutes < 60) return `${Math.round(minutes)} min`
+  const hours = Math.floor(minutes / 60)
+  const mins = Math.round(minutes % 60)
+  return `${hours}h ${mins}min`
 }
 </script>
 
 <style scoped>
-.multimodal-panel {
-  position: absolute;
-  top: 90px;
+.transfer-route-panel {
+  position: fixed;
+  bottom: 20px;
   left: 370px;
-  width: 380px;
-  max-height: calc(100vh - 120px);
+  width: 340px;
+  max-width: calc(100vw - 390px);
+  max-height: calc(100vh - 100px);
   background: var(--bg-primary);
+  backdrop-filter: blur(16px);
   border-radius: 18px;
   box-shadow: var(--shadow-xl);
+  z-index: 500;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  z-index: 450;
-  font-family: 'Inter', system-ui, sans-serif;
-  backdrop-filter: blur(16px);
+  animation: slideUp 0.3s ease-out;
   border: 1px solid var(--border-color);
 }
 
-.panel-header {
-  background: var(--gradient-primary);
-  color: white;
-  padding: 20px;
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.header-top {
+.panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--gradient-primary);
+  color: white;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.header-top h3 {
+.panel-title {
   margin: 0;
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .close-btn {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.16);
   border: none;
-  color: white;
+  border-radius: 8px;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  font-size: 20px;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  color: white;
+  transition: all 0.2s;
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.1);
+  background: rgba(255, 255, 255, 0.28);
+  transform: scale(1.05);
 }
 
-.summary-info {
-  display: flex;
-  gap: 24px;
-}
-
-.summary-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.summary-item .icon {
-  font-size: 24px;
-}
-
-.summary-item strong {
-  display: block;
-  font-size: 18px;
-}
-
-.summary-item small {
-  font-size: 12px;
-  opacity: 0.9;
-}
-
-.panel-body {
-  flex: 1;
+.panel-content {
+  padding: 10px 14px;
+  max-height: calc(100vh - 180px);
   overflow-y: auto;
-  padding: 16px;
 }
 
-.route-section {
-  margin-bottom: 24px;
-}
-
-.section-header {
+.route-segment {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: #f3f4f6;
-  border-radius: 8px;
-  border-left: 4px solid;
-  margin-bottom: 12px;
-}
-
-.section-header.walking {
-  border-left-color: #10b981;
-}
-
-.section-header.bus {
-  border-left-color: #3b82f6;
-  background: #eff6ff;
-}
-
-.section-header .icon {
-  font-size: 24px;
-}
-
-.section-title {
-  flex: 1;
-}
-
-.section-title strong {
-  display: block;
-  font-size: 16px;
-  color: #1f2937;
-}
-
-.section-title small {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.section-content {
-  padding-left: 20px;
-  border-left: 3px dashed #e5e7eb;
-  margin-left: 20px;
-}
-
-.location-point {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px;
-  margin-bottom: 8px;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  margin-bottom: 6px;
   background: white;
-  border-radius: 8px;
-  font-weight: 500;
+  border: 1.5px solid #e5e7eb;
+  transition: all 0.2s;
 }
 
-.location-point.start {
-  background: #dcfce7;
-  color: #166534;
+.route-segment:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.location-point.station {
-  background: #dbeafe;
-  color: #1e40af;
+@media (prefers-color-scheme: dark) {
+  .route-segment {
+    background: rgba(40, 40, 50, 0.6);
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+  }
+  .route-segment:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
 }
 
-.location-point.destination {
-  background: #fef3c7;
-  color: #92400e;
+.route-segment.walk {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%);
 }
 
-.location-point .marker {
-  font-size: 20px;
+.route-segment.walk .segment-icon {
+  color: #3b82f6;
 }
 
-.step-detail {
+.route-segment.bus {
+  border-color: var(--route-color);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--route-color) 8%, transparent) 0%,
+    color-mix(in srgb, var(--route-color) 2%, transparent) 100%);
+}
+
+.route-segment.bus .segment-icon {
+  color: var(--route-color);
+}
+
+@media (prefers-color-scheme: dark) {
+  .route-segment.walk {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%);
+  }
+  .route-segment.bus {
+    border-color: var(--route-color);
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--route-color) 20%, transparent) 0%,
+      color-mix(in srgb, var(--route-color) 5%, transparent) 100%);
+  }
+}
+
+.segment-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
   display: flex;
-  gap: 12px;
-  padding: 10px;
-  margin-bottom: 4px;
-  align-items: start;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
 }
 
-.step-icon {
-  font-size: 20px;
-  min-width: 24px;
-  text-align: center;
+@media (prefers-color-scheme: dark) {
+  .segment-icon {
+    background: rgba(255, 255, 255, 0.1);
+  }
 }
 
-.step-text {
+.segment-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.segment-details {
   flex: 1;
 }
 
-.step-text strong {
-  display: block;
-  font-size: 14px;
+.segment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.segment-type {
+  font-size: 13px;
+  font-weight: 700;
   color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .segment-type { color: #e5e7eb; }
+}
+
+.route-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 5px;
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.segment-duration {
+  font-size: 12px;
+  font-weight: 700;
+  color: #059669;
+  background: rgba(5, 150, 105, 0.1);
+  padding: 3px 8px;
+  border-radius: 5px;
+}
+
+.segment-distance,
+.segment-stations {
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 3px;
+}
+
+.segment-from,
+.segment-to {
+  font-size: 12px;
+  color: #4b5563;
   margin-bottom: 2px;
 }
 
-.step-text small {
-  font-size: 12px;
-  color: #6b7280;
+.segment-from strong,
+.segment-to strong {
+  color: #1f2937;
+  font-weight: 600;
 }
 
-.bus-instructions {
-  padding: 16px;
-  background: #eff6ff;
-  border-radius: 8px;
-  margin-bottom: 12px;
+@media (prefers-color-scheme: dark) {
+  .segment-distance, .segment-stations { color: #9ca3af; }
+  .segment-from, .segment-to { color: #d1d5db; }
+  .segment-from strong, .segment-to strong { color: #f3f4f6; }
 }
 
-.bus-instructions p {
-  margin: 8px 0;
-  color: #1e40af;
-  font-size: 14px;
+.segment-time {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
 }
 
-.bus-stations-list {
-  margin: 12px 0;
-  padding: 12px;
-  background: #f9fafb;
-  border-radius: 8px;
+@media (prefers-color-scheme: dark) {
+  .segment-time {
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.15);
+  }
 }
 
-.bus-station-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 6px 0;
-  font-size: 13px;
-  color: #4b5563;
-}
-
-.station-dot {
-  width: 8px;
-  height: 8px;
-  background: #3b82f6;
-  border-radius: 50%;
+.stations-toggle {
+  margin-top: 6px;
 }
 
 .toggle-stations-btn {
   width: 100%;
-  padding: 10px;
-  background: white;
+  padding: 6px;
+  background: transparent;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   color: #3b82f6;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .toggle-stations-btn:hover {
-  background: #f3f4f6;
+  background: rgba(59, 130, 246, 0.05);
   border-color: #3b82f6;
 }
 
-/* Mobile responsive */
-@media (max-width: 768px) {
-  .multimodal-panel {
-    left: 0;
-    bottom: 0;
-    top: auto;
-    width: 100%;
-    max-height: 70vh;
-    border-radius: 16px 16px 0 0;
+@media (prefers-color-scheme: dark) {
+  .toggle-stations-btn {
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #60a5fa;
+  }
+  .toggle-stations-btn:hover {
+    background: rgba(96, 165, 250, 0.1);
   }
 }
 
-/* Scrollbar styling */
-.panel-body::-webkit-scrollbar {
-  width: 6px;
+.bus-stations-list {
+  margin-top: 6px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 6px;
 }
 
-.panel-body::-webkit-scrollbar-track {
-  background: #f3f4f6;
+@media (prefers-color-scheme: dark) {
+  .bus-stations-list {
+    background: rgba(255, 255, 255, 0.05);
+  }
 }
 
-.panel-body::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 3px;
+.bus-station-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: #4b5563;
 }
 
-.panel-body::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+@media (prefers-color-scheme: dark) {
+  .bus-station-item { color: #d1d5db; }
+}
+
+.station-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.route-times {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .route-times {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(16, 185, 129, 0.15) 100%);
+    border-color: rgba(59, 130, 246, 0.25);
+  }
+}
+
+.time-item { text-align: center; }
+
+.time-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.time-value {
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1f2937;
+}
+
+.time-arrow {
+  font-size: 18px;
+  color: #9ca3af;
+  font-weight: 700;
+}
+
+@media (prefers-color-scheme: dark) {
+  .time-label { color: #9ca3af; }
+  .time-value { color: #f3f4f6; }
+  .time-arrow { color: #6b7280; }
+}
+
+.route-summary {
+  margin-top: 20px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
+  border-radius: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .route-summary {
+    background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
+    border: 1px solid var(--border-color);
+  }
+}
+
+.summary-item { text-align: center; }
+
+.summary-label {
+  display: block;
+  font-size: 11px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.summary-value {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1f2937;
+}
+
+@media (prefers-color-scheme: dark) {
+  .summary-label { color: #9ca3af; }
+  .summary-value { color: #f3f4f6; }
+}
+
+.panel-content::-webkit-scrollbar { width: 6px; }
+.panel-content::-webkit-scrollbar-track { background: transparent; }
+.panel-content::-webkit-scrollbar-thumb { background: rgba(209, 213, 219, 0.8); border-radius: 10px; }
+.panel-content::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.9); }
+
+@media (prefers-color-scheme: dark) {
+  .panel-content::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); }
+  .panel-content::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+}
+
+@media (max-width: 768px) {
+  .transfer-route-panel {
+    bottom: 10px;
+    left: 10px;
+    width: calc(100vw - 20px);
+    max-width: calc(100vw - 20px);
+  }
+  .route-summary {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 }
 </style>

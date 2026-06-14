@@ -165,6 +165,11 @@
       :second-walk-distance="multimodalData.secondWalkDistance"
       :second-walk-time="multimodalData.secondWalkTime"
       :bus-time="multimodalData.busTime"
+      :bus-stations-count="multimodalData.busStationsCount"
+      :bus-start-time="multimodalData.busStartTime"
+      :bus-end-time="multimodalData.busEndTime"
+      :departure-time="multimodalData.departureTime"
+      :arrival-time="multimodalData.arrivalTime"
       @close="closeMultimodal"
     />
     
@@ -941,7 +946,12 @@ const multimodalData = ref({
   firstWalkTime: 0,
   secondWalkDistance: 0,
   secondWalkTime: 0,
-  busTime: 0
+  busTime: 0,
+  busStationsCount: 0,
+  busStartTime: '',
+  busEndTime: '',
+  departureTime: '',
+  arrivalTime: ''
 })
 
 // State pentru panoul de traseu cu transfer
@@ -2170,9 +2180,14 @@ const handleAlternativeRouteSelected = async (route: any) => {
         firstWalkTime: 0,
         secondWalkDistance: 0,
         secondWalkTime: 0,
-        busTime: segment.duration || 0
+        busTime: segment.duration || 0,
+        busStationsCount: segment.stationCount || 0,
+        busStartTime: segment.startTime || '',
+        busEndTime: segment.endTime || '',
+        departureTime: route.departureTime || '',
+        arrivalTime: route.arrivalTime || ''
       }
-      
+
       showMultimodal.value = true
       
       // Centrează harta pe traseu complet
@@ -2394,7 +2409,12 @@ const handleMultimodalRouteRequested = async (
           firstWalkTime: routingData.firstTime,
           secondWalkDistance: routingData.secondDistance,
           secondWalkTime: routingData.secondTime,
-          busTime: Math.max(stationsBetween * 2, 2)
+          busTime: Math.max(stationsBetween * 2, 2),
+          busStationsCount: stationsBetween,
+          busStartTime: '',
+          busEndTime: '',
+          departureTime: '',
+          arrivalTime: ''
         }
         
         showMultimodal.value = true
@@ -2542,7 +2562,12 @@ const closeMultimodal = () => {
     firstWalkTime: 0,
     secondWalkDistance: 0,
     secondWalkTime: 0,
-    busTime: 0
+    busTime: 0,
+    busStationsCount: 0,
+    busStartTime: '',
+    busEndTime: '',
+    departureTime: '',
+    arrivalTime: ''
   }
 }
 
@@ -2805,7 +2830,12 @@ watch(() => props.tripPlan, async (plan) => {
       firstWalkTime: plan.walkToStartMinutes ?? 0,
       secondWalkDistance: 0,
       secondWalkTime: plan.walkToEndMinutes ?? 0,
-      busTime: plan.stationsBetween * 2
+      busTime: plan.stationsBetween * 2,
+      busStationsCount: plan.stationsBetween ?? 0,
+      busStartTime: '',
+      busEndTime: '',
+      departureTime: '',
+      arrivalTime: ''
     }
     showMultimodal.value = true
   } else if (plan.type === 'transfer' && transfer) {
