@@ -3,7 +3,7 @@
   "outputDirectory": "dist",
   "framework": "vue",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

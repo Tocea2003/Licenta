@@ -1,5 +1,5 @@
 // Service Worker pentru Tursib PWA
-const CACHE_VERSION = 'v1.0.0'
+const CACHE_VERSION = 'v2.0.0'
 const CACHE_NAME = `tursib-cache-${CACHE_VERSION}`
 const DATA_CACHE_NAME = `tursib-data-${CACHE_VERSION}`
 
@@ -136,6 +136,14 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
+  // Navigation requests (HTML) - Network First so deploys propagate
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      networkFirst(request, CACHE_NAME)
+    )
+    return
+  }
+
   // API requests - Network First strategy
   if (url.pathname.includes('/api/')) {
     event.respondWith(
@@ -169,21 +177,28 @@ async function cacheFirst(request, cacheName) {
 
     console.log('[SW] Fetching from network:', request.url)
     const response = await fetch(request)
-    
+
     if (response && response.status === 200) {
-      cache.put(request, response.clone())
+      const contentType = response.headers.get('content-type') || ''
+      const isAssetReq = request.url.includes('/assets/')
+      const isHtmlResponse = contentType.includes('text/html')
+      // Don't cache HTML responses for asset requests (broken rewrite fallback)
+      if (!(isAssetReq && isHtmlResponse)) {
+        cache.put(request, response.clone())
+      }
     }
-    
+
     return response
   } catch (error) {
     console.error('[SW] Cache first failed:', error)
-    
+
     // Fallback pentru HTML
-    if (request.headers.get('accept').includes('text/html')) {
+    const accept = request.headers.get('accept') || ''
+    if (accept.includes('text/html')) {
       const cache = await caches.open(CACHE_NAME)
       return cache.match('/index.html')
     }
-    
+
     throw error
   }
 }
