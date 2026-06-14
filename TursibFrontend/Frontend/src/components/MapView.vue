@@ -80,6 +80,10 @@
             <span class="more-menu-icon">&#x1F4CA;</span>
             <span>{{ t('statistics') }}</span>
           </button>
+          <button @click="goToSettings" class="more-menu-item">
+            <span class="more-menu-icon">&#x2699;&#xFE0F;</span>
+            <span>{{ t('settings') || 'Setări' }}</span>
+          </button>
           <button @click="showTripHistory = !showTripHistory" class="more-menu-item">
             <span class="more-menu-icon">&#x1F553;</span>
             <span>{{ t('tripHistory') || 'Istoric' }}</span>
@@ -670,6 +674,10 @@ const goToStatistics = () => {
 
 const goToTickets = () => {
   router.push('/tickets')
+}
+
+const goToSettings = () => {
+  router.push('/settings')
 }
 
 const goToAdmin = () => {
