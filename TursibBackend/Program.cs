@@ -98,7 +98,7 @@ builder.Services.AddCors(options =>
                   origin.EndsWith(".vercel.app") ||
                   origin.Contains("localhost"))
               .AllowAnyHeader()
-              .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
+              .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
     });
 });
 
