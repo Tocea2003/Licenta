@@ -7,6 +7,7 @@ export interface UserStatistics {
   favoriteStations: { stationId: number; count: number }[]
   totalTimeUsed: number // minutes
   searchHistory: { date: string; count: number }[]
+  dailyActivity: { date: string; count: number }[]
   lastUpdated: number
 }
 
@@ -20,6 +21,7 @@ const statistics = ref<UserStatistics>({
   favoriteStations: [],
   totalTimeUsed: 0,
   searchHistory: [],
+  dailyActivity: [],
   lastUpdated: Date.now()
 })
 
@@ -52,17 +54,32 @@ const saveStatistics = () => {
   }
 }
 
+const bumpDailyActivity = () => {
+  if (!statistics.value.dailyActivity) statistics.value.dailyActivity = []
+  const today = new Date().toISOString().split('T')[0]
+  if (!today) return
+  const entry = statistics.value.dailyActivity.find(e => e.date === today)
+  if (entry) {
+    entry.count++
+  } else {
+    statistics.value.dailyActivity.unshift({ date: today, count: 1 })
+    if (statistics.value.dailyActivity.length > 30) {
+      statistics.value.dailyActivity = statistics.value.dailyActivity.slice(0, 30)
+    }
+  }
+}
+
 export const useStatistics = () => {
   // Inițializează la prima utilizare
   if (!isInitialized) {
     loadStatistics()
   }
-  
+
   // Incrementează contorul de căutări
   const incrementSearches = () => {
     statistics.value.totalSearches++
-    
-    // Adaugă la istoricul zilnic
+    bumpDailyActivity()
+
     const today = new Date().toISOString().split('T')[0]
     if (!today) return
     const existingEntry = statistics.value.searchHistory.find(entry => entry.date === today)
@@ -83,6 +100,7 @@ export const useStatistics = () => {
   // Incrementează contorul de călătorii
   const incrementTrips = () => {
     statistics.value.totalTrips++
+    bumpDailyActivity()
     saveStatistics()
   }
   
@@ -94,6 +112,7 @@ export const useStatistics = () => {
   
   // Înregistrează folosirea unui traseu
   const recordRouteUsage = (routeId: number) => {
+    bumpDailyActivity()
     const existing = statistics.value.favoriteRoutes.find(r => r.routeId === routeId)
     
     if (existing) {
@@ -113,6 +132,7 @@ export const useStatistics = () => {
   
   // Înregistrează folosirea unei stații
   const recordStationUsage = (stationId: number) => {
+    bumpDailyActivity()
     const existing = statistics.value.favoriteStations.find(s => s.stationId === stationId)
     
     if (existing) {
@@ -139,6 +159,7 @@ export const useStatistics = () => {
       favoriteStations: [],
       totalTimeUsed: 0,
       searchHistory: [],
+      dailyActivity: [],
       lastUpdated: Date.now()
     }
     saveStatistics()

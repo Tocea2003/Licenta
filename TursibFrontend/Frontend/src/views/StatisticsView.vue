@@ -134,19 +134,20 @@ const { t, currentLanguage } = useLanguage()
 const last7Days = computed(() => {
   const result = []
   const today = new Date()
-  
+  const activity = statistics.value.dailyActivity || []
+
   for (let i = 6; i >= 0; i--) {
     const date = new Date(today)
     date.setDate(date.getDate() - i)
     const dateString = date.toISOString().split('T')[0]
-    
-    const existingEntry = statistics.value.searchHistory.find(entry => entry.date === dateString)
+
+    const existingEntry = activity.find(entry => entry.date === dateString)
     result.push({
       date: dateString,
       count: existingEntry ? existingEntry.count : 0
     })
   }
-  
+
   return result
 })
 

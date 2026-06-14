@@ -1,41 +1,54 @@
 <template>
   <div class="analytics-dashboard">
     <div class="page-header">
-      <h2>📊 {{ t('analyticsDashboard') }}</h2>
-      <p class="subtitle">{{ t('analyticsSubtitle') }}</p>
+      <div>
+        <h2>📊 {{ t('analyticsDashboard') }}</h2>
+        <p class="subtitle">{{ t('analyticsSubtitle') }}</p>
+      </div>
+      <div class="header-live" v-if="!isLoading">
+        <span class="live-dot"></span>
+        <span>{{ liveBuses.length }} {{ t('liveBuses') }}</span>
+      </div>
     </div>
 
-    <div v-if="isLoading" class="loading">{{ t('loadingData') }}</div>
+    <div v-if="isLoading" class="loading-state">
+      <div class="loading-spinner"></div>
+      <p>{{ t('loadingData') }}</p>
+    </div>
 
     <div v-else class="analytics-content">
       <!-- Statistici rapide -->
       <div class="stats-grid">
-        <div class="stat-card active-buses">
-          <div class="stat-icon">🚌</div>
+        <div class="stat-card stat-buses">
+          <div class="stat-glow"></div>
+          <div class="stat-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M3 10h18M7 21v-4M17 21v-4"/></svg></div>
           <div class="stat-content">
             <div class="stat-value">{{ stats.activeBuses }}</div>
             <div class="stat-label">{{ t('activeBusesLabel') }}</div>
           </div>
         </div>
 
-        <div class="stat-card avg-occupancy">
-          <div class="stat-icon">👥</div>
+        <div class="stat-card stat-occupancy">
+          <div class="stat-glow"></div>
+          <div class="stat-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
           <div class="stat-content">
-            <div class="stat-value">{{ stats.avgOccupancy }}%</div>
+            <div class="stat-value">{{ stats.avgOccupancy }}<span class="stat-unit">%</span></div>
             <div class="stat-label">{{ t('avgOccupancyLabel') }}</div>
           </div>
         </div>
 
-        <div class="stat-card total-routes">
-          <div class="stat-icon">🗺️</div>
+        <div class="stat-card stat-routes">
+          <div class="stat-glow"></div>
+          <div class="stat-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
           <div class="stat-content">
             <div class="stat-value">{{ stats.totalRoutes }}</div>
             <div class="stat-label">{{ t('totalRoutesLabel') }}</div>
           </div>
         </div>
 
-        <div class="stat-card total-stations">
-          <div class="stat-icon">📍</div>
+        <div class="stat-card stat-stations">
+          <div class="stat-glow"></div>
+          <div class="stat-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
           <div class="stat-content">
             <div class="stat-value">{{ stats.totalStations }}</div>
             <div class="stat-label">{{ t('totalStationsLabel') }}</div>
@@ -45,37 +58,52 @@
 
       <!-- Grafice -->
       <div class="charts-grid">
-        <!-- Ocupare pe traseu -->
         <div class="chart-card">
-          <h3>{{ t('avgOccupancyByRoute') }}</h3>
-          <canvas ref="occupancyChartCanvas"></canvas>
+          <div class="chart-header">
+            <h3>{{ t('avgOccupancyByRoute') }}</h3>
+            <span class="chart-badge">Bar</span>
+          </div>
+          <div class="chart-body"><canvas ref="occupancyChartCanvas"></canvas></div>
         </div>
 
-        <!-- Autobuze active pe oră -->
         <div class="chart-card">
-          <h3>{{ t('activeBusesRealtime') }}</h3>
-          <canvas ref="busesChartCanvas"></canvas>
+          <div class="chart-header">
+            <h3>{{ t('activeBusesRealtime') }}</h3>
+            <span class="chart-badge">Line</span>
+          </div>
+          <div class="chart-body"><canvas ref="busesChartCanvas"></canvas></div>
         </div>
 
-        <!-- Distribuție ocupare -->
         <div class="chart-card">
-          <h3>{{ t('occupancyDistribution') }}</h3>
-          <canvas ref="distributionChartCanvas"></canvas>
+          <div class="chart-header">
+            <h3>{{ t('occupancyDistribution') }}</h3>
+            <span class="chart-badge">Donut</span>
+          </div>
+          <div class="chart-body"><canvas ref="distributionChartCanvas"></canvas></div>
         </div>
 
-        <!-- Stații cu trafic mare -->
         <div class="chart-card">
-          <h3>{{ t('topStationsTraffic') }}</h3>
-          <canvas ref="stationsChartCanvas"></canvas>
+          <div class="chart-header">
+            <h3>{{ t('topStationsTraffic') }}</h3>
+            <span class="chart-badge">Horizontal</span>
+          </div>
+          <div class="chart-body"><canvas ref="stationsChartCanvas"></canvas></div>
         </div>
       </div>
 
       <!-- Detalii autobuze live -->
       <div class="live-buses-section">
-        <h3>🔴 {{ t('liveBuses') }}</h3>
-        <div class="live-buses-grid">
-          <div 
-            v-for="bus in liveBuses" 
+        <div class="section-header">
+          <h3>🔴 {{ t('liveBuses') }}</h3>
+          <span class="bus-count" v-if="liveBuses.length">{{ liveBuses.length }} active</span>
+        </div>
+        <div v-if="liveBuses.length === 0" class="empty-live">
+          <div class="empty-icon">🚌</div>
+          <p>Nu sunt autobuze active momentan</p>
+        </div>
+        <div v-else class="live-buses-grid">
+          <div
+            v-for="bus in liveBuses"
             :key="bus.id"
             class="live-bus-card"
             :class="getOccupancyClass(bus.occupancy)"
@@ -401,219 +429,313 @@ onUnmounted(() => {
 
 <style scoped>
 .analytics-dashboard {
-  padding: 24px;
+  padding: 0 24px 24px;
   max-width: 1600px;
   margin: 0 auto;
 }
 
 .page-header {
-  margin-bottom: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
 }
 
 .page-header h2 {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 8px;
+  margin: 0 0 4px 0;
 }
 
 .subtitle {
-  font-size: 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.header-live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #10b981;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+/* Loading */
+.loading-state {
+  text-align: center;
+  padding: 80px 24px;
   color: var(--text-secondary);
 }
 
-.loading {
-  text-align: center;
-  padding: 48px;
-  font-size: 18px;
-  color: var(--text-secondary);
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-primary);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Stats Grid */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .stat-card {
-  background: var(--bg-primary);
-  border: 1.5px solid var(--border-primary);
-  border-radius: var(--radius-lg, 16px);
-  padding: 24px;
+  position: relative;
+  border-radius: 16px;
+  padding: 24px 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  cursor: default;
 }
 
 .stat-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--border-secondary);
+  transform: translateY(-4px);
 }
 
-.stat-icon {
-  font-size: 48px;
-  line-height: 1;
+.stat-glow {
+  position: absolute;
+  inset: 0;
+  opacity: 0.12;
+  transition: opacity 0.3s;
 }
 
-.stat-content {
-  flex: 1;
+.stat-card:hover .stat-glow { opacity: 0.2; }
+
+.stat-buses { background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05)); border: 1px solid rgba(59,130,246,0.2); }
+.stat-buses .stat-glow { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+.stat-buses .stat-icon-wrap { color: #3b82f6; background: rgba(59,130,246,0.15); }
+.stat-buses:hover { box-shadow: 0 8px 32px rgba(59,130,246,0.2); }
+
+.stat-occupancy { background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(139,92,246,0.05)); border: 1px solid rgba(139,92,246,0.2); }
+.stat-occupancy .stat-glow { background: linear-gradient(135deg, #8b5cf6, #a78bfa); }
+.stat-occupancy .stat-icon-wrap { color: #8b5cf6; background: rgba(139,92,246,0.15); }
+.stat-occupancy:hover { box-shadow: 0 8px 32px rgba(139,92,246,0.2); }
+
+.stat-routes { background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05)); border: 1px solid rgba(16,185,129,0.2); }
+.stat-routes .stat-glow { background: linear-gradient(135deg, #10b981, #34d399); }
+.stat-routes .stat-icon-wrap { color: #10b981; background: rgba(16,185,129,0.15); }
+.stat-routes:hover { box-shadow: 0 8px 32px rgba(16,185,129,0.2); }
+
+.stat-stations { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05)); border: 1px solid rgba(245,158,11,0.2); }
+.stat-stations .stat-glow { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+.stat-stations .stat-icon-wrap { color: #f59e0b; background: rgba(245,158,11,0.15); }
+.stat-stations:hover { box-shadow: 0 8px 32px rgba(245,158,11,0.2); }
+
+.stat-icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
+
+.stat-icon-wrap svg {
+  width: 24px;
+  height: 24px;
+}
+
+.stat-content { flex: 1; position: relative; }
 
 .stat-value {
-  font-size: 36px;
-  font-weight: 700;
+  font-size: 32px;
+  font-weight: 800;
   color: var(--text-primary);
   line-height: 1;
   margin-bottom: 4px;
+  letter-spacing: -0.5px;
+}
+
+.stat-unit {
+  font-size: 20px;
+  font-weight: 600;
+  opacity: 0.7;
 }
 
 .stat-label {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-secondary);
   font-weight: 500;
 }
 
-.active-buses   { border-left: 4px solid var(--accent-primary); }
-.avg-occupancy  { border-left: 4px solid var(--accent-secondary); }
-.total-routes   { border-left: 4px solid var(--color-success); }
-.total-stations { border-left: 4px solid var(--color-warning); }
-
 /* Charts Grid */
 .charts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-  gap: 24px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .chart-card {
   background: var(--bg-primary);
-  border: 1.5px solid var(--border-primary);
-  border-radius: var(--radius-lg, 16px);
-  padding: 24px;
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-primary);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: border-color 0.2s;
 }
 
-.chart-card h3 {
-  font-size: 18px;
+.chart-card:hover { border-color: var(--accent-primary); }
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px 0;
+}
+
+.chart-header h3 {
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 20px;
+  margin: 0;
 }
 
-.chart-card canvas {
-  max-height: 300px;
+.chart-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.chart-body {
+  padding: 12px 16px 16px;
+}
+
+.chart-body canvas {
+  max-height: 260px;
 }
 
 /* Live Buses */
 .live-buses-section {
   background: var(--bg-primary);
-  border: 1.5px solid var(--border-primary);
-  border-radius: var(--radius-lg, 16px);
-  padding: 24px;
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-primary);
+  border-radius: 16px;
+  padding: 20px;
 }
 
-.live-buses-section h3 {
-  font-size: 20px;
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-header h3 {
+  font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 20px;
+  margin: 0;
 }
+
+.bus-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #10b981;
+  background: rgba(16,185,129,0.1);
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.empty-live {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-secondary);
+}
+
+.empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.4; }
+.empty-live p { font-size: 14px; margin: 0; }
 
 .live-buses-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
 }
 
 .live-bus-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md, 12px);
-  padding: 16px;
-  border-left: 4px solid var(--accent-primary);
+  border-radius: 12px;
+  padding: 14px;
+  border-left: 3px solid var(--accent-primary);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .live-bus-card:hover {
-  transform: translateX(3px);
-  box-shadow: var(--shadow-md);
+  transform: translateX(2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
 }
 
-.live-bus-card.low    { border-left-color: var(--color-success); }
-.live-bus-card.medium { border-left-color: var(--color-warning); }
-.live-bus-card.high   { border-left-color: var(--color-danger); }
+.live-bus-card.low    { border-left-color: #10b981; }
+.live-bus-card.medium { border-left-color: #f59e0b; }
+.live-bus-card.high   { border-left-color: #ef4444; }
 
 .bus-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
-.bus-route {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
+.bus-route { font-size: 16px; font-weight: 700; color: var(--text-primary); }
 
 .bus-status {
-  font-size: 12px;
-  color: var(--color-danger);
+  font-size: 11px;
+  color: #ef4444;
   font-weight: 600;
   animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.4; }
 }
 
-.bus-details {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+.bus-details { display: flex; flex-direction: column; gap: 6px; }
 
-.bus-stat {
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
-}
+.bus-stat { display: flex; justify-content: space-between; font-size: 13px; }
+.bus-stat .label { color: var(--text-secondary); font-weight: 500; }
+.bus-stat .value { color: var(--text-primary); font-weight: 600; }
+.occupancy-value { color: #8b5cf6; }
+.coords { font-family: 'Courier New', monospace; font-size: 11px; }
 
-.bus-stat .label {
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.bus-stat .value {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.occupancy-value {
-  color: #8b5cf6;
-}
-
-.coords {
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
+@media (max-width: 1200px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 768px) {
-  .stats-grid,
-  .charts-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .live-buses-grid {
-    grid-template-columns: 1fr;
-  }
+  .stats-grid { grid-template-columns: 1fr; }
+  .charts-grid { grid-template-columns: 1fr; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
 }
 </style>
