@@ -102,10 +102,17 @@
           </svg>
           {{ t('addToFavorites') }}
         </button>
-        <button @click="enableNotifications" class="action-btn notify">
-          🔔 {{ t('enableNotifications') }}
+        <button @click="toggleNotifications" class="action-btn notify" :class="{ active: notificationsActive }">
+          {{ notificationsActive ? '🔕' : '🔔' }} {{ notificationsActive ? 'Dezactivează Notificări' : t('enableNotifications') }}
         </button>
       </div>
+
+      <!-- Notification feedback -->
+      <Transition name="fade">
+        <div v-if="notificationMessage" class="notification-feedback" :class="notificationMessageType">
+          {{ notificationMessage }}
+        </div>
+      </Transition>
     </div>
   </div>
 </template>
@@ -115,6 +122,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import apiService, { type Station, type Route, type StationScheduleEntry } from '@/services/apiService'
 import { useFavorites } from '@/composables/useFavorites'
+import { enableNotifications as enableNotificationsComposable, disableNotifications, useNotifications } from '@/composables/useNotifications'
 import SkeletonLoader from '@/components/SkeletonLoader.vue'
 import { useLanguage } from '@/composables/useLanguage'
 
@@ -243,8 +251,40 @@ const addToFavorites = () => {
   alert(`✅ ${t('stationAddedFavorite')}`)
 }
 
-const enableNotifications = () => {
-  alert(`🔔 ${t('stationNotificationsSoon')}`)
+const { settings: notifSettings } = useNotifications()
+const notificationsActive = ref(false)
+const notificationMessage = ref('')
+const notificationMessageType = ref<'success' | 'error' | 'info'>('info')
+
+const toggleNotifications = async () => {
+  if (!station.value) return
+
+  if (notificationsActive.value) {
+    disableNotifications()
+    notificationsActive.value = false
+    notificationMessage.value = 'Notificările au fost dezactivate.'
+    notificationMessageType.value = 'info'
+  } else {
+    if (!('Notification' in window)) {
+      notificationMessage.value = 'Browserul nu suportă notificări. Încearcă Chrome, Firefox sau Edge.'
+      notificationMessageType.value = 'error'
+      return
+    }
+
+    const success = await enableNotificationsComposable(stationId.value)
+    if (success) {
+      notificationsActive.value = true
+      notificationMessage.value = `Notificări active pentru stația ${station.value.name}.`
+      notificationMessageType.value = 'success'
+    } else {
+      notificationMessage.value = 'Nu s-au putut activa notificările. Permite notificările în browser.'
+      notificationMessageType.value = 'error'
+    }
+  }
+
+  setTimeout(() => {
+    notificationMessage.value = ''
+  }, 5000)
 }
 
 onMounted(() => {
@@ -564,6 +604,55 @@ onUnmounted(() => {
   background: #f9fafb;
   border-color: #3b82f6;
   color: #3b82f6;
+}
+
+.action-btn.notify.active {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-color: #3b82f6;
+  color: white;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+}
+
+.action-btn.notify.active:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: white;
+}
+
+.notification-feedback {
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.notification-feedback.success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.notification-feedback.error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.notification-feedback.info {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 .empty-state {
