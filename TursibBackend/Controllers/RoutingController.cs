@@ -67,11 +67,6 @@ namespace TursibBackend.Controllers
                     request.ArrivalTime
                 );
 
-                if (routes.Count == 0)
-                {
-                    return NotFound(new { message = "No routes found between these stations" });
-                }
-
                 return Ok(routes);
             }
             catch (Exception ex)

@@ -298,6 +298,7 @@ const formatDuration = (minutes: number): string => {
   box-shadow: var(--shadow-xl);
   z-index: 500;
   overflow: hidden;
+  overflow-y: auto;
   animation: slideUp 0.3s ease-out;
   border: 1px solid var(--border-color);
 }
@@ -704,15 +705,50 @@ const formatDuration = (minutes: number): string => {
   }
 }
 
+@media (max-width: 1100px) {
+  .transfer-route-panel {
+    left: 290px;
+    width: 300px;
+    max-width: calc(100vw - 310px);
+  }
+}
+
 @media (max-width: 768px) {
   .transfer-route-panel {
-    bottom: 10px;
-    width: calc(100vw - 20px);
+    position: fixed;
+    bottom: 70px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+    max-height: 55vh;
+    border-radius: 16px;
+  }
+
+  .panel-content {
+    max-height: calc(55vh - 60px);
   }
 
   .route-summary {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .summary-label {
+    font-size: 9px;
+  }
+
+  .summary-value {
+    font-size: 14px;
+  }
+
+  .route-times {
+    padding: 8px 12px;
+  }
+
+  .time-value {
+    font-size: 16px;
   }
 }
 </style>
