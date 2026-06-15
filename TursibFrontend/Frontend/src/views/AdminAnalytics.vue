@@ -148,6 +148,7 @@ const { t } = useLanguage()
 interface Bus {
   id: string
   route: string
+  routeNumber: string
   latitude: number
   longitude: number
   speed: number
@@ -185,14 +186,14 @@ let distributionChart: Chart | null = null
 let stationsChart: Chart | null = null
 
 const demoBuses: Bus[] = [
-  { id: 'SB-101', route: '1', latitude: 45.7983, longitude: 24.1256, speed: 32, heading: 90, occupancy: 28 },
-  { id: 'SB-203', route: '2', latitude: 45.7912, longitude: 24.1521, speed: 18, heading: 180, occupancy: 65 },
-  { id: 'SB-305', route: '3', latitude: 45.7856, longitude: 24.1489, speed: 41, heading: 270, occupancy: 45 },
-  { id: 'SB-107', route: '1', latitude: 45.8021, longitude: 24.1378, speed: 27, heading: 45, occupancy: 82 },
-  { id: 'SB-509', route: '5', latitude: 45.7945, longitude: 24.1612, speed: 35, heading: 135, occupancy: 19 },
-  { id: 'SB-711', route: '7', latitude: 45.7889, longitude: 24.1334, speed: 22, heading: 315, occupancy: 53 },
-  { id: 'SB-812', route: '8', latitude: 45.7967, longitude: 24.1445, speed: 38, heading: 60, occupancy: 71 },
-  { id: 'SB-914', route: '9', latitude: 45.7834, longitude: 24.1567, speed: 15, heading: 200, occupancy: 35 },
+  { id: 'SB-101', route: '1', routeNumber: '1', latitude: 45.7983, longitude: 24.1256, speed: 32, heading: 90, occupancy: 28 },
+  { id: 'SB-203', route: '2', routeNumber: '2', latitude: 45.7912, longitude: 24.1521, speed: 18, heading: 180, occupancy: 65 },
+  { id: 'SB-305', route: '3', routeNumber: '3', latitude: 45.7856, longitude: 24.1489, speed: 41, heading: 270, occupancy: 45 },
+  { id: 'SB-107', route: '1', routeNumber: '1', latitude: 45.8021, longitude: 24.1378, speed: 27, heading: 45, occupancy: 82 },
+  { id: 'SB-509', route: '5', routeNumber: '5', latitude: 45.7945, longitude: 24.1612, speed: 35, heading: 135, occupancy: 19 },
+  { id: 'SB-711', route: '7', routeNumber: '7', latitude: 45.7889, longitude: 24.1334, speed: 22, heading: 315, occupancy: 53 },
+  { id: 'SB-812', route: '8', routeNumber: '8', latitude: 45.7967, longitude: 24.1445, speed: 38, heading: 60, occupancy: 71 },
+  { id: 'SB-914', route: '9', routeNumber: '9', latitude: 45.7834, longitude: 24.1567, speed: 15, heading: 200, occupancy: 35 },
 ]
 
 const displayBuses = computed(() => liveBuses.value.length > 0 ? liveBuses.value : demoBuses)
@@ -229,7 +230,7 @@ const loadStatistics = async () => {
     await nextTick()
     initCharts()
 
-    const busesRef = dbRef(database, 'buses')
+    const busesRef = dbRef(database, 'bus_locations')
     let lastUpdate = 0
     onValue(busesRef, (snapshot) => {
       const now = Date.now()
@@ -237,27 +238,31 @@ const loadStatistics = async () => {
       lastUpdate = now
 
       const data = snapshot.val()
-      const buses: Bus[] = data
-        ? Object.entries(data).map(([id, busData]: [string, any]) => ({
+      const buses: Bus[] = []
+      if (data) {
+        for (const [id, busData] of Object.entries(data) as [string, any][]) {
+          if (!id.startsWith('route_')) continue
+          if (!busData?.latitude || !busData?.longitude) continue
+          buses.push({
             id,
-            route: busData.route || 'N/A',
-            latitude: busData.latitude || 0,
-            longitude: busData.longitude || 0,
+            route: busData.routeNumber || String(busData.routeId) || 'N/A',
+            routeNumber: busData.routeNumber || '',
+            latitude: busData.latitude,
+            longitude: busData.longitude,
             speed: busData.speed || 0,
             heading: busData.heading || 0,
             occupancy: busData.occupancy || 0
-          }))
-        : []
+          })
+        }
+      }
 
-      liveBuses.value = buses
-      stats.value.activeBuses = buses.length
-
-      const totalOccupancy = buses.reduce((sum, bus) => sum + bus.occupancy, 0)
-      stats.value.avgOccupancy = buses.length > 0
-        ? Math.round(totalOccupancy / buses.length)
-        : 0
-
-      updateChartsWithBuses(buses)
+      if (buses.length > 0) {
+        liveBuses.value = buses
+        stats.value.activeBuses = buses.length
+        const totalOccupancy = buses.reduce((sum, bus) => sum + bus.occupancy, 0)
+        stats.value.avgOccupancy = Math.round(totalOccupancy / buses.length)
+        updateChartsWithBuses(buses)
+      }
     })
   } catch (error) {
     console.error('❌ Error loading statistics:', error)
@@ -428,7 +433,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   // Cleanup Firebase listeners
-  const busesRef = dbRef(database, 'buses')
+  const busesRef = dbRef(database, 'bus_locations')
   off(busesRef)
 
   // Destroy charts
