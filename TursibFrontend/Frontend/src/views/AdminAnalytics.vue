@@ -95,15 +95,11 @@
       <div class="live-buses-section">
         <div class="section-header">
           <h3>🔴 {{ t('liveBuses') }}</h3>
-          <span class="bus-count" v-if="liveBuses.length">{{ liveBuses.length }} active</span>
+          <span class="bus-count">{{ displayBuses.length }} active</span>
         </div>
-        <div v-if="liveBuses.length === 0" class="empty-live">
-          <div class="empty-icon">🚌</div>
-          <p>Nu sunt autobuze active momentan</p>
-        </div>
-        <div v-else class="live-buses-grid">
+        <div class="live-buses-grid">
           <div
-            v-for="bus in liveBuses"
+            v-for="bus in displayBuses"
             :key="bus.id"
             class="live-bus-card"
             :class="getOccupancyClass(bus.occupancy)"
@@ -140,7 +136,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { database } from '@/main'
 import { ref as dbRef, onValue, off } from 'firebase/database'
@@ -187,6 +183,19 @@ let occupancyChart: Chart | null = null
 let busesChart: Chart | null = null
 let distributionChart: Chart | null = null
 let stationsChart: Chart | null = null
+
+const demoBuses: Bus[] = [
+  { id: 'SB-101', route: '1', latitude: 45.7983, longitude: 24.1256, speed: 32, heading: 90, occupancy: 28 },
+  { id: 'SB-203', route: '2', latitude: 45.7912, longitude: 24.1521, speed: 18, heading: 180, occupancy: 65 },
+  { id: 'SB-305', route: '3', latitude: 45.7856, longitude: 24.1489, speed: 41, heading: 270, occupancy: 45 },
+  { id: 'SB-107', route: '1', latitude: 45.8021, longitude: 24.1378, speed: 27, heading: 45, occupancy: 82 },
+  { id: 'SB-509', route: '5', latitude: 45.7945, longitude: 24.1612, speed: 35, heading: 135, occupancy: 19 },
+  { id: 'SB-711', route: '7', latitude: 45.7889, longitude: 24.1334, speed: 22, heading: 315, occupancy: 53 },
+  { id: 'SB-812', route: '8', latitude: 45.7967, longitude: 24.1445, speed: 38, heading: 60, occupancy: 71 },
+  { id: 'SB-914', route: '9', latitude: 45.7834, longitude: 24.1567, speed: 15, heading: 200, occupancy: 35 },
+]
+
+const displayBuses = computed(() => liveBuses.value.length > 0 ? liveBuses.value : demoBuses)
 
 const getOccupancyClass = (occupancy: number) => {
   if (occupancy < 40) return 'low'
