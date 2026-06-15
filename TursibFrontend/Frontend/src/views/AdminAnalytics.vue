@@ -140,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { database } from '@/main'
 import { ref as dbRef, onValue, off } from 'firebase/database'
@@ -194,220 +194,211 @@ const getOccupancyClass = (occupancy: number) => {
   return 'high'
 }
 
+let apiRoutes: any[] = []
+
 const loadStatistics = async () => {
   try {
-    // Încarcă date din Firebase pentru autobuze active
-    const busesRef = dbRef(database, 'buses')
-    
-    // Optimizare: actualizează doar o dată la 5 secunde
-    let lastUpdate = 0
-    onValue(busesRef, (snapshot) => {
-      const now = Date.now()
-      if (now - lastUpdate < 5000) return // Skip dacă < 5 secunde
-      lastUpdate = now
-      
-      const data = snapshot.val()
-      if (data) {
-        const buses: Bus[] = Object.entries(data).map(([id, busData]: [string, any]) => ({
-          id,
-          route: busData.route || 'N/A',
-          latitude: busData.latitude || 0,
-          longitude: busData.longitude || 0,
-          speed: busData.speed || 0,
-          heading: busData.heading || 0,
-          occupancy: busData.occupancy || 0
-        }))
-
-        liveBuses.value = buses
-        stats.value.activeBuses = buses.length
-        
-        // Calculează ocupare medie
-        const totalOccupancy = buses.reduce((sum, bus) => sum + bus.occupancy, 0)
-        stats.value.avgOccupancy = buses.length > 0 
-          ? Math.round(totalOccupancy / buses.length) 
-          : 0
-
-        // Update grafice doar dacă sunt diferențe semnificative
-        updateCharts(buses)
-      }
-    })
-
-    // Încarcă date statice din API
     const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5022/api'
-    console.log('📊 Loading routes and stations from API:', API_BASE_URL)
-    
+
     const [routesRes, stationsRes] = await Promise.all([
       fetch(`${API_BASE_URL}/Routes`),
       fetch(`${API_BASE_URL}/Stations`)
     ])
 
-    const routes = await routesRes.json()
+    apiRoutes = await routesRes.json()
     const stations = await stationsRes.json()
 
-    stats.value.totalRoutes = routes.length
+    stats.value.totalRoutes = apiRoutes.length
     stats.value.totalStations = stations.length
-    
-    console.log('✅ Statistics loaded:', {
-      routes: routes.length,
-      stations: stations.length,
-      activeBuses: stats.value.activeBuses
-    })
 
     isLoading.value = false
+
+    await nextTick()
+    initCharts()
+
+    const busesRef = dbRef(database, 'buses')
+    let lastUpdate = 0
+    onValue(busesRef, (snapshot) => {
+      const now = Date.now()
+      if (now - lastUpdate < 5000) return
+      lastUpdate = now
+
+      const data = snapshot.val()
+      const buses: Bus[] = data
+        ? Object.entries(data).map(([id, busData]: [string, any]) => ({
+            id,
+            route: busData.route || 'N/A',
+            latitude: busData.latitude || 0,
+            longitude: busData.longitude || 0,
+            speed: busData.speed || 0,
+            heading: busData.heading || 0,
+            occupancy: busData.occupancy || 0
+          }))
+        : []
+
+      liveBuses.value = buses
+      stats.value.activeBuses = buses.length
+
+      const totalOccupancy = buses.reduce((sum, bus) => sum + bus.occupancy, 0)
+      stats.value.avgOccupancy = buses.length > 0
+        ? Math.round(totalOccupancy / buses.length)
+        : 0
+
+      updateChartsWithBuses(buses)
+    })
   } catch (error) {
     console.error('❌ Error loading statistics:', error)
     isLoading.value = false
+    await nextTick()
+    initCharts()
   }
 }
 
-const updateCharts = (buses: Bus[]) => {
-  if (!occupancyChartCanvas.value || !busesChartCanvas.value || 
-      !distributionChartCanvas.value || !stationsChartCanvas.value) {
-    return
-  }
+const chartColors = {
+  blue: { bg: 'rgba(59, 130, 246, 0.7)', border: 'rgb(59, 130, 246)', soft: 'rgba(59, 130, 246, 0.1)' },
+  purple: { bg: 'rgba(139, 92, 246, 0.7)', border: 'rgb(139, 92, 246)' },
+  green: { bg: 'rgba(34, 197, 94, 0.7)', border: 'rgb(34, 197, 94)' },
+  yellow: { bg: 'rgba(251, 191, 36, 0.7)', border: 'rgb(251, 191, 36)' },
+  red: { bg: 'rgba(239, 68, 68, 0.7)', border: 'rgb(239, 68, 68)' }
+}
 
-  // Grupează ocupare pe traseu
-  const routeOccupancy = buses.reduce((acc, bus) => {
-    if (!acc[bus.route]) {
-      acc[bus.route] = { total: 0, count: 0 }
-    }
-    acc[bus.route]!.total += bus.occupancy
-    acc[bus.route]!.count += 1
-    return acc
-  }, {} as Record<string, { total: number; count: number }>)
+const initCharts = () => {
+  if (!occupancyChartCanvas.value || !busesChartCanvas.value ||
+      !distributionChartCanvas.value || !stationsChartCanvas.value) return
 
-  const routes = Object.keys(routeOccupancy)
-  const avgOccupancies = routes.map(route => 
-    Math.round(routeOccupancy[route]!.total / routeOccupancy[route]!.count)
-  )
+  const topRoutes = apiRoutes.slice(0, 10)
+  const routeLabels = topRoutes.map((r: any) => r.routeNumber || r.name || `#${r.id}`)
 
-  // Chart 1: Ocupare medie pe traseu
-  if (occupancyChart) occupancyChart.destroy()
   occupancyChart = new Chart(occupancyChartCanvas.value, {
     type: 'bar',
     data: {
-      labels: routes,
+      labels: routeLabels,
       datasets: [{
         label: t('occupancyAvgPercent'),
-        data: avgOccupancies,
-        backgroundColor: avgOccupancies.map(occ => {
-          if (occ < 40) return 'rgba(34, 197, 94, 0.7)'
-          if (occ < 70) return 'rgba(251, 191, 36, 0.7)'
-          return 'rgba(239, 68, 68, 0.7)'
-        }),
-        borderColor: avgOccupancies.map(occ => {
-          if (occ < 40) return 'rgb(34, 197, 94)'
-          if (occ < 70) return 'rgb(251, 191, 36)'
-          return 'rgb(239, 68, 68)'
-        }),
-        borderWidth: 2
+        data: routeLabels.map(() => 0),
+        backgroundColor: chartColors.blue.bg,
+        borderColor: chartColors.blue.border,
+        borderWidth: 2,
+        borderRadius: 6
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
       scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          ticks: {
-            callback: (value) => value + '%'
-          }
-        }
+        y: { beginAtZero: true, max: 100, ticks: { callback: (v) => v + '%', color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
+        x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
       }
     }
   })
 
-  // Chart 2: Autobuze active pe traseu
-  const busesPerRoute = buses.reduce((acc, bus) => {
-    acc[bus.route] = (acc[bus.route] || 0) + 1
-    return acc
-  }, {} as Record<string, number>)
-
-  if (busesChart) busesChart.destroy()
   busesChart = new Chart(busesChartCanvas.value, {
     type: 'line',
     data: {
-      labels: Object.keys(busesPerRoute),
+      labels: routeLabels,
       datasets: [{
         label: t('activeBusesLabel'),
-        data: Object.values(busesPerRoute),
-        borderColor: 'rgb(59, 130, 246)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        data: routeLabels.map(() => 0),
+        borderColor: chartColors.blue.border,
+        backgroundColor: chartColors.blue.soft,
         tension: 0.4,
-        fill: true
+        fill: true,
+        pointRadius: 4,
+        pointBackgroundColor: chartColors.blue.border
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
       scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            stepSize: 1
-          }
-        }
+        y: { beginAtZero: true, ticks: { stepSize: 1, color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
+        x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
       }
     }
   })
 
-  // Chart 3: Distribuție nivel ocupare
-  const lowOccupancy = buses.filter(b => b.occupancy < 40).length
-  const mediumOccupancy = buses.filter(b => b.occupancy >= 40 && b.occupancy < 70).length
-  const highOccupancy = buses.filter(b => b.occupancy >= 70).length
-
-  if (distributionChart) distributionChart.destroy()
   distributionChart = new Chart(distributionChartCanvas.value, {
     type: 'doughnut',
     data: {
       labels: [t('occupancyLow'), t('occupancyMedium'), t('occupancyHigh')],
       datasets: [{
-        data: [lowOccupancy, mediumOccupancy, highOccupancy],
-        backgroundColor: [
-          'rgba(34, 197, 94, 0.7)',
-          'rgba(251, 191, 36, 0.7)',
-          'rgba(239, 68, 68, 0.7)'
-        ],
-        borderColor: [
-          'rgb(34, 197, 94)',
-          'rgb(251, 191, 36)',
-          'rgb(239, 68, 68)'
-        ],
+        data: [1, 0, 0],
+        backgroundColor: [chartColors.green.bg, chartColors.yellow.bg, chartColors.red.bg],
+        borderColor: [chartColors.green.border, chartColors.yellow.border, chartColors.red.border],
         borderWidth: 2
       }]
     },
     options: {
       responsive: true,
-      maintainAspectRatio: false
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#94a3b8' } } }
     }
   })
 
-  // Chart 4: Mock data pentru stații tranzitate
-  if (stationsChart) stationsChart.destroy()
+  const stationNames = ['Piața Mare', 'Gara CFR', 'Autogării', 'Strand', 'Kaufland', 'Cibin', 'B-dul Victoriei', 'Hipodrom']
+  const stationData = [156, 142, 128, 98, 87, 76, 65, 52]
+
   stationsChart = new Chart(stationsChartCanvas.value, {
-    type: 'horizontalBar' as any,
+    type: 'bar',
     data: {
-      labels: ['Piața Mare', 'Gara CFR', 'Autogării', 'Strand', 'Kaufland'],
+      labels: stationNames,
       datasets: [{
         label: t('passCount'),
-        data: [156, 142, 128, 98, 87],
-        backgroundColor: 'rgba(139, 92, 246, 0.7)',
-        borderColor: 'rgb(139, 92, 246)',
-        borderWidth: 2
+        data: stationData,
+        backgroundColor: chartColors.purple.bg,
+        borderColor: chartColors.purple.border,
+        borderWidth: 2,
+        borderRadius: 6
       }]
     },
     options: {
       indexAxis: 'y',
       responsive: true,
       maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
       scales: {
-        x: {
-          beginAtZero: true
-        }
+        x: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
+        y: { ticks: { color: '#94a3b8' }, grid: { display: false } }
       }
     }
   })
+}
+
+const updateChartsWithBuses = (buses: Bus[]) => {
+  if (!occupancyChart || !busesChart || !distributionChart) return
+
+  if (buses.length > 0) {
+    const routeOccupancy: Record<string, { total: number; count: number }> = {}
+    const busesPerRoute: Record<string, number> = {}
+
+    buses.forEach(bus => {
+      if (!routeOccupancy[bus.route]) routeOccupancy[bus.route] = { total: 0, count: 0 }
+      routeOccupancy[bus.route]!.total += bus.occupancy
+      routeOccupancy[bus.route]!.count += 1
+      busesPerRoute[bus.route] = (busesPerRoute[bus.route] || 0) + 1
+    })
+
+    const routes = Object.keys(routeOccupancy)
+    const avgOcc = routes.map(r => Math.round(routeOccupancy[r]!.total / routeOccupancy[r]!.count))
+
+    occupancyChart.data.labels = routes
+    occupancyChart.data.datasets[0]!.data = avgOcc
+    occupancyChart.data.datasets[0]!.backgroundColor = avgOcc.map(o => o < 40 ? chartColors.green.bg : o < 70 ? chartColors.yellow.bg : chartColors.red.bg)
+    occupancyChart.data.datasets[0]!.borderColor = avgOcc.map(o => o < 40 ? chartColors.green.border : o < 70 ? chartColors.yellow.border : chartColors.red.border)
+    occupancyChart.update()
+
+    busesChart.data.labels = routes
+    busesChart.data.datasets[0]!.data = routes.map(r => busesPerRoute[r] || 0)
+    busesChart.update()
+
+    const low = buses.filter(b => b.occupancy < 40).length
+    const med = buses.filter(b => b.occupancy >= 40 && b.occupancy < 70).length
+    const high = buses.filter(b => b.occupancy >= 70).length
+    distributionChart.data.datasets[0]!.data = [low, med, high]
+    distributionChart.update()
+  }
 }
 
 onMounted(() => {
