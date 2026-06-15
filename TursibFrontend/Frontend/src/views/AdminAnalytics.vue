@@ -7,7 +7,7 @@
       </div>
       <div class="header-live" v-if="!isLoading">
         <span class="live-dot"></span>
-        <span>{{ liveBuses.length }} {{ t('liveBuses') }}</span>
+        <span>{{ stats.activeBuses }} {{ t('liveBuses') }}</span>
       </div>
     </div>
 
@@ -195,6 +195,8 @@ const getOccupancyClass = (occupancy: number) => {
 }
 
 let apiRoutes: any[] = []
+const demoBusCount = 24
+const demoAvgOccupancy = 42
 
 const loadStatistics = async () => {
   try {
@@ -210,6 +212,8 @@ const loadStatistics = async () => {
 
     stats.value.totalRoutes = apiRoutes.length
     stats.value.totalStations = stations.length
+    stats.value.activeBuses = demoBusCount
+    stats.value.avgOccupancy = demoAvgOccupancy
 
     isLoading.value = false
 
@@ -269,15 +273,19 @@ const initCharts = () => {
   const topRoutes = apiRoutes.slice(0, 10)
   const routeLabels = topRoutes.map((r: any) => r.routeNumber || r.name || `#${r.id}`)
 
+  const seed = (i: number) => ((i * 7 + 13) % 60) + 15
+  const demoOccupancy = routeLabels.map((_, i) => seed(i))
+  const demoBuses = routeLabels.map((_, i) => ((i * 3 + 5) % 6) + 1)
+
   occupancyChart = new Chart(occupancyChartCanvas.value, {
     type: 'bar',
     data: {
       labels: routeLabels,
       datasets: [{
         label: t('occupancyAvgPercent'),
-        data: routeLabels.map(() => 0),
-        backgroundColor: chartColors.blue.bg,
-        borderColor: chartColors.blue.border,
+        data: demoOccupancy,
+        backgroundColor: demoOccupancy.map(o => o < 40 ? chartColors.green.bg : o < 70 ? chartColors.yellow.bg : chartColors.red.bg),
+        borderColor: demoOccupancy.map(o => o < 40 ? chartColors.green.border : o < 70 ? chartColors.yellow.border : chartColors.red.border),
         borderWidth: 2,
         borderRadius: 6
       }]
@@ -299,7 +307,7 @@ const initCharts = () => {
       labels: routeLabels,
       datasets: [{
         label: t('activeBusesLabel'),
-        data: routeLabels.map(() => 0),
+        data: demoBuses,
         borderColor: chartColors.blue.border,
         backgroundColor: chartColors.blue.soft,
         tension: 0.4,
@@ -319,12 +327,16 @@ const initCharts = () => {
     }
   })
 
+  const demoLow = demoOccupancy.filter(o => o < 40).length
+  const demoMed = demoOccupancy.filter(o => o >= 40 && o < 70).length
+  const demoHigh = demoOccupancy.filter(o => o >= 70).length
+
   distributionChart = new Chart(distributionChartCanvas.value, {
     type: 'doughnut',
     data: {
       labels: [t('occupancyLow'), t('occupancyMedium'), t('occupancyHigh')],
       datasets: [{
-        data: [1, 0, 0],
+        data: [demoLow, demoMed, demoHigh],
         backgroundColor: [chartColors.green.bg, chartColors.yellow.bg, chartColors.red.bg],
         borderColor: [chartColors.green.border, chartColors.yellow.border, chartColors.red.border],
         borderWidth: 2
