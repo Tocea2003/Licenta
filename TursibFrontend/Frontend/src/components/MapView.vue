@@ -1192,7 +1192,7 @@ function renderBusMarkers(buses: BusLocation[]) {
   if (!map.value?.leafletObject) return
   const leafletMap = map.value.leafletObject
 
-  if (!busLayerAdded) {
+  if (!busLayerAdded && !showMultimodal.value && !showTransfer.value) {
     busLayerGroup.addTo(leafletMap)
     busLayerAdded = true
   }
@@ -1254,6 +1254,7 @@ watch([showMultimodal, showTransfer], ([multi, transfer]) => {
   } else {
     busLayerGroup.addTo(map.value.leafletObject)
     busLayerAdded = true
+    renderBusMarkers(liveBuses.value)
   }
 })
 
