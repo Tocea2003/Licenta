@@ -61,9 +61,8 @@ const loadAllStations = async () => {
 
 const handleRouteSelected = (routeId: number, stations: Station[]) => {
   selectedStations.value = stations
-  selectedRouteId.value = routeId
+  selectedRouteId.value = routeId || null
 
-  // Centrează harta pe prima stație dacă există
   if (stations.length > 0 && mapRef.value && typeof mapRef.value.centerMap === 'function') {
     const firstStation = stations[0]
     if (!firstStation) return

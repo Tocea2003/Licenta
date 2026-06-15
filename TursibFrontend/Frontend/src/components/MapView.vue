@@ -845,6 +845,7 @@ const isLoadingRoute = ref(false)
 // Ref pentru polyline pentru a adăuga săgeți
 
 const routePolylineRef = ref<any>(null)
+const activeRouteDecorators: any[] = []
 
 const map = ref<any>(null)
 const pendingMapCenter = ref<[number, number] | null>(null)
@@ -1546,27 +1547,25 @@ watch(() => props.stations, (newStations) => {
 
 watch(routePath, async () => {
 
+  // Șterge decorațiile vechi indiferent de noua stare
+  if (activeRouteDecorators.length > 0) {
+    activeRouteDecorators.forEach((d: any) => d.remove())
+    activeRouteDecorators.length = 0
+  }
+
   // Așteaptă ca polyline-ul să fie randat
 
   await new Promise(resolve => setTimeout(resolve, 100))
 
-  
+
 
   if (routePolylineRef.value && routePath.value.length > 0) {
 
     const polylineInstance = routePolylineRef.value.leafletObject
 
-    
+
 
     if (polylineInstance) {
-
-      // Șterge decorațiile vechi dacă există
-
-      if ((polylineInstance as any)._decorators) {
-
-        (polylineInstance as any)._decorators.forEach((d: any) => d.remove())
-
-      }
 
       
 
@@ -1620,9 +1619,7 @@ watch(routePath, async () => {
 
       }
 
-      // Salvează decorator-ul pentru ștergere ulterioară
-
-      (polylineInstance as any)._decorators = [decorator]
+      activeRouteDecorators.push(decorator)
 
       
 
@@ -2575,6 +2572,9 @@ const closeMultimodal = () => {
   routePath.value = []
   actualWalkingPath.value = []
   actualSecondWalkingPath.value = []
+  completeRoutePath.value = []
+  completeBusRoute1.value = []
+  completeBusRoute2.value = []
   walkingStart.value = null
   walkingEnd.value = null
   secondWalkingStart.value = null
@@ -2582,7 +2582,7 @@ const closeMultimodal = () => {
   snappedStart.value = null
   snappedEnd.value = null
   selectedAddress.value = null
-  // Reset multimodal data
+  emit('routeSelected', 0, [])
   multimodalData.value = {
     startLocation: '',
     endLocation: '',
@@ -2666,6 +2666,9 @@ const closeTransfer = () => {
   routePath.value = []
   actualWalkingPath.value = []
   actualSecondWalkingPath.value = []
+  completeRoutePath.value = []
+  completeBusRoute1.value = []
+  completeBusRoute2.value = []
   walkingStart.value = null
   walkingEnd.value = null
   secondWalkingStart.value = null
@@ -2673,7 +2676,7 @@ const closeTransfer = () => {
   snappedStart.value = null
   snappedEnd.value = null
   selectedAddress.value = null
-  // Reset transfer data
+  emit('routeSelected', 0, [])
   transferData.value = {
     startName: '',
     endName: '',
