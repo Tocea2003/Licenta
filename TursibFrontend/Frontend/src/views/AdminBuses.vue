@@ -2,27 +2,89 @@
   <div class="buses-management">
     <div class="page-header">
       <h2>Flotă Autobuze</h2>
-      <button @click="openCreate" class="btn-primary">+ Adaugă autobuz</button>
+      <div class="header-actions">
+        <div class="tab-switcher">
+          <button :class="['tab-btn', { active: activeTab === 'live' }]" @click="activeTab = 'live'">
+            <span class="tab-dot live-dot"></span>
+            Live ({{ liveBuses.length }})
+          </button>
+          <button :class="['tab-btn', { active: activeTab === 'registered' }]" @click="activeTab = 'registered'">
+            Înregistrate ({{ buses.length }})
+          </button>
+        </div>
+        <button v-if="activeTab === 'registered'" @click="openCreate" class="btn-primary">+ Adaugă autobuz</button>
+      </div>
     </div>
 
     <!-- Summary cards -->
     <div class="summary-cards">
       <div class="summary-card">
-        <div class="card-value">{{ buses.length }}</div>
-        <div class="card-label">Total autobuze</div>
+        <div class="card-value">{{ liveBuses.length }}</div>
+        <div class="card-label">Autobuze active</div>
       </div>
       <div class="summary-card green">
-        <div class="card-value">{{ assignedCount }}</div>
-        <div class="card-label">Asignate pe traseu</div>
+        <div class="card-value">{{ liveRouteCount }}</div>
+        <div class="card-label">Trasee deservite</div>
       </div>
       <div class="summary-card amber">
-        <div class="card-value">{{ buses.length - assignedCount }}</div>
-        <div class="card-label">În garaj</div>
+        <div class="card-value">{{ liveAvgSpeed }} km/h</div>
+        <div class="card-label">Viteză medie</div>
       </div>
     </div>
 
     <div v-if="isLoading" class="loading">Se încarcă...</div>
 
+    <!-- Live buses tab -->
+    <div v-else-if="activeTab === 'live'" class="table-container">
+      <div class="live-header">
+        <input v-model="liveSearch" class="search-input" placeholder="Caută după traseu sau ID..." />
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID Bus</th>
+            <th>Traseu</th>
+            <th>Direcție</th>
+            <th>Viteză</th>
+            <th>Ocupare</th>
+            <th>Stația următoare</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="bus in paginatedLiveBuses" :key="bus.id">
+            <td class="id-col">{{ bus.shortId }}</td>
+            <td><span class="route-chip"><span class="route-dot"></span> Linia {{ bus.routeNumber }}</span></td>
+            <td>{{ bus.routeName || '—' }}</td>
+            <td>{{ bus.speed.toFixed(0) }} km/h</td>
+            <td>
+              <div class="occupancy-bar-cell">
+                <div class="occupancy-bar">
+                  <div class="occupancy-fill" :style="{ width: bus.occupancy + '%', background: occupancyColor(bus.occupancy) }"></div>
+                </div>
+                <span class="occupancy-text">{{ bus.occupancy }}%</span>
+              </div>
+            </td>
+            <td>{{ bus.nextStationName || '—' }}</td>
+            <td><span class="status-badge active">Activ</span></td>
+          </tr>
+          <tr v-if="filteredLiveBuses.length === 0">
+            <td colspan="7" class="empty-row">
+              {{ liveSearch ? 'Niciun rezultat.' : 'Niciun autobuz activ momentan.' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div v-if="liveTotalPages > 1" class="pagination">
+        <button @click="liveCurrentPage > 1 && liveCurrentPage--" :disabled="liveCurrentPage === 1" class="page-btn">&laquo;</button>
+        <button v-for="p in liveTotalPages" :key="p" @click="liveCurrentPage = p" :class="['page-btn', { active: p === liveCurrentPage }]">{{ p }}</button>
+        <button @click="liveCurrentPage < liveTotalPages && liveCurrentPage++" :disabled="liveCurrentPage === liveTotalPages" class="page-btn">&raquo;</button>
+        <span class="page-info">{{ filteredLiveBuses.length }} autobuze</span>
+      </div>
+    </div>
+
+    <!-- Registered buses tab -->
     <div v-else class="table-container">
       <table class="data-table">
         <thead>
@@ -106,16 +168,72 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { adminBusesService, adminRoutesService, type Bus, type Route } from '@/services/adminService'
 import { usePagination } from '@/composables/usePagination'
+import { database } from '@/main'
+import { ref as dbRef, onValue, off } from 'firebase/database'
 
+interface LiveBus {
+  id: string
+  shortId: string
+  routeNumber: string
+  routeName: string
+  latitude: number
+  longitude: number
+  speed: number
+  heading: number
+  occupancy: number
+  nextStationName: string
+  status: string
+}
+
+const activeTab = ref<'live' | 'registered'>('live')
 const buses = ref<Bus[]>([])
 const { paginatedItems: paginatedBuses, currentPage, totalPages, visiblePages, goToPage, prevPage, nextPage } = usePagination(buses, 10)
 const routes = ref<Route[]>([])
 const isLoading = ref(true)
 const showModal = ref(false)
 const editingBus = ref<Bus | null>(null)
+
+const liveBuses = ref<LiveBus[]>([])
+const liveSearch = ref('')
+const liveCurrentPage = ref(1)
+const LIVE_PER_PAGE = 15
+
+const filteredLiveBuses = computed(() => {
+  if (!liveSearch.value) return liveBuses.value
+  const q = liveSearch.value.toLowerCase()
+  return liveBuses.value.filter(b =>
+    b.routeNumber.toLowerCase().includes(q) ||
+    b.shortId.toLowerCase().includes(q) ||
+    (b.routeName && b.routeName.toLowerCase().includes(q))
+  )
+})
+
+const liveTotalPages = computed(() => Math.max(1, Math.ceil(filteredLiveBuses.value.length / LIVE_PER_PAGE)))
+
+const paginatedLiveBuses = computed(() => {
+  const start = (liveCurrentPage.value - 1) * LIVE_PER_PAGE
+  return filteredLiveBuses.value.slice(start, start + LIVE_PER_PAGE)
+})
+
+const liveRouteCount = computed(() => {
+  const uniqueRoutes = new Set(liveBuses.value.map(b => b.routeNumber))
+  return uniqueRoutes.size
+})
+
+const liveAvgSpeed = computed(() => {
+  if (liveBuses.value.length === 0) return 0
+  const total = liveBuses.value.reduce((sum, b) => sum + b.speed, 0)
+  return Math.round(total / liveBuses.value.length)
+})
+
+const occupancyColor = (value: number) => {
+  if (value < 40) return '#10b981'
+  if (value < 70) return '#f59e0b'
+  return '#ef4444'
+}
 
 const form = ref({
   licensePlate: '',
@@ -124,6 +242,8 @@ const form = ref({
 })
 
 const assignedCount = computed(() => buses.value.filter(b => b.currentRouteId !== null).length)
+
+let busesRef: ReturnType<typeof dbRef> | null = null
 
 const loadData = async () => {
   isLoading.value = true
@@ -139,6 +259,42 @@ const loadData = async () => {
   } finally {
     isLoading.value = false
   }
+}
+
+const setupFirebase = () => {
+  busesRef = dbRef(database, 'bus_locations')
+  onValue(busesRef, (snapshot) => {
+    const data = snapshot.val()
+    const parsed: LiveBus[] = []
+    if (data) {
+      for (const [id, busData] of Object.entries(data)) {
+        if (!id.startsWith('route_')) continue
+        const bd = busData as any
+        if (!bd?.latitude || !bd?.longitude) continue
+        const parts = id.replace('route_', '').split('_bus_')
+        parsed.push({
+          id,
+          shortId: parts.length === 2 ? `Bus #${parts[1]}` : id,
+          routeNumber: bd.routeNumber || String(bd.routeId) || 'N/A',
+          routeName: bd.routeName || '',
+          latitude: bd.latitude,
+          longitude: bd.longitude,
+          speed: bd.speed || 0,
+          heading: bd.heading || 0,
+          occupancy: bd.occupancy || 0,
+          nextStationName: bd.nextStationName || '',
+          status: bd.status || 'active'
+        })
+      }
+    }
+    parsed.sort((a, b) => {
+      const rA = parseInt(a.routeNumber) || 0
+      const rB = parseInt(b.routeNumber) || 0
+      if (rA !== rB) return rA - rB
+      return a.shortId.localeCompare(b.shortId)
+    })
+    liveBuses.value = parsed
+  })
 }
 
 const openCreate = () => {
@@ -182,7 +338,14 @@ const deleteBus = async (bus: Bus) => {
   }
 }
 
-onMounted(loadData)
+onMounted(() => {
+  loadData()
+  setupFirebase()
+})
+
+onUnmounted(() => {
+  if (busesRef) off(busesRef)
+})
 </script>
 
 <style scoped>
@@ -198,6 +361,8 @@ onMounted(loadData)
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .page-header h2 {
@@ -205,6 +370,104 @@ onMounted(loadData)
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tab-switcher {
+  display: flex;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-btn.active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+.tab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.live-dot {
+  background: #10b981;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+}
+
+.live-header {
+  margin-bottom: 16px;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 320px;
+  padding: 10px 14px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.occupancy-bar-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.occupancy-bar {
+  width: 60px;
+  height: 8px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.occupancy-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.occupancy-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 32px;
 }
 
 .btn-primary {
