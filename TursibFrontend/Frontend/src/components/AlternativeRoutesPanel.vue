@@ -5,11 +5,11 @@
         <div class="header-content">
           <div class="header-icon">🗺️</div>
           <div>
-            <h3>Rute Alternative</h3>
-            <p class="subtitle">{{ routes.length }} {{ routes.length === 1 ? 'opțiune disponibilă' : 'opțiuni disponibile' }}</p>
+            <h3>{{ t('alternativeRoutes') }}</h3>
+            <p class="subtitle">{{ routes.length }} {{ routes.length === 1 ? t('optionAvailable') : t('optionsAvailable') }}</p>
           </div>
         </div>
-        <button @click="$emit('close')" class="close-btn" aria-label="Închide">
+        <button @click="$emit('close')" class="close-btn" :aria-label="t('close')">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
@@ -29,23 +29,27 @@
             @click="selectRoute(index)"
           >
             <!-- Badge pentru cea mai rapidă -->
-            <div v-if="route.routeRank === 1" class="fastest-badge">
+            <div v-if="route.routeType === 'walk-only'" class="category-badge walk">
+              🚶
+              {{ t('walkOnFoot') }}
+            </div>
+            <div v-else-if="route.routeRank === 1" class="fastest-badge">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z"/>
               </svg>
-              Cea mai rapidă
+              {{ t('fastest') }}
             </div>
             <div v-else-if="route.routeType === 'direct'" class="category-badge direct">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>
-              Direct
+              {{ t('directRoute') }}
             </div>
             <div v-else class="category-badge transfer">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M7 16V4M7 4L3 8M7 4l4 4M17 8v12M17 20l4-4M17 20l-4-4"/>
               </svg>
-              Cu transfer
+              {{ t('withTransfer') }}
             </div>
 
             <!-- Header cu timp și tip -->
@@ -74,7 +78,7 @@
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M7 16V4M7 4L3 8M7 4l4 4M17 8v12M17 20l4-4M17 20l-4-4"/>
                   </svg>
-                  1 transfer
+                  1 {{ t('transferLabel') }}
                 </div>
               </div>
             </div>
@@ -116,16 +120,16 @@
                     </svg>
                   </div>
                   <div class="transfer-details">
-                    <span class="transfer-label">Transfer la {{ segment.station?.name }}</span>
-                    <span class="transfer-duration">⏱️ Așteptare ~{{ segment.duration }} min</span>
+                    <span class="transfer-label">{{ t('transferAt') }} {{ segment.station?.name }}</span>
+                    <span class="transfer-duration">⏱️ {{ t('waitApprox') }} {{ segment.duration }} min</span>
                   </div>
                 </div>
 
                 <div v-else-if="segment.type === 'walk'" class="walk-segment">
                   <div class="walk-icon">🚶</div>
                   <div class="walk-details">
-                    <span class="walk-label">Mers pe jos</span>
-                    <span class="walk-duration">{{ segment.duration }} min</span>
+                    <span class="walk-label">{{ t('walkOnFoot') }}</span>
+                    <span class="walk-duration">{{ segment.duration }} min{{ segment.distance ? ` · ${segment.distance} m` : '' }}</span>
                   </div>
                 </div>
               </div>
@@ -144,7 +148,7 @@
                 <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M5 12h14M12 5l7 7-7 7"/>
                 </svg>
-                {{ selectedRouteIndex === index ? 'Rută selectată' : 'Selectează ruta' }}
+                {{ selectedRouteIndex === index ? t('routeSelected') : t('selectRoute') }}
               </button>
             </div>
           </div>
@@ -154,15 +158,15 @@
       <!-- Comparison Footer -->
       <div class="comparison-footer">
         <div class="comparison-stat">
-          <span class="stat-label">Cea mai rapidă</span>
+          <span class="stat-label">{{ t('fastest') }}</span>
           <span class="stat-value">{{ fastestRoute?.totalDuration }} min</span>
         </div>
         <div class="comparison-stat">
-          <span class="stat-label">Fără transfer</span>
-          <span class="stat-value">{{ directRoutesCount }} {{ directRoutesCount === 1 ? 'opțiune' : 'opțiuni' }}</span>
+          <span class="stat-label">{{ t('noTransfer') }}</span>
+          <span class="stat-value">{{ directRoutesCount }} {{ directRoutesCount === 1 ? t('optionSingular') : t('optionPlural') }}</span>
         </div>
         <div class="comparison-stat">
-          <span class="stat-label">Salvează timp</span>
+          <span class="stat-label">{{ t('saveTime') }}</span>
           <span class="stat-value">{{ timeSavings }} min</span>
         </div>
       </div>
@@ -172,6 +176,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 interface Station {
   id: number
@@ -447,6 +454,11 @@ const selectRouteForNavigation = (index: number) => {
 
 .category-badge.transfer {
   background: linear-gradient(135deg, #667eea 0%, #5a67d8 100%);
+  color: white;
+}
+
+.category-badge.walk {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
 }
 

@@ -418,23 +418,23 @@ const enableNotificationsForFavorite = async (favorite: FavoriteLocation) => {
 
     const nearest = findNearestStation(favorite.lat, favorite.lon)
     if (!nearest) {
-      setNotificationFeedback('Nu am putut identifica o stație apropiată pentru această locație.', 'error')
+      setNotificationFeedback(t('notifNoNearbyStation'), 'error')
       return
     }
 
     const success = await enableNotifications(nearest.station.id, undefined, { etaThresholdMinutes: 3 })
     if (!success) {
-      setNotificationFeedback('Notificările nu au putut fi activate. Verifică permisiunile browserului.', 'error')
+      setNotificationFeedback(t('notifPermissionError'), 'error')
       return
     }
 
     const distanceMeters = Math.round(nearest.distanceKm * 1000)
     setNotificationFeedback(
-      `Alerte activate pentru ${favorite.name}. Stația monitorizată: ${nearest.station.name} (${distanceMeters} m).`,
+      t('notifActivatedFor', '', { name: favorite.name, station: nearest.station.name, distance: String(distanceMeters) }),
       'success'
     )
   } catch (error) {
-    setNotificationFeedback('A apărut o eroare la activarea alertelor pentru această locație.', 'error')
+    setNotificationFeedback(t('notifGenericError'), 'error')
   } finally {
     notifyingFavoriteId.value = null
   }

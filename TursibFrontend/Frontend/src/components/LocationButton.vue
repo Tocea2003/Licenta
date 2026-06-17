@@ -3,7 +3,7 @@
     class="location-button" 
     @click="findMyLocation"
     :disabled="loading"
-    :title="loading ? 'Găsesc locația...' : 'Locația mea'"
+    :title="loading ? t('findingLocation') : t('myLocation')"
   >
     <span v-if="loading" class="spinner">⌛</span>
     <span v-else>📍</span>
@@ -12,6 +12,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 const emit = defineEmits<{
   locationFound: [lat: number, lon: number]
@@ -27,7 +30,7 @@ const requestCurrentPosition = (options: PositionOptions) => {
 
 const findMyLocation = async () => {
   if (!navigator.geolocation) {
-    alert('❌ Browserul tău nu suportă geolocation!')
+    alert(t('geolocationNotSupported'))
     return
   }
 
@@ -61,7 +64,7 @@ const findMyLocation = async () => {
     emit('locationFound', lat, lon)
   } catch (error: any) {
     console.error('❌ Eroare geolocation:', error)
-    alert(`❌ Nu pot găsi locația: ${error?.message || 'eroare necunoscută'}`)
+    alert(`${t('cannotGetLocation')}: ${error?.message || ''}`)
   } finally {
     loading.value = false
   }

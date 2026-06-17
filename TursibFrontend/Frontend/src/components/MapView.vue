@@ -5,7 +5,7 @@
     <button 
       @click="showSidebar = !showSidebar; emit('sidebarToggle', showSidebar)" 
       class="sidebar-toggle-btn"
-      :title="showSidebar ? 'Ascunde sidebar' : 'Arată sidebar'"
+      :title="showSidebar ? t('hideSidebar') : t('showSidebar')"
     >
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path v-if="showSidebar" d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -48,7 +48,7 @@
         </svg>
       </button>
 
-      <button @click="showAllBuses = !showAllBuses" class="action-btn" :class="{ active: showAllBuses }" :title="showAllBuses ? 'Arată 30 autobuze' : 'Arată toate autobuzele'">
+      <button @click="showAllBuses = !showAllBuses" class="action-btn" :class="{ active: showAllBuses }" :title="showAllBuses ? t('showLimitedBuses') : t('showAllBusesLabel')">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
           <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
@@ -57,7 +57,7 @@
       <LocationButton @location-found="handleLocationFound" />
 
       <!-- Meniu expandabil pentru butoane secundare -->
-      <button @click="showMoreMenu = !showMoreMenu" class="action-btn more-btn" :title="t('more') || 'Mai mult'">
+      <button @click="showMoreMenu = !showMoreMenu" class="action-btn more-btn" :title="t('more')">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
           <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
@@ -74,7 +74,7 @@
           </button>
           <button v-if="isAuthenticated" @click="goToTickets" class="more-menu-item">
             <span class="more-menu-icon">&#x1F3AB;</span>
-            <span>{{ t('tickets') || 'Bilete' }}</span>
+            <span>{{ t('tickets') }}</span>
           </button>
           <button @click="goToStatistics" class="more-menu-item">
             <span class="more-menu-icon">&#x1F4CA;</span>
@@ -82,11 +82,11 @@
           </button>
           <button @click="goToSettings" class="more-menu-item">
             <span class="more-menu-icon">&#x2699;&#xFE0F;</span>
-            <span>{{ t('settings') || 'Setări' }}</span>
+            <span>{{ t('settings') }}</span>
           </button>
           <button @click="showTripHistory = !showTripHistory" class="more-menu-item">
             <span class="more-menu-icon">&#x1F553;</span>
-            <span>{{ t('tripHistory') || 'Istoric' }}</span>
+            <span>{{ t('tripHistory') }}</span>
           </button>
           <div class="more-menu-divider"></div>
           <button v-if="isAdmin" @click="goToAdmin" class="more-menu-item">
@@ -95,7 +95,7 @@
           </button>
           <button v-if="!isAuthenticated" @click="router.push('/login')" class="more-menu-item">
             <span class="more-menu-icon">&#x1F511;</span>
-            <span>Login</span>
+            <span>{{ t('loginButton') }}</span>
           </button>
           <button v-else @click="handleLogout" class="more-menu-item more-menu-item--danger">
             <span class="more-menu-icon">&#x1F6AA;</span>
@@ -122,7 +122,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M18 6L6 18M6 6l12 12"/>
         </svg>
-        {{ t('closeRoute') || 'Închide traseu' }}
+        {{ t('closeRoute') }}
       </button>
     </transition>
 
@@ -131,15 +131,15 @@
     <div class="map-hud" :class="{ 'map-hud--sidebar-open': showSidebar && !isMobile }">
       <div class="hud-chip hud-chip-primary">
         <span class="hud-dot live"></span>
-        {{ currentLanguage.toUpperCase() }} • {{ liveBuses.length }} autobuze live
+        {{ currentLanguage.toUpperCase() }} • {{ liveBuses.length }} {{ t('liveBusesCount') }}
       </div>
       <div class="hud-chip">
         <span class="hud-dot nearby"></span>
-        {{ nearbyStations.length }} stații apropiate
+        {{ nearbyStations.length }} {{ t('nearbyStationsCount') }}
       </div>
       <div class="hud-chip" v-if="showTransfer || showMultimodal">
         <span class="hud-dot route"></span>
-        Traseu activ
+        {{ t('activeRoute') }}
       </div>
     </div>
 
@@ -294,7 +294,7 @@
           icon-url="/location-pin.png"
         />
         <l-popup>
-          <strong>Tu ești aici</strong>
+          <strong>{{ t('youAreHere') }}</strong>
         </l-popup>
       </l-marker>
       
@@ -332,16 +332,16 @@
             </div>
             <div class="pin-popup-actions">
               <button class="pin-action-btn" @click="pinNavigateHere">
-                🧭 Navighează aici
+                🧭 {{ t('navigateHere') }}
               </button>
               <button class="pin-action-btn" @click="pinSearchFrom">
-                📍 Plecare de aici
+                📍 {{ t('departFromHere') }}
               </button>
               <button class="pin-action-btn" @click="pinAddFavorite">
-                ⭐ Adaugă la favorite
+                ⭐ {{ t('addToFavoritesAction') }}
               </button>
               <button class="pin-action-btn pin-action-btn--close" @click="pinClose">
-                ✕ Închide pinul
+                ✕ {{ t('closePin') }}
               </button>
             </div>
           </div>
@@ -362,8 +362,8 @@
           </div>
         </l-icon>
         <l-popup>
-          <strong>Start traseu</strong><br>
-          <small>Punct pe stradă</small>
+          <strong>{{ t('routeStart') }}</strong><br>
+          <small>{{ t('streetPoint') }}</small>
         </l-popup>
       </l-marker>
       
@@ -380,8 +380,8 @@
           </div>
         </l-icon>
         <l-popup>
-          <strong>Final traseu</strong><br>
-          <small>Punct pe stradă</small>
+          <strong>{{ t('routeEnd') }}</strong><br>
+          <small>{{ t('streetPoint') }}</small>
         </l-popup>
       </l-marker>
 
@@ -500,7 +500,7 @@
             </div>
           </div>
         </l-icon>
-        <l-popup><strong>{{ multimodalData.startLocation || transferData.startName || 'Plecare' }}</strong></l-popup>
+        <l-popup><strong>{{ multimodalData.startLocation || transferData.startName || t('departureLabel') }}</strong></l-popup>
       </l-marker>
 
       <!-- Marker stație îmbarcare (albastru) -->
@@ -528,7 +528,7 @@
           </div>
         </l-icon>
         <l-popup>
-          <strong style="color:#3b82f6">Urcare</strong><br>
+          <strong style="color:#3b82f6">{{ t('boarding') }}</strong><br>
           {{ showTransfer ? transferData.boardingStation?.name : multimodalData.boardingStation }}
         </l-popup>
       </l-marker>
@@ -548,7 +548,7 @@
           </div>
         </l-icon>
         <l-popup>
-          <strong style="color:#f97316">Transfer</strong><br>
+          <strong style="color:#f97316">{{ t('transferLabel') }}</strong><br>
           {{ transferData.transferStation.name }}
         </l-popup>
       </l-marker>
@@ -568,7 +568,7 @@
           </div>
         </l-icon>
         <l-popup>
-          <strong style="color:#f97316">Transfer 2</strong><br>
+          <strong style="color:#f97316">{{ t('transferLabel2') }}</strong><br>
           {{ transferData.transferStation2.name }}
         </l-popup>
       </l-marker>
@@ -592,7 +592,7 @@
           </div>
         </l-icon>
         <l-popup>
-          <strong style="color:#10b981">Coborâre</strong><br>
+          <strong style="color:#10b981">{{ t('alighting') }}</strong><br>
           {{ showTransfer ? transferData.alightingStation?.name : multimodalData.alightingStation }}
         </l-popup>
       </l-marker>
@@ -665,6 +665,10 @@ const { currentLanguage, toggleLanguage, t } = useLanguage()
 
 // Navigation functions
 const goToFavorites = () => {
+  if (!isAuthenticated.value) {
+    showToast(t('loginRequired'), 'error')
+    return
+  }
   router.push('/favorites')
 }
 
@@ -1245,10 +1249,10 @@ watch(() => props.selectedRouteId, () => {
   renderBusMarkers(liveBuses.value)
 })
 
-// Toggle vizibilitate: ascunde autobuzele doar pentru direcții multimodale/transfer
-watch([showMultimodal, showTransfer], ([multi, transfer]) => {
+// Toggle vizibilitate: ascunde autobuzele pentru direcții multimodale/transfer/alternative
+watch([showMultimodal, showTransfer, showAlternatives], ([multi, transfer, alternatives]) => {
   if (!map.value?.leafletObject) return
-  if (multi || transfer) {
+  if (multi || transfer || alternatives) {
     busLayerGroup.removeFrom(map.value.leafletObject)
     busLayerAdded = false
   } else {
@@ -1261,11 +1265,11 @@ watch([showMultimodal, showTransfer], ([multi, transfer]) => {
 // Generează HTML-ul popup-ului pentru un autobuz
 const getStatusLabel = (status: string | undefined): string => {
   switch (status) {
-    case 'at_station': return 'La stație'
-    case 'approaching': return 'Se apropie de stație'
-    case 'departing': return 'Pleacă din stație'
-    case 'in_transit': return 'În tranzit'
-    default: return 'În tranzit'
+    case 'at_station': return t('atStation')
+    case 'approaching': return t('approachingStation')
+    case 'departing': return t('departingStation')
+    case 'in_transit': return t('inTransit')
+    default: return t('inTransit')
   }
 }
 
@@ -1291,15 +1295,15 @@ const buildBusPopupHTML = (bus: any): string => {
   const occupancyClass = getOccupancyClass(bus.occupancy)
   const occupancy = bus.occupancy ?? 0
   const speed = bus.speed?.toFixed(1) ?? '0.0'
-  const routeLabel = bus.routeNumber ? `Linia ${bus.routeNumber}` : `Traseu ${bus.routeId}`
+  const routeLabel = bus.routeNumber ? `${t('busLine')} ${bus.routeNumber}` : `${t('busRoute')} ${bus.routeId}`
   const routeNameStr = bus.routeName ? `<br><small style="color:#6b7280">${bus.routeName}</small>` : ''
-  const directionStr = bus.directionId === 1 ? 'Retur' : 'Tur'
+  const directionStr = bus.directionId === 1 ? t('returnDirection') : t('forwardDirection')
   const statusLabel = getStatusLabel(bus.status)
   const statusColor = getStatusColor(bus.status)
   const etaStr = formatEta(bus.nextStationEta)
   const nextStationStr = bus.nextStationName
     ? `<div style="margin:4px 0;padding:4px 6px;background:#f0f9ff;border-radius:4px;font-size:12px">
-        <span style="color:#64748b">Următoarea:</span> <strong>${bus.nextStationName}</strong>
+        <span style="color:#64748b">${t('nextStation')}:</span> <strong>${bus.nextStationName}</strong>
         ${etaStr ? `<span style="color:#2563eb;margin-left:4px">${etaStr}</span>` : ''}
       </div>`
     : ''
@@ -1308,7 +1312,7 @@ const buildBusPopupHTML = (bus: any): string => {
     <strong style="color: ${color}">${routeLabel}</strong>${routeNameStr}<br>
     <span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:11px;color:white;background:${statusColor};margin:3px 0">${statusLabel}</span>
     <span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:11px;color:#475569;background:#e2e8f0;margin:3px 0">${directionStr}</span><br>
-    <small>Viteză: ${speed} km/h</small><br>
+    <small>${t('speedLabel')}: ${speed} km/h</small><br>
     ${nextStationStr}
     <div class="occupancy-indicator ${occupancyClass}">
       <span class="occupancy-icon">👥</span>
@@ -1354,7 +1358,7 @@ const onMapReady = (mapInstance: any) => {
   mapInstance.on('click', async (e: any) => {
     const { lat, lng } = e.latlng
     isPinLoading.value = true
-    pinnedLocation.value = { lat, lon: lng, name: 'Se încarcă...' }
+    pinnedLocation.value = { lat, lon: lng, name: t('loadingAddress') }
     const address = await reverseGeocode(lat, lng)
     pinnedLocation.value = { lat, lon: lng, name: address }
     isPinLoading.value = false
@@ -1672,7 +1676,11 @@ const pinSearchFrom = () => {
 
 const pinAddFavorite = async () => {
   if (!pinnedLocation.value) return
-  await addFavorite({
+  if (!isAuthenticated.value) {
+    showToast(t('loginRequired'), 'error')
+    return
+  }
+  const result = await addFavorite({
     name: pinnedLocation.value.name,
     address: pinnedLocation.value.name,
     lat: pinnedLocation.value.lat,
@@ -1680,6 +1688,9 @@ const pinAddFavorite = async () => {
     type: 'custom',
     icon: '📍'
   })
+  if (result) {
+    showToast(t('addedToFavorites'), 'success')
+  }
   pinnedLocation.value = null
 }
 
@@ -1723,7 +1734,7 @@ const handleAddressSelected = (location: { lat: number; lon: number; name: strin
 }
 
 const showAddressLocation = (location: { lat: number; lon: number; name: string }) => {
-  selectedAddress.value = location
+  pinnedLocation.value = { lat: location.lat, lon: location.lon, name: location.name }
   centerMap(location.lat, location.lon, 17)
 }
 
@@ -1924,10 +1935,10 @@ const fetchAlternativeRoutes = async (startStationId: number, endStationId: numb
             routeRank: route.routeRank ?? idx + 1,
             routeCategory: route.routeCategory || (
               idx === 0
-                ? 'Cea mai rapidă'
+                ? t('fastest')
                 : route.routeType === 'direct'
-                  ? 'Fără transfer'
-                  : 'Variantă alternativă'
+                  ? t('noTransfer')
+                  : ''
             )
           }))
       }
@@ -2120,6 +2131,48 @@ const handleAlternativeRouteSelected = async (route: any) => {
   const busSegments = route.segments.filter((s: any) => s.type === 'bus')
   
   if (busSegments.length === 0) {
+    // Walk-only route selected
+    if (route.routeType === 'walk-only' && savedUserLocation.value && savedDestination.value) {
+      try {
+        const walkUrl = `https://router.project-osrm.org/route/v1/foot/${savedUserLocation.value.lon},${savedUserLocation.value.lat};${savedDestination.value.lon},${savedDestination.value.lat}?overview=full&geometries=geojson`
+        const resp = await fetch(walkUrl)
+        const data = await resp.json()
+        if (data.routes?.[0]?.geometry?.coordinates) {
+          actualWalkingPath.value = data.routes[0].geometry.coordinates.map(
+            (c: number[]) => [c[1], c[0]] as [number, number]
+          )
+        }
+      } catch {}
+
+      const walkSeg = route.segments[0]
+      multimodalData.value = {
+        startLocation: t('yourLocation'),
+        endLocation: savedDestination.value.name,
+        boardingStation: '',
+        alightingStation: '',
+        busLine: '',
+        busColor: '',
+        busStationsList: [],
+        firstWalkDistance: walkSeg?.distance || 0,
+        firstWalkTime: walkSeg?.duration || 0,
+        secondWalkDistance: 0,
+        secondWalkTime: 0,
+        busTime: 0,
+        busStationsCount: 0,
+        busStartTime: '',
+        busEndTime: '',
+        departureTime: '',
+        arrivalTime: ''
+      }
+
+      showMultimodal.value = true
+      showTransfer.value = false
+
+      if (actualWalkingPath.value.length > 0) {
+        const bounds = L.latLngBounds(actualWalkingPath.value)
+        map.value?.leafletObject?.fitBounds(bounds, { padding: [50, 50] })
+      }
+    }
     return
   }
   
@@ -2200,8 +2253,8 @@ const handleAlternativeRouteSelected = async (route: any) => {
 
       // Afișăm panelul cu detalii
       multimodalData.value = {
-        startLocation: 'Locația ta',
-        endLocation: 'Destinația',
+        startLocation: t('yourLocation'),
+        endLocation: t('theDestination'),
         boardingStation: segment.startStation.name,
         alightingStation: segment.endStation.name,
         busLine: segment.routeNumber,
@@ -2384,10 +2437,41 @@ const handleMultimodalRouteRequested = async (
   
   // 2.5. Fetch alternative routes - ÎNTOTDEAUNA
   const alternatives = await fetchAlternativeRoutes(startStation.id, endStation.id)
+
+  // Calculate direct walking distance and time
+  const directWalkDistanceKm = calculateDistance(userLoc.lat, userLoc.lon, destination.lat, destination.lon)
+  const directWalkTimeMin = Math.round((directWalkDistanceKm / 5) * 60) // 5 km/h walking speed
+
+  // Add walking-only option when distance is walkable (< 3km ~36min)
+  // or when it's faster than the best bus alternative
+  const fastestBusTime = alternatives.length > 0 ? alternatives[0].totalDuration : Infinity
+  if (directWalkDistanceKm < 3 || directWalkTimeMin <= fastestBusTime) {
+    const walkOption = {
+      routeId: 'walk-only',
+      routeNumber: '🚶',
+      routeType: 'walk-only',
+      totalDuration: directWalkTimeMin,
+      routeRank: 0,
+      routeCategory: directWalkTimeMin <= fastestBusTime ? t('walkDirectly') : '',
+      segments: [{
+        type: 'walk',
+        duration: directWalkTimeMin,
+        distance: Math.round(directWalkDistanceKm * 1000)
+      }]
+    }
+
+    if (directWalkTimeMin <= fastestBusTime) {
+      alternatives.unshift(walkOption)
+    } else {
+      alternatives.push(walkOption)
+    }
+    // Re-rank
+    alternatives.forEach((alt: any, idx: number) => { alt.routeRank = idx + 1 })
+  }
+
   if (alternatives.length > 0) {
     alternativeRoutes.value = alternatives
     showAlternatives.value = true
-    // OPREȘTE AICI - utilizatorul trebuie să selecteze o rută
     return
   }
   
@@ -2496,8 +2580,8 @@ const handleMultimodalRouteRequested = async (
         
         // Populăm datele pentru panoul de transfer
         transferData.value = {
-          startName: userLoc.name || 'Locația ta',
-          endName: destination.name || 'Destinația',
+          startName: userLoc.name || t('yourLocation'),
+          endName: destination.name || t('theDestination'),
           boardingStation: startStation,
           transferStation: transferStation,
           transferStation2: null,
@@ -2548,7 +2632,7 @@ const handleMultimodalRouteRequested = async (
       map.value.leafletObject.fitBounds(bounds, { padding: [100, 100] })
     }
   } else {
-    alert('❌ Nu există niciun autobuz care să ducă la această destinație.\n\nÎncearcă să selectezi o destinație mai apropiată de rețeaua de transport public.')
+    alert(t('noRouteToDestination'))
   }
 }
 
@@ -2626,6 +2710,30 @@ const handleTripSelected = async (trip: TripHistoryItem) => {
   
   // Fetch alternative routes
   const alternatives = await fetchAlternativeRoutes(startStation.id, endStation.id)
+
+  // Add walking option for trip history too
+  const dest = savedDestination.value!
+  const walkDist = calculateDistance(trip.startCoords.lat, trip.startCoords.lon, dest.lat, dest.lon)
+  const walkTime = Math.round((walkDist / 5) * 60)
+  const bestBus = alternatives.length > 0 ? alternatives[0].totalDuration : Infinity
+  if (walkDist < 3 || walkTime <= bestBus) {
+    const walkOpt = {
+      routeId: 'walk-only',
+      routeNumber: '🚶',
+      routeType: 'walk-only',
+      totalDuration: walkTime,
+      routeRank: 0,
+      routeCategory: walkTime <= bestBus ? t('walkDirectly') : '',
+      segments: [{ type: 'walk', duration: walkTime, distance: Math.round(walkDist * 1000) }]
+    }
+    if (walkTime <= bestBus) {
+      alternatives.unshift(walkOpt)
+    } else {
+      alternatives.push(walkOpt)
+    }
+    alternatives.forEach((alt: any, idx: number) => { alt.routeRank = idx + 1 })
+  }
+
   if (alternatives.length > 0) {
     alternativeRoutes.value = alternatives
     showAlternatives.value = true
@@ -2998,39 +3106,28 @@ const handleNotificationToggle = async (payload: { stationId: number; routeId?: 
     if (notificationSettings.enabled && notificationSettings.stationId === stationId && routeMatches) {
       // Dezactivează notificările
       disableNotifications()
-      showNotificationFeedback('Notificările au fost dezactivate.', 'info')
+      showNotificationFeedback(t('notifActiveAllLines'), 'info')
     } else {
-      // Verifică mai întâi suportul pentru notificări
       if (!('Notification' in window)) {
-        showNotificationFeedback(
-          'Browserul nu suportă notificări. Încearcă Chrome, Firefox sau Edge.',
-          'error'
-        )
+        showNotificationFeedback(t('notifPermissionError'), 'error')
         return
       }
-      
-      // Activează notificări
+
       const success = await enableNotifications(stationId, routeId)
-      
+
       if (success) {
         showNotificationFeedback(
           routeId
-            ? `Notificări active pe stație pentru Linia ${routeId}.`
-            : 'Notificări active pentru toate liniile din stație.',
+            ? t('notifActiveForStation', '', { routeId: String(routeId) })
+            : t('notifActiveAllLines'),
           'success'
         )
       } else {
-        showNotificationFeedback(
-          'Nu s-au putut activa notificările. Permite notificările în browser și încearcă din nou.',
-          'error'
-        )
+        showNotificationFeedback(t('notifPermissionError'), 'error')
       }
     }
   } catch (error) {
-    showNotificationFeedback(
-      'Eroare la notificări. Verifică permisiunea browserului și folosește HTTPS/localhost.',
-      'error'
-    )
+    showNotificationFeedback(t('notifGenericError'), 'error')
   }
 }
 
@@ -3104,7 +3201,7 @@ const getStationETAs = (stationId: number) => {
     etas.push({
       busId,
       routeId,
-      routeNumber: `Linia ${routeId}`,
+      routeNumber: `${t('busLine')} ${routeId}`,
       eta: etaMin <= 1 ? '<1 min' : `${etaMin} min`,
       color: routeColors.value[routeId] || '#2563eb'
     })

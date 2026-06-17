@@ -1,7 +1,7 @@
 <template>
   <div v-if="visible" class="transfer-route-panel">
     <div class="panel-header">
-      <h3 class="panel-title">🚌 Traseu complet</h3>
+      <h3 class="panel-title">{{ busLine ? '🚌' : '🚶' }} {{ t('completeRoute') }}</h3>
       <button @click="$emit('close')" class="close-btn">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
           <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -20,17 +20,17 @@
         </div>
         <div class="segment-details">
           <div class="segment-header">
-            <span class="segment-type">Mers pe jos</span>
+            <span class="segment-type">{{ t('walkOnFoot') }}</span>
             <span class="segment-duration">{{ formatDuration(firstWalkTime) }}</span>
           </div>
           <div class="segment-distance">{{ formatDistance(firstWalkDistance) }}</div>
-          <div class="segment-from">De la <strong>{{ startLocation }}</strong></div>
-          <div class="segment-to">Către <strong>{{ boardingStation }}</strong></div>
+          <div class="segment-from">{{ t('fromLabel') }} <strong>{{ startLocation }}</strong></div>
+          <div class="segment-to">{{ t('toLabel') }} <strong>{{ boardingStation || endLocation }}</strong></div>
         </div>
       </div>
 
       <!-- Segment 2: Linia de autobuz -->
-      <div class="route-segment bus" :style="{ '--route-color': busColor }">
+      <div v-if="busLine" class="route-segment bus" :style="{ '--route-color': busColor }">
         <div class="segment-icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
             <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
@@ -48,19 +48,19 @@
             </span>
             <span class="segment-duration">{{ formatDuration(busTime) }}</span>
           </div>
-          <div class="segment-stations">{{ displayStationsCount }} stații</div>
+          <div class="segment-stations">{{ displayStationsCount }} {{ t('stationsLabel') }}</div>
           <div class="segment-from">
-            Îmbarcă la <strong>{{ boardingStation }}</strong>
+            {{ t('boarding') }} <strong>{{ boardingStation }}</strong>
             <span v-if="formatTime(busStartTime)" class="segment-time">{{ formatTime(busStartTime) }}</span>
           </div>
           <div class="segment-to">
-            Coboară la <strong>{{ alightingStation }}</strong>
+            {{ t('alighting') }} <strong>{{ alightingStation }}</strong>
             <span v-if="formatTime(busEndTime)" class="segment-time">{{ formatTime(busEndTime) }}</span>
           </div>
 
           <div v-if="busStationsList.length > 2" class="stations-toggle">
             <button @click="showAllStations = !showAllStations" class="toggle-stations-btn">
-              {{ showAllStations ? '▲ Ascunde stațiile' : '▼ Arată toate stațiile' }}
+              {{ showAllStations ? `▲ ${t('hideStations')}` : `▼ ${t('showAllStations')}` }}
             </button>
             <div v-if="showAllStations" class="bus-stations-list">
               <div v-for="(station, idx) in busStationsList" :key="`bus-station-${idx}`" class="bus-station-item">
@@ -82,24 +82,24 @@
         </div>
         <div class="segment-details">
           <div class="segment-header">
-            <span class="segment-type">Mers pe jos</span>
+            <span class="segment-type">{{ t('walkOnFoot') }}</span>
             <span class="segment-duration">{{ formatDuration(secondWalkTime) }}</span>
           </div>
           <div class="segment-distance">{{ formatDistance(secondWalkDistance) }}</div>
-          <div class="segment-from">De la <strong>{{ alightingStation }}</strong></div>
-          <div class="segment-to">Către <strong>{{ endLocation }}</strong></div>
+          <div class="segment-from">{{ t('fromLabel') }} <strong>{{ alightingStation }}</strong></div>
+          <div class="segment-to">{{ t('toLabel') }} <strong>{{ endLocation }}</strong></div>
         </div>
       </div>
 
       <!-- Ore plecare/sosire -->
       <div v-if="formatTime(departureTime) && formatTime(arrivalTime)" class="route-times">
         <div class="time-item departure">
-          <span class="time-label">Plecare</span>
+          <span class="time-label">{{ t('departureLabel') }}</span>
           <span class="time-value">{{ formatTime(departureTime) }}</span>
         </div>
         <div class="time-arrow">→</div>
         <div class="time-item arrival">
-          <span class="time-label">Sosire</span>
+          <span class="time-label">{{ t('arrivalLabel') }}</span>
           <span class="time-value">{{ formatTime(arrivalTime) }}</span>
         </div>
       </div>
@@ -107,15 +107,15 @@
       <!-- Rezumat total -->
       <div class="route-summary">
         <div class="summary-item">
-          <span class="summary-label">Durată totală</span>
+          <span class="summary-label">{{ t('totalDuration') }}</span>
           <span class="summary-value">{{ formatDuration(totalTime) }}</span>
         </div>
         <div class="summary-item">
-          <span class="summary-label">Distanță pe jos</span>
+          <span class="summary-label">{{ t('walkingDistance') }}</span>
           <span class="summary-value">{{ formatDistance(totalWalkDistance) }}</span>
         </div>
         <div class="summary-item">
-          <span class="summary-label">Transferuri</span>
+          <span class="summary-label">{{ t('transfers') }}</span>
           <span class="summary-value">0</span>
         </div>
       </div>
@@ -125,6 +125,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 const props = defineProps<{
   visible: boolean
