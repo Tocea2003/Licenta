@@ -197,6 +197,7 @@ interface RouteSegment {
   station?: Station
   duration: number
   stationCount?: number
+  distance?: number
 }
 
 interface CalculatedRoute {
