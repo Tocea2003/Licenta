@@ -4,7 +4,7 @@
     <div class="about-header">
       <div class="header-icon">🚌</div>
       <h1 class="header-title">Tursib Tracker</h1>
-      <p class="header-tagline">Aplicație web pentru urmărirea în timp real a autobuzelor</p>
+      <p class="header-tagline">{{ t('appTagline') }}</p>
       <span class="version-badge">v1.0.0</span>
     </div>
 
@@ -12,61 +12,54 @@
 
       <!-- Despre -->
       <section class="about-section">
-        <h2 class="section-title">Despre aplicație</h2>
-        <p class="section-text">
-          Tursib Tracker este o aplicație web modernă care îți permite să urmărești autobuzele
-          Tursib din Sibiu în timp real, să planifici călătoriile și să cumperi bilete digital —
-          totul din browser, fără instalare.
-        </p>
-        <p class="section-text">
-          Aplicația folosește datele GTFS oficiale ale Tursib pentru a afișa trasee, orare și
-          estimări de sosire actualizate.
-        </p>
+        <h2 class="section-title">{{ t('aboutAppTitle') }}</h2>
+        <p class="section-text">{{ t('aboutAppText1') }}</p>
+        <p class="section-text">{{ t('aboutAppText2') }}</p>
       </section>
 
       <!-- Funcționalități -->
       <section class="about-section">
-        <h2 class="section-title">Funcționalități</h2>
+        <h2 class="section-title">{{ t('features') }}</h2>
         <div class="features-grid">
           <div class="feature-card">
             <span class="feature-icon">🗺️</span>
-            <strong>Hartă interactivă</strong>
-            <span>Stații și trasee pe OpenStreetMap</span>
+            <strong>{{ t('featureInteractiveMap') }}</strong>
+            <span>{{ t('featureInteractiveMapDesc') }}</span>
           </div>
           <div class="feature-card">
             <span class="feature-icon">⏱️</span>
-            <strong>Timp real</strong>
-            <span>ETA și orare actualizate live</span>
+            <strong>{{ t('featureRealtime') }}</strong>
+            <span>{{ t('featureRealtimeDesc') }}</span>
           </div>
           <div class="feature-card">
             <span class="feature-icon">📅</span>
-            <strong>Planificare</strong>
-            <span>Calculează ruta optimă</span>
+            <strong>{{ t('planning') }}</strong>
+            <span>{{ t('featurePlanningDesc') }}</span>
           </div>
           <div class="feature-card">
             <span class="feature-icon">🎫</span>
-            <strong>Bilete digitale</strong>
-            <span>Cumpără direct din aplicație</span>
+            <strong>{{ t('featureDigitalTickets') }}</strong>
+            <span>{{ t('featureDigitalTicketsDesc') }}</span>
           </div>
           <div class="feature-card">
             <span class="feature-icon">⭐</span>
-            <strong>Favorite</strong>
-            <span>Salvează stațiile preferate</span>
+            <strong>{{ t('favorites') }}</strong>
+            <span>{{ t('featureFavoritesDesc') }}</span>
           </div>
           <div class="feature-card">
             <span class="feature-icon">📊</span>
-            <strong>Statistici</strong>
-            <span>Istoricul călătoriilor tale</span>
+            <strong>{{ t('statistics') }}</strong>
+            <span>{{ t('featureStatisticsDesc') }}</span>
           </div>
         </div>
       </section>
 
       <!-- Info tehnic -->
       <section class="about-section">
-        <h2 class="section-title">Informații tehnice</h2>
+        <h2 class="section-title">{{ t('technicalInfo') }}</h2>
         <div class="info-list">
           <div class="info-row">
-            <span class="info-label">Versiune</span>
+            <span class="info-label">{{ t('version') }}</span>
             <span class="info-value">1.0.0</span>
           </div>
           <div class="info-row">
@@ -78,11 +71,11 @@
             <span class="info-value">ASP.NET Core 9</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Hartă</span>
+            <span class="info-label">{{ t('map') }}</span>
             <span class="info-value">Leaflet + OpenStreetMap</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Date GTFS</span>
+            <span class="info-label">{{ t('gtfsData') }}</span>
             <span class="info-value">Tursib Sibiu</span>
           </div>
         </div>
@@ -90,11 +83,11 @@
 
       <!-- Contact -->
       <section class="about-section">
-        <h2 class="section-title">Resurse</h2>
+        <h2 class="section-title">{{ t('resourcesSection') }}</h2>
         <div class="links-list">
           <a href="https://www.tursib.ro" target="_blank" rel="noopener" class="ext-link">
             <span>🌐</span>
-            <span>tursib.ro — site oficial</span>
+            <span>tursib.ro — {{ t('officialSite') }}</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -102,7 +95,7 @@
           </a>
           <a href="https://www.tursib.ro/page/tarife" target="_blank" rel="noopener" class="ext-link">
             <span>🎫</span>
-            <span>Tarife Tursib 2025</span>
+            <span>{{ t('tursibFares') }}</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -113,7 +106,7 @@
 
       <!-- Footer -->
       <div class="about-footer">
-        <span>Made with ♥ în Sibiu 🇷🇴</span>
+        <span>{{ t('madeWithLove') }} 🇷🇴</span>
         <span class="footer-sep">·</span>
         <span>Tursib Tracker © 2025</span>
       </div>
@@ -123,6 +116,8 @@
 </template>
 
 <script setup lang="ts">
+import { useLanguage } from '@/composables/useLanguage'
+const { t } = useLanguage()
 </script>
 
 <style scoped>

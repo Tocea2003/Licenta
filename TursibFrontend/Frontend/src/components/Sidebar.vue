@@ -6,7 +6,7 @@
       <div class="header-icon">🚌</div>
       <div>
         <h1>Tursib Tracker</h1>
-        <p>Aplicație web pentru urmărirea în timp real a autobuzelor</p>
+        <p>{{ t('appTagline') }}</p>
       </div>
     </div>
 
@@ -119,12 +119,12 @@
 
         <div v-if="loadingSchedule" class="center-state">
           <div class="spinner"></div>
-          <p>Se încarcă orarul...</p>
+          <p>{{ t('loadingSchedule') }}</p>
         </div>
 
         <div v-else-if="scheduleETAs.length === 0" class="center-state">
           <span class="state-icon">🚫</span>
-          <p>Nu există curse în următoarea oră.</p>
+          <p>{{ t('noServicesNextHour') }}</p>
         </div>
 
         <div v-else class="etas-list">
@@ -212,11 +212,11 @@
 
         <!-- Mod căutare + data + ora -->
         <div class="form-group">
-          <label class="form-label">🕐 Când</label>
+          <label class="form-label">🕐 {{ t('when') }}</label>
           <select v-model="planMode" class="time-input">
-            <option value="leaveNow">Pleacă acum</option>
-            <option value="departAt">Pleacă la ora</option>
-            <option value="arriveBy">Ajunge la ora</option>
+            <option value="leaveNow">{{ t('leaveNow') }}</option>
+            <option value="departAt">{{ t('departAt') }}</option>
+            <option value="arriveBy">{{ t('arriveBy') }}</option>
           </select>
         </div>
         <div class="form-group">
@@ -224,7 +224,7 @@
           <input v-model="planDate" type="date" class="time-input" />
         </div>
         <div v-if="planMode !== 'leaveNow'" class="form-group">
-          <label class="form-label">{{ planMode === 'arriveBy' ? '🏁 Ora sosirii' : '🕐 Ora plecării' }}</label>
+          <label class="form-label">{{ planMode === 'arriveBy' ? `🏁 ${t('arrivalTime')}` : `🕐 ${t('departureTime')}` }}</label>
           <input v-model="planTime" type="time" class="time-input" required />
         </div>
 
@@ -237,7 +237,7 @@
       <!-- Rezultate -->
       <div v-if="planResults.length > 0" class="plan-results">
         <div class="results-header">
-          <strong>{{ planResults.length }} {{ planResults.length === 1 ? (currentLanguage === 'en' ? 'result' : 'rezultat') : t('selectedResults') }}</strong>
+          <strong>{{ planResults.length }} {{ planResults.length === 1 ? t('resultSingular') : t('selectedResults') }}</strong>
           <span class="results-sub">{{ planOrigin?.name }} → {{ planDest?.name }}</span>
         </div>
 
@@ -270,7 +270,7 @@
             </div>
             <div class="time-arrow">→</div>
             <div class="time-block">
-              <span class="time-label">{{ currentLanguage === 'ro' ? 'Sosire est.' : 'Est. arrival' }}</span>
+              <span class="time-label">{{ t('estArrival') }}</span>
               <span class="time-value arrival">{{ result.arrivalTime }}</span>
             </div>
           </div>
@@ -282,11 +282,11 @@
           </div>
 
           <div v-if="result.walkToStartMinutes" class="walk-instruction">
-            {{ currentLanguage === 'ro' ? 'Mergi pe jos până la stația' : 'Walk to station' }} <strong>{{ result.boardingStation.name }}</strong> ({{ result.walkToStartMinutes }} {{ t('minutes') }}).
+            {{ t('walkToStation') }} <strong>{{ result.boardingStation.name }}</strong> ({{ result.walkToStartMinutes }} {{ t('minutes') }}).
           </div>
 
           <div v-if="result.walkToEndMinutes" class="walk-instruction">
-            {{ currentLanguage === 'ro' ? 'După coborâre la' : 'After getting off at' }} <strong>{{ result.alightingStation.name }}</strong>, {{ currentLanguage === 'ro' ? 'mai mergi pe jos' : 'walk' }} {{ result.walkToEndMinutes }} {{ t('minutes') }} {{ currentLanguage === 'ro' ? 'până la destinație.' : 'to your destination.' }}
+            {{ t('afterAlightingAt') }} <strong>{{ result.alightingStation.name }}</strong>, {{ t('walkMore') }} {{ result.walkToEndMinutes }} {{ t('minutes') }} {{ t('toDestination') }}
           </div>
 
           <div class="result-meta">
@@ -1047,10 +1047,7 @@ const getTransferLabel = (result: PlanResult) => {
 }
 
 const formatTransferCount = (count: number) => {
-  if (currentLanguage.value === 'ro') {
-    return `${count} ${count === 1 ? 'transfer' : 'transferuri'}`
-  }
-  return `${count} ${count === 1 ? 'transfer' : 'transfers'}`
+  return `${count} ${count === 1 ? t('transferLabel') : t('transfersPlural')}`
 }
 
 // ===================== LIFECYCLE =====================

@@ -3,10 +3,10 @@
     <div v-if="isOpen" class="notification-settings-panel">
       <div class="panel-header">
         <div class="header-content">
-          <h3>🔔 Setări Notificări</h3>
-          <p class="subtitle">Personalizează alertele pentru autobuze</p>
+          <h3>🔔 {{ t('notificationSettings') }}</h3>
+          <p class="subtitle">{{ t('customizeAlerts') }}</p>
         </div>
-        <button @click="$emit('close')" class="close-btn" aria-label="Închide">
+        <button @click="$emit('close')" class="close-btn" :aria-label="t('close')">
           ✕
         </button>
       </div>
@@ -18,9 +18,9 @@
             <div class="setting-info">
               <div class="setting-label">
                 <span class="setting-icon">🔔</span>
-                Notificări Active
+                {{ t('activeNotifications') }}
               </div>
-              <p class="setting-description">Primește alerte când autobuzele se apropie</p>
+              <p class="setting-description">{{ t('getAlertsWhenBusesApproach') }}</p>
             </div>
             <label class="toggle-switch">
               <input 
@@ -40,12 +40,12 @@
             <div class="setting-section">
               <div class="section-title">
                 <span class="title-icon">⏰</span>
-                Când să fiu notificat
+                {{ t('whenToNotify') }}
               </div>
               <div class="setting-item">
                 <div class="setting-info">
-                  <div class="setting-label">Timp până la sosire</div>
-                  <p class="setting-description">Notifică-mă când autobuzul e la {{ localSettings.etaThresholdMinutes }} minute</p>
+                  <div class="setting-label">{{ t('timeUntilArrival') }}</div>
+                  <p class="setting-description">{{ t('notifyWhenBusAt', '', { n: localSettings.etaThresholdMinutes }) }}</p>
                 </div>
                 <div class="slider-container">
                   <input 
@@ -66,16 +66,16 @@
             <div class="setting-section">
               <div class="section-title">
                 <span class="title-icon">🎯</span>
-                Tipuri de alerte
+                {{ t('alertTypes') }}
               </div>
               
               <div class="setting-item">
                 <div class="setting-info">
                   <div class="setting-label">
                     <span class="setting-icon">⏰</span>
-                    Alerte întârzieri
+                    {{ t('delayAlerts') }}
                   </div>
-                  <p class="setting-description">Fii notificat când autobuzele întârzie</p>
+                  <p class="setting-description">{{ t('notifyWhenDelayed') }}</p>
                 </div>
                 <label class="toggle-switch small">
                   <input 
@@ -91,9 +91,9 @@
                 <div class="setting-info">
                   <div class="setting-label">
                     <span class="setting-icon">🚌</span>
-                    Alerte aglomerație
+                    {{ t('crowdingAlerts') }}
                   </div>
-                  <p class="setting-description">Află când autobuzele sunt pline</p>
+                  <p class="setting-description">{{ t('findOutWhenFull') }}</p>
                 </div>
                 <label class="toggle-switch small">
                   <input 
@@ -110,7 +110,7 @@
             <div class="setting-section">
               <div class="section-title">
                 <span class="title-icon">⭐</span>
-                Trasee favorite
+                {{ t('favoriteRoutes') }}
                 <button @click="showRouteSelector = !showRouteSelector" class="add-route-btn">
                   {{ showRouteSelector ? '✕' : '+' }}
                 </button>
@@ -121,11 +121,11 @@
                   <input 
                     v-model="newRouteId" 
                     type="number" 
-                    placeholder="Introdu numărul traseului"
+                    :placeholder="t('enterRouteNumber')"
                     class="route-input"
                     @keyup.enter="addRoute"
                   />
-                  <button @click="addRoute" class="add-btn">Adaugă</button>
+                  <button @click="addRoute" class="add-btn">{{ t('add') }}</button>
                 </div>
               </Transition>
 
@@ -136,11 +136,11 @@
                     :key="`route-${routeId}`"
                     class="route-badge"
                   >
-                    <span class="route-number">Linia {{ routeId }}</span>
+                    <span class="route-number">{{ t('busLine') }} {{ routeId }}</span>
                     <button 
                       @click="removeRoute(routeId)" 
                       class="remove-route-btn"
-                      aria-label="Elimină traseu"
+                      :aria-label="t('removeRoute')"
                     >
                       ✕
                     </button>
@@ -151,8 +151,8 @@
                     class="empty-state"
                   >
                     <span class="empty-icon">⭐</span>
-                    <p>Niciun traseu favorit</p>
-                    <small>Adaugă trasee pentru notificări prioritare</small>
+                    <p>{{ t('noFavoriteRoutes') }}</p>
+                    <small>{{ t('addRoutesForPriority') }}</small>
                   </div>
                 </TransitionGroup>
               </div>
@@ -163,7 +163,7 @@
               <button @click="sendTestNotification" class="test-notification-btn" :disabled="isSendingTest">
                 <span v-if="isSendingTest" class="spinner"></span>
                 <span v-else class="btn-icon">🧪</span>
-                Testează Notificarea
+                {{ t('testNotification') }}
               </button>
             </div>
           </div>
@@ -173,13 +173,13 @@
         <div class="setting-section">
           <div class="section-title">
             <span class="title-icon">📜</span>
-            Istoric notificări
+            {{ t('notificationHistory') }}
             <button 
               v-if="history.length > 0"
               @click="clearHistory" 
               class="clear-history-btn"
             >
-              Șterge tot
+              {{ t('clearAll') }}
             </button>
           </div>
 
@@ -207,7 +207,7 @@
                 class="empty-state small"
               >
                 <span class="empty-icon">📭</span>
-                <p>Nicio notificare încă</p>
+                <p>{{ t('noNotificationsYet') }}</p>
               </div>
             </TransitionGroup>
           </div>
@@ -219,6 +219,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 import { 
   useNotifications,
   type NotificationSettings,

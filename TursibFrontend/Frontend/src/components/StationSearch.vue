@@ -3,7 +3,7 @@
     <input
       v-model="searchQuery"
       type="text"
-      placeholder="🔍 Caută stație..."
+      :placeholder="`🔍 ${t('searchStationShort')}...`"
       class="search-input"
       @focus="showResults = true"
     />
@@ -23,7 +23,7 @@
     </div>
     
     <div v-if="showResults && searchQuery && filteredStations.length === 0" class="no-results">
-      Nu s-au găsit stații
+      {{ t('noStationsFound') }}
     </div>
   </div>
 </template>
@@ -31,6 +31,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { Station } from '@/services/apiService'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 interface Props {
   stations: Station[]

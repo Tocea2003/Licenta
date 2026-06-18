@@ -26,8 +26,8 @@
           </div>
           <div class="section-row">
             <div class="row-info">
-              <div class="row-title">Sunet</div>
-              <div class="row-desc">La notificări noi</div>
+              <div class="row-title">{{ t('sound') }}</div>
+              <div class="row-desc">{{ t('onNewNotifications') }}</div>
             </div>
             <button
               @click="soundEnabled = !soundEnabled"
@@ -39,7 +39,7 @@
           </div>
           <div class="section-row last">
             <div class="row-info">
-              <div class="row-title">Vibrație</div>
+              <div class="row-title">{{ t('vibration') }}</div>
             </div>
             <button
               @click="hapticsEnabled = !hapticsEnabled"
@@ -111,8 +111,8 @@
           <router-link to="/statistics" class="section-row link-row">
             <span class="link-icon">👤</span>
             <div class="row-info">
-              <div class="row-title">{{ t('profile') || 'Profilul meu' }}</div>
-              <div class="row-desc">{{ t('profileDesc') || 'Statistici și activitate' }}</div>
+              <div class="row-title">{{ t('profile') }}</div>
+              <div class="row-desc">{{ t('profileDesc') }}</div>
             </div>
             <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -120,14 +120,14 @@
           </router-link>
           <router-link to="/about" class="section-row link-row">
             <span class="link-icon">📊</span>
-            <div class="row-info"><div class="row-title">Date și confidențialitate</div></div>
+            <div class="row-info"><div class="row-title">{{ t('dataPrivacy') }}</div></div>
             <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </router-link>
           <div class="section-row link-row last danger" @click="handleLogout">
             <span class="link-icon">🚪</span>
-            <div class="row-info"><div class="row-title">Deconectare</div></div>
+            <div class="row-info"><div class="row-title">{{ t('logout') }}</div></div>
           </div>
         </div>
       </div>
@@ -143,8 +143,8 @@
           <div class="section-row link-row" @click="showTutorial" style="cursor:pointer">
             <span class="link-icon">📖</span>
             <div class="row-info">
-              <div class="row-title">{{ t('viewTutorial') || 'Vezi tutorialul' }}</div>
-              <div class="row-desc">{{ t('viewTutorialDesc') || 'Revedere ghidul de utilizare al aplicației' }}</div>
+              <div class="row-title">{{ t('viewTutorial') }}</div>
+              <div class="row-desc">{{ t('viewTutorialDesc') }}</div>
             </div>
             <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -162,7 +162,7 @@
         </div>
       </div>
 
-      <div class="footer-note">Tursib Tracker · Aplicație web pentru urmărirea în timp real a autobuzelor · v1.0.0 · made in Sibiu 🇷🇴</div>
+      <div class="footer-note">{{ t('settingsFooter') }}</div>
       </div><!-- /content-wrap -->
     </div>
   </div>

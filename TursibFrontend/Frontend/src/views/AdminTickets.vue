@@ -1,7 +1,7 @@
 ﻿<template>
   <div class="tickets-management">
     <div class="page-header">
-      <h2>Bilete & Revenue</h2>
+      <h2>{{ t('ticketsAndRevenue') }}</h2>
     </div>
 
     <!-- Revenue KPI cards -->
@@ -10,57 +10,57 @@
         <div class="kpi-icon">🎫</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ tickets.length }}</div>
-          <div class="kpi-label">Total bilete vândute</div>
+          <div class="kpi-label">{{ t('totalTicketsSold') }}</div>
         </div>
       </div>
       <div class="kpi-card green">
         <div class="kpi-icon">💰</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ totalRevenue.toFixed(2) }} RON</div>
-          <div class="kpi-label">Revenue total</div>
+          <div class="kpi-label">{{ t('totalRevenueLabel') }}</div>
         </div>
       </div>
       <div class="kpi-card blue">
         <div class="kpi-icon">✅</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ activeCount }}</div>
-          <div class="kpi-label">Bilete active</div>
+          <div class="kpi-label">{{ t('activeTicketsLabel') }}</div>
         </div>
       </div>
       <div class="kpi-card amber">
         <div class="kpi-icon">📅</div>
         <div class="kpi-body">
           <div class="kpi-value">{{ todayCount }}</div>
-          <div class="kpi-label">Vândute azi</div>
+          <div class="kpi-label">{{ t('soldToday') }}</div>
         </div>
       </div>
     </div>
 
     <!-- Filters -->
     <div class="filters-row">
-      <input v-model="searchQuery" class="search-input" placeholder="Caută după utilizator..." />
+      <input v-model="searchQuery" class="search-input" :placeholder="t('searchByUser')" />
       <select v-model="statusFilter" class="filter-select">
-        <option value="">Toate statusurile</option>
-        <option value="active">Activ</option>
-        <option value="expired">Expirat</option>
-        <option value="used">Folosit</option>
+        <option value="">{{ t('allStatuses') }}</option>
+        <option value="active">{{ t('statusActive') }}</option>
+        <option value="expired">{{ t('statusExpired') }}</option>
+        <option value="used">{{ t('statusUsed') }}</option>
       </select>
     </div>
 
-    <div v-if="isLoading" class="loading">Se încarcă...</div>
+    <div v-if="isLoading" class="loading">{{ t('loading') }}</div>
 
     <div v-else class="table-container">
       <table class="data-table">
         <thead>
           <tr>
             <th>ID</th>
-            <th>Utilizator</th>
-            <th>Tip</th>
-            <th>Preț</th>
-            <th>Status</th>
-            <th>Cumpărat la</th>
-            <th>Valid până la</th>
-            <th>Card</th>
+            <th>{{ t('userCol') }}</th>
+            <th>{{ t('typeCol') }}</th>
+            <th>{{ t('price') }}</th>
+            <th>{{ t('statusCol') }}</th>
+            <th>{{ t('purchasedAt') }}</th>
+            <th>{{ t('validUntil') }}</th>
+            <th>{{ t('card') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -88,7 +88,7 @@
             </td>
           </tr>
           <tr v-if="filteredTickets.length === 0">
-            <td colspan="8" class="empty-row">Niciun bilet găsit.</td>
+            <td colspan="8" class="empty-row">{{ t('noTicketsFound') }}</td>
           </tr>
         </tbody>
       </table>
@@ -107,6 +107,9 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { adminTicketsService, type AdminTicket } from '@/services/adminService'
 import { usePagination } from '@/composables/usePagination'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 const tickets = ref<AdminTicket[]>([])
 const isLoading = ref(true)
@@ -139,8 +142,8 @@ const { paginatedItems: paginatedTickets, currentPage, totalPages, visiblePages,
 watch([searchQuery, statusFilter], () => resetPage())
 
 const statusLabel = (status: string) => {
-  const map: Record<string, string> = { active: 'Activ', expired: 'Expirat', used: 'Folosit' }
-  return map[status] ?? status
+  const map: Record<string, string> = { active: 'statusActive', expired: 'statusExpired', used: 'statusUsed' }
+  return t(map[status] ?? status)
 }
 
 const formatDateTime = (iso: string) => {
@@ -156,7 +159,7 @@ const loadTickets = async () => {
   try {
     tickets.value = await adminTicketsService.getTickets()
   } catch {
-    alert('Eroare la încărcarea biletelor.')
+    alert(t('ticketsLoadError'))
   } finally {
     isLoading.value = false
   }

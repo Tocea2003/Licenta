@@ -3,6 +3,9 @@ import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import ticketsService, { type Ticket } from '@/services/ticketsService'
 import TicketCard from '@/components/TicketCard.vue'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 const tickets = ref<Ticket[]>([])
 const loading = ref(false)
@@ -27,7 +30,7 @@ onMounted(loadTickets)
   <div class="page page-narrow">
     <header class="page-header">
       <div>
-        <h1 class="page-title">Biletele mele</h1>
+        <h1 class="page-title">{{ t('myTickets') }}</h1>
         <p class="page-subtitle">Istoric cumparari + bilete active</p>
       </div>
       <RouterLink to="/tickets/checkout" class="btn btn-primary">
@@ -46,7 +49,7 @@ onMounted(loadTickets)
 
     <div v-else-if="tickets.length === 0" class="empty-state card">
       <div class="empty-icon" aria-hidden="true">🎫</div>
-      <h2 class="empty-title">Nu ai niciun bilet inca</h2>
+      <h2 class="empty-title">{{ t('noTicketsYet') }}</h2>
       <p class="empty-sub">Cumpara un bilet simplu in cateva secunde, platesti cu cardul.</p>
       <RouterLink to="/tickets/checkout" class="btn btn-primary btn-lg">
         Cumpara primul bilet

@@ -2,7 +2,7 @@
   <div v-if="isVisible" class="directions-panel">
     <div class="directions-header">
       <div class="header-content">
-        <h3>🚶 Direcții de mers pe jos</h3>
+        <h3>🚶 {{ t('walkingDirections') }}</h3>
         <button @click="close" class="close-btn">✕</button>
       </div>
       
@@ -11,14 +11,14 @@
           <span class="icon">📏</span>
           <div class="summary-text">
             <strong>{{ (walkingData.distance / 1000).toFixed(2) }} km</strong>
-            <small>Distanță</small>
+            <small>{{ t('distanceLabel') }}</small>
           </div>
         </div>
         <div class="summary-item">
           <span class="icon">⏱️</span>
           <div class="summary-text">
             <strong>{{ Math.ceil(walkingData.duration / 60) }} min</strong>
-            <small>Timp estimat</small>
+            <small>{{ t('estimatedTime') }}</small>
           </div>
         </div>
       </div>
@@ -27,13 +27,13 @@
     <div class="directions-body">
       <div v-if="loading" class="loading-state">
         <div class="spinner-large">🔄</div>
-        <p>Calculez traseul...</p>
+        <p>{{ t('calculatingRoute') }}</p>
       </div>
       
       <div v-else-if="error" class="error-state">
         <span class="error-icon">⚠️</span>
         <p>{{ error }}</p>
-        <button @click="retry" class="retry-btn">Încearcă din nou</button>
+        <button @click="retry" class="retry-btn">{{ t('retry') }}</button>
       </div>
       
       <div v-else-if="walkingData" class="directions-list">
@@ -77,6 +77,9 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 interface Props {
   visible: boolean
@@ -135,7 +138,7 @@ watch(() => props.visible, (newVal) => {
 // Calculează traseul de mers pe jos folosind OSRM
 const calculateWalkingRoute = async () => {
   if (!props.startLat || !props.startLon || !props.endLat || !props.endLon) {
-    error.value = 'Coordonate lipsă'
+    error.value = t('missingCoordinates')
     return
   }
   

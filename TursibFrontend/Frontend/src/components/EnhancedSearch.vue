@@ -3,11 +3,11 @@
     
     <!-- Origin Search (only in trip mode) -->
     <div v-if="tripMode" class="search-box origin-box">
-      <div class="search-label">📍 Plecare din:</div>
+      <div class="search-label">📍 {{ t('departureFromColon') }}</div>
       <input
         v-model="originQuery"
         type="text"
-        placeholder="🔍 Caută adresă sau stație de plecare..."
+        :placeholder="`🔍 ${t('searchDeparturePlaceholder')}`"
         class="search-input"
         @input="handleOriginSearch"
         @focus="!directionsActive && (showOriginResults = true)"
@@ -18,7 +18,7 @@
     <div v-if="tripMode && showOriginResults && !directionsActive && (geocodeOriginResults.length > 0 || filteredOriginStations.length > 0)" class="search-results">
       <!-- Rezultate geocoding (adrese) -->
       <div v-if="geocodeOriginResults.length > 0" class="results-section">
-        <div class="section-title">📍 Adrese</div>
+        <div class="section-title">📍 {{ t('addresses') }}</div>
         <div
           v-for="(result, index) in geocodeOriginResults"
           :key="`origin-address-${index}`"
@@ -37,7 +37,7 @@
       
       <!-- Stații -->
       <div v-if="filteredOriginStations.length > 0" class="results-section">
-        <div class="section-title">🚏 Stații</div>
+        <div class="section-title">🚏 {{ t('stationsSection') }}</div>
         <div
           v-for="station in filteredOriginStations"
           :key="`origin-station-${station.id}`"
@@ -54,11 +54,11 @@
 
     <!-- Destination Search -->
     <div class="search-box">
-      <div v-if="tripMode" class="search-label">🎯 Destinație:</div>
+      <div v-if="tripMode" class="search-label">🎯 {{ t('destinationColon') }}</div>
       <input
         v-model="searchQuery"
         type="text"
-        :placeholder="tripMode ? '🔍 Destinație...' : '🔍 Caută stație...'"
+        :placeholder="tripMode ? `🔍 ${t('destinationPlaceholderShort')}` : `🔍 ${t('searchStationEllipsis')}`"
         class="search-input"
         @input="handleSearch"
         @focus="!directionsActive && (showResults = true)"
@@ -68,7 +68,7 @@
 
     <!-- Quick Access Favorites (dropdown when focused, no query) -->
     <div v-if="showResults && !directionsActive && !searchQuery && !originQuery && favorites.length > 0" class="quick-access">
-      <div class="section-title">⭐ Favorite</div>
+      <div class="section-title">⭐ {{ t('favorites') }}</div>
       <div class="favorites-grid">
         <button
           v-for="favorite in favorites.slice(0, 3)"
@@ -85,8 +85,8 @@
     <!-- Recent Searches (dropdown when focused, no query) -->
     <div v-if="showResults && !directionsActive && !searchQuery && !originQuery && latestSearches.length > 0" class="recent-searches">
       <div class="section-title">
-        🕒 Căutări Recente
-        <button @click="clearAllSearches" class="clear-all-btn">Șterge tot</button>
+        🕒 {{ t('recentSearches') }}
+        <button @click="clearAllSearches" class="clear-all-btn">{{ t('clearAll') }}</button>
       </div>
       <div
         v-for="search in latestSearches.slice(0, 5)"
@@ -106,7 +106,7 @@
     <div v-if="showResults && !directionsActive && (geocodeResults.length > 0 || filteredStations.length > 0)" class="search-results">
       <!-- Rezultate geocoding (adrese) -->
       <div v-if="geocodeResults.length > 0" class="results-section">
-        <div class="section-title">📍 Adrese</div>
+        <div class="section-title">📍 {{ t('addresses') }}</div>
         <div
           v-for="(result, index) in geocodeResults"
           :key="`address-${index}`"
@@ -125,7 +125,7 @@
       
       <!-- Stații -->
       <div v-if="filteredStations.length > 0" class="results-section">
-        <div class="section-title">🚏 Stații</div>
+        <div class="section-title">🚏 {{ t('stationsSection') }}</div>
         <div
           v-for="station in filteredStations"
           :key="`station-${station.id}`"
@@ -140,7 +140,7 @@
           </div>
           <button
             class="result-notification-btn"
-            title="Activează notificări pentru această stație"
+            :title="t('enableAlertsForStation')"
             @click.stop="requestStationNotification(station)"
           >
             🔔
@@ -150,11 +150,11 @@
     </div>
     
     <div v-if="showResults && !directionsActive && searchQuery && geocodeResults.length === 0 && filteredStations.length === 0 && !isSearching" class="no-results">
-      Nu s-au găsit rezultate
+      {{ t('noResultsFound') }}
     </div>
     
     <div v-if="isSearching" class="searching">
-      Căutare...
+      {{ t('searching') }}
     </div>
 
     <!-- Search Routes Button (only in trip mode) -->
@@ -164,7 +164,7 @@
       class="search-routes-btn"
       :disabled="isSearchingRoutes"
     >
-      {{ isSearchingRoutes ? '🔍 Căutare...' : '🚌 Caută Rute' }}
+      {{ isSearchingRoutes ? `🔍 ${t('searching')}` : `🚌 ${t('searchRoutesBtn')}` }}
     </button>
   </div>
 </template>
@@ -177,6 +177,9 @@ import { useFavorites, type FavoriteLocation } from '@/composables/useFavorites'
 import { useRecentSearches } from '@/composables/useRecentSearches'
 import { useStatistics } from '@/composables/useStatistics'
 import { searchAddresses, getTypeIcon, type GeocodingResult } from '@/services/geocodingService'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 interface Props {
   stations: Station[]

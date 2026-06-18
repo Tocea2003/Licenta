@@ -3,7 +3,9 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import CardInputForm, { type CardData } from '@/components/CardInputForm.vue'
 import ticketsService, { type Ticket, type TicketType } from '@/services/ticketsService'
+import { useLanguage } from '@/composables/useLanguage'
 
+const { t } = useLanguage()
 const router = useRouter()
 
 type Step = 1 | 2 | 3
@@ -117,29 +119,29 @@ function onCardUpdate(payload: { data: CardData; valid: boolean }) {
   <div class="page page-narrow">
     <header class="page-header">
       <div>
-        <h1 class="page-title">Cumpara bilet</h1>
-        <p class="page-subtitle">Plateste cu cardul si primesti biletul instant</p>
+        <h1 class="page-title">{{ t('buyTicket') }}</h1>
+        <p class="page-subtitle">{{ t('payWithCardSubtitle') }}</p>
       </div>
     </header>
 
     <nav class="stepper" aria-label="Pasi checkout">
       <div class="stepper-item" :class="{ active: step === 1, done: step > 1 }">
         <span class="stepper-num">{{ step > 1 ? '✓' : '1' }}</span>
-        <span>Bilet</span>
+        <span>{{ t('ticket') }}</span>
       </div>
       <div class="stepper-item" :class="{ active: step === 2, done: step > 2 }">
         <span class="stepper-num">{{ step > 2 ? '✓' : '2' }}</span>
-        <span>Plata</span>
+        <span>{{ t('payment') }}</span>
       </div>
       <div class="stepper-item" :class="{ active: step === 3 }">
         <span class="stepper-num">3</span>
-        <span>Confirmare</span>
+        <span>{{ t('confirmation') }}</span>
       </div>
     </nav>
 
     <!-- STEP 1 — select ticket -->
     <section v-if="step === 1" class="card checkout-section">
-      <h2 class="section-title">Alege tipul biletului</h2>
+      <h2 class="section-title">{{ t('chooseTicketType') }}</h2>
       <div class="ticket-options">
         <button
           v-for="opt in ticketOptions"
@@ -169,7 +171,7 @@ function onCardUpdate(payload: { data: CardData; valid: boolean }) {
 
     <!-- STEP 2 — card details -->
     <section v-if="step === 2" class="card checkout-section">
-      <h2 class="section-title">Date card</h2>
+      <h2 class="section-title">{{ t('cardDetails') }}</h2>
       <div class="order-summary">
         <span>{{ selectedOption.name }}</span>
         <strong>{{ selectedOption.price.toFixed(2) }} RON</strong>
@@ -191,7 +193,7 @@ function onCardUpdate(payload: { data: CardData; valid: boolean }) {
           :disabled="!cardValid || submitting"
           @click="submitPayment"
         >
-          {{ submitting ? 'Se proceseaza...' : `Plateste ${selectedOption.price.toFixed(2)} RON` }}
+          {{ submitting ? t('processing') : `${t('payment')} ${selectedOption.price.toFixed(2)} RON` }}
         </button>
       </div>
     </section>
@@ -204,23 +206,23 @@ function onCardUpdate(payload: { data: CardData; valid: boolean }) {
 
       <div class="summary-grid">
         <div>
-          <span class="field-label">Bilet</span>
+          <span class="field-label">{{ t('ticket') }}</span>
           <span class="field-value">{{ selectedOption.icon }} {{ selectedOption.name }}</span>
         </div>
         <div>
-          <span class="field-label">Pret platit</span>
+          <span class="field-label">{{ t('pricePaid') }}</span>
           <span class="field-value">{{ purchased.priceRon.toFixed(2) }} RON</span>
         </div>
         <div v-if="purchased.ridesTotal">
-          <span class="field-label">Calatorii incluse</span>
-          <span class="field-value">{{ purchased.ridesTotal }} calatorii</span>
+          <span class="field-label">{{ t('ridesIncluded') }}</span>
+          <span class="field-value">{{ purchased.ridesTotal }} {{ t('rides') }}</span>
         </div>
         <div>
-          <span class="field-label">Valabil pana la</span>
+          <span class="field-label">{{ t('validUntil') }}</span>
           <span class="field-value">{{ formatDateTime(purchased.validUntil) }}</span>
         </div>
         <div v-if="purchased.payment">
-          <span class="field-label">Card</span>
+          <span class="field-label">{{ t('card') }}</span>
           <span class="field-value">
             {{ purchased.payment.cardBrand === 'visa' ? 'Visa' : purchased.payment.cardBrand === 'mastercard' ? 'Mastercard' : 'Card' }}
             •••• {{ purchased.payment.cardLast4 }}
@@ -229,7 +231,7 @@ function onCardUpdate(payload: { data: CardData; valid: boolean }) {
       </div>
 
       <div class="qr-box">
-        <span class="qr-label">Cod validare</span>
+        <span class="qr-label">{{ t('validationCode') }}</span>
         <code class="qr-token">{{ purchased.qrToken }}</code>
       </div>
 

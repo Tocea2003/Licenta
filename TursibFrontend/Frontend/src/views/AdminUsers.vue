@@ -1,10 +1,10 @@
 ﻿<template>
   <div class="users-management">
     <div class="page-header">
-      <h2>Gestionare Utilizatori</h2>
+      <h2>{{ t('manageUsers') }}</h2>
       <div class="header-stats">
-        <span class="stat-badge">{{ users.length }} utilizatori</span>
-        <span class="stat-badge admin">{{ adminCount }} admini</span>
+        <span class="stat-badge">{{ users.length }} {{ t('usersCount') }}</span>
+        <span class="stat-badge admin">{{ adminCount }} {{ t('adminsCount') }}</span>
       </div>
     </div>
 
@@ -12,16 +12,16 @@
       <input
         v-model="searchQuery"
         class="search-input"
-        placeholder="Caută după username..."
+        :placeholder="t('searchByUsername')"
       />
       <select v-model="roleFilter" class="role-filter">
-        <option value="">Toate rolurile</option>
+        <option value="">{{ t('allRoles') }}</option>
         <option value="Admin">Admin</option>
         <option value="User">User</option>
       </select>
     </div>
 
-    <div v-if="isLoading" class="loading">Se încarcă...</div>
+    <div v-if="isLoading" class="loading">{{ t('loading') }}</div>
 
     <div v-else class="table-container">
       <table class="data-table">
@@ -29,9 +29,9 @@
           <tr>
             <th>ID</th>
             <th>Username</th>
-            <th>Rol</th>
-            <th>Înregistrat</th>
-            <th>Acțiuni</th>
+            <th>{{ t('roleCol') }}</th>
+            <th>{{ t('registeredAt') }}</th>
+            <th>{{ t('actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -54,14 +54,14 @@
                 <button
                   @click="toggleRole(user)"
                   :class="['btn-action', user.role === 'Admin' ? 'btn-demote' : 'btn-promote']"
-                  :title="user.role === 'Admin' ? 'Retrogradează la User' : 'Promovează la Admin'"
+                  :title="user.role === 'Admin' ? t('demoteToUser') : t('promoteToAdmin')"
                 >
                   {{ user.role === 'Admin' ? '⬇ User' : '⬆ Admin' }}
                 </button>
                 <button
                   @click="deleteUser(user)"
                   class="btn-action btn-delete"
-                  title="Șterge utilizator"
+                  :title="t('deleteUserLabel')"
                 >
                   🗑️
                 </button>
@@ -69,7 +69,7 @@
             </td>
           </tr>
           <tr v-if="filteredUsers.length === 0">
-            <td colspan="5" class="empty-row">Niciun utilizator găsit.</td>
+            <td colspan="5" class="empty-row">{{ t('noUsersFound') }}</td>
           </tr>
         </tbody>
       </table>
@@ -88,6 +88,9 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { adminUsersService, type AdminUser } from '@/services/adminService'
 import { usePagination } from '@/composables/usePagination'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 const users = ref<AdminUser[]>([])
 const isLoading = ref(true)
@@ -112,7 +115,7 @@ const loadUsers = async () => {
   try {
     users.value = await adminUsersService.getUsers()
   } catch {
-    alert('Eroare la încărcarea utilizatorilor.')
+    alert(t('usersLoadError'))
   } finally {
     isLoading.value = false
   }
@@ -121,24 +124,24 @@ const loadUsers = async () => {
 const toggleRole = async (user: AdminUser) => {
   const newRole = user.role === 'Admin' ? 'User' : 'Admin'
   const msg = newRole === 'Admin'
-    ? `Promovezi "${user.username}" la Admin?`
-    : `Retrogradezi "${user.username}" la User?`
+    ? t('confirmPromoteUser', '', { name: user.username })
+    : t('confirmDemoteUser', '', { name: user.username })
   if (!confirm(msg)) return
   try {
     await adminUsersService.updateRole(user.id, newRole)
     await loadUsers()
   } catch {
-    alert('Eroare la actualizarea rolului.')
+    alert(t('roleUpdateError'))
   }
 }
 
 const deleteUser = async (user: AdminUser) => {
-  if (!confirm(`Ștergi definitiv utilizatorul "${user.username}"? Acțiunea nu poate fi anulată.`)) return
+  if (!confirm(t('confirmDeleteUser', '', { name: user.username }))) return
   try {
     await adminUsersService.deleteUser(user.id)
     await loadUsers()
   } catch (err: any) {
-    alert(err.response?.data?.message || 'Eroare la ștergerea utilizatorului.')
+    alert(err.response?.data?.message || t('userDeleteError'))
   }
 }
 

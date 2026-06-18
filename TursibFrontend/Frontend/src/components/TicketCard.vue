@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Ticket, TicketType } from '@/services/ticketsService'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 const props = defineProps<{ ticket: Ticket }>()
 
@@ -55,23 +58,23 @@ const statusLabel = computed(() => {
 
     <div class="ticket-body">
       <div class="ticket-field">
-        <span class="field-label">Pret</span>
+        <span class="field-label">{{ t('price') }}</span>
         <span class="field-value">{{ ticket.priceRon.toFixed(2) }} RON</span>
       </div>
       <div v-if="ticket.ridesTotal" class="ticket-field">
-        <span class="field-label">Calatorii incluse</span>
+        <span class="field-label">{{ t('ridesIncluded') }}</span>
         <span class="field-value rides-value">{{ ticket.ridesTotal }} ×</span>
       </div>
       <div class="ticket-field">
-        <span class="field-label">Cumparat</span>
+        <span class="field-label">{{ t('purchased') }}</span>
         <span class="field-value">{{ formatDateTime(ticket.purchasedAt) }}</span>
       </div>
       <div class="ticket-field">
-        <span class="field-label">Valabil pana la</span>
+        <span class="field-label">{{ t('validUntil') }}</span>
         <span class="field-value">{{ formatDateTime(ticket.validUntil) }}</span>
       </div>
       <div v-if="ticket.payment" class="ticket-field">
-        <span class="field-label">Card</span>
+        <span class="field-label">{{ t('card') }}</span>
         <span class="field-value">
           {{ ticket.payment.cardBrand === 'visa' ? 'Visa' : ticket.payment.cardBrand === 'mastercard' ? 'Mastercard' : 'Card' }}
           •••• {{ ticket.payment.cardLast4 }}
@@ -80,7 +83,7 @@ const statusLabel = computed(() => {
     </div>
 
     <div class="ticket-foot">
-      <span class="qr-label">Cod validare</span>
+      <span class="qr-label">{{ t('validationCode') }}</span>
       <code class="qr-token">{{ ticket.qrToken.slice(0, 12) }}…{{ ticket.qrToken.slice(-4) }}</code>
     </div>
   </article>

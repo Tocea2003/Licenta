@@ -45,7 +45,7 @@
           <p>{{ homeFavorite.address }}</p>
         </div>
         <div class="favorite-actions" @click.stop>
-          <button @click="enableNotificationsForFavorite(homeFavorite)" class="action-btn notify" :disabled="notifyingFavoriteId === homeFavorite.id" title="Activează alerte pentru stația apropiată">
+          <button @click="enableNotificationsForFavorite(homeFavorite)" class="action-btn notify" :disabled="notifyingFavoriteId === homeFavorite.id" :title="t('enableAlertsForStation')">
             🔔
           </button>
           <button @click="editFavorite(homeFavorite)" class="action-btn edit">
@@ -73,7 +73,7 @@
           <p>{{ workFavorite.address }}</p>
         </div>
         <div class="favorite-actions" @click.stop>
-          <button @click="enableNotificationsForFavorite(workFavorite)" class="action-btn notify" :disabled="notifyingFavoriteId === workFavorite.id" title="Activează alerte pentru stația apropiată">
+          <button @click="enableNotificationsForFavorite(workFavorite)" class="action-btn notify" :disabled="notifyingFavoriteId === workFavorite.id" :title="t('enableAlertsForStation')">
             🔔
           </button>
           <button @click="editFavorite(workFavorite)" class="action-btn edit">
@@ -107,7 +107,7 @@
           <p>{{ favorite.address }}</p>
         </div>
         <div class="favorite-actions" @click.stop>
-          <button @click="enableNotificationsForFavorite(favorite)" class="action-btn notify" :disabled="notifyingFavoriteId === favorite.id" title="Activează alerte pentru stația apropiată">
+          <button @click="enableNotificationsForFavorite(favorite)" class="action-btn notify" :disabled="notifyingFavoriteId === favorite.id" :title="t('enableAlertsForStation')">
             🔔
           </button>
           <button @click="editFavorite(favorite)" class="action-btn edit">
@@ -136,7 +136,7 @@
     </div>
 
     <!-- Gradient FAB -->
-    <button class="fab-add" @click="openAddDialog('custom')" aria-label="Adaugă locație">
+    <button class="fab-add" @click="openAddDialog('custom')" :aria-label="t('addLocation')">
       <span class="fab-plus">+</span>
     </button>
 

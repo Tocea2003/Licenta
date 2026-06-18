@@ -3,8 +3,11 @@ import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useOnboarding } from '@/composables/useOnboarding'
 import { useStatistics } from '@/composables/useStatistics'
+import { useLanguage } from '@/composables/useLanguage'
 import OnboardingTutorial from '@/components/OnboardingTutorial.vue'
 import HomeView from '@/views/HomeView.vue'
+
+const { t } = useLanguage()
 
 const { showOnboarding } = useOnboarding()
 const { addTimeUsed } = useStatistics()
@@ -59,7 +62,7 @@ function goHome() {
       <div class="panel-sheet">
         <div class="panel-header">
           <div class="panel-handle"></div>
-          <button class="panel-close" @click="goHome" aria-label="Închide">
+          <button class="panel-close" @click="goHome" :aria-label="t('close')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
             </svg>

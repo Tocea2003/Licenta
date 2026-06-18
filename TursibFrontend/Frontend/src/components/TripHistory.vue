@@ -1,7 +1,7 @@
 <template>
   <div v-if="isVisible" class="trip-history-panel">
     <div class="panel-header">
-      <h3 class="panel-title">📜 Istoric călătorii</h3>
+      <h3 class="panel-title">📜 {{ t('tripHistoryTitle') }}</h3>
       <button @click="close" class="close-btn">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
           <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -19,7 +19,7 @@
         <input 
           v-model="searchQuery" 
           type="text" 
-          placeholder="Caută în istoric..."
+          :placeholder="t('searchInHistory')"
           class="search-input"
         />
         <button v-if="searchQuery" @click="searchQuery = ''" class="clear-search-btn">
@@ -31,12 +31,12 @@
 
       <!-- Clear all button -->
       <div v-if="filteredHistory.length > 0" class="actions-bar">
-        <span class="history-count">{{ filteredHistory.length }} călătorii</span>
+        <span class="history-count">{{ filteredHistory.length }} {{ t('tripsCount') }}</span>
         <button @click="confirmClearAll" class="clear-all-btn">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v9a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          Șterge tot
+          {{ t('clearAll') }}
         </button>
       </div>
 
@@ -46,8 +46,8 @@
           <circle cx="32" cy="32" r="30" stroke="currentColor" stroke-width="2" opacity="0.2"/>
           <path d="M32 20v16M32 44v2" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
         </svg>
-        <p class="empty-text">{{ searchQuery ? 'Nu s-au găsit călătorii' : 'Nicio călătorie salvată' }}</p>
-        <p class="empty-subtext">{{ searchQuery ? 'Încearcă alt termen de căutare' : 'Călătoriile tale vor apărea aici' }}</p>
+        <p class="empty-text">{{ searchQuery ? t('noTripsFound2') : t('noTripsSaved') }}</p>
+        <p class="empty-subtext">{{ searchQuery ? t('tryDifferentSearch') : t('tripsWillAppearHere') }}</p>
       </div>
 
       <!-- History list -->
@@ -106,6 +106,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { tripHistoryService, type TripHistoryItem } from '../services/tripHistoryService'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 const props = defineProps<{
   visible: boolean
@@ -142,7 +145,7 @@ const deleteTrip = (id: string) => {
 }
 
 const confirmClearAll = () => {
-  if (confirm('Sigur vrei să ștergi tot istoricul? Această acțiune nu poate fi anulată.')) {
+  if (confirm(t('confirmClearHistory'))) {
     tripHistoryService.clearHistory()
     loadHistory()
   }

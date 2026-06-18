@@ -1,7 +1,7 @@
 ﻿<template>
   <div class="buses-management">
     <div class="page-header">
-      <h2>Flotă Autobuze</h2>
+      <h2>{{ t('busFleet') }}</h2>
       <div class="header-actions">
         <div class="tab-switcher">
           <button :class="['tab-btn', { active: activeTab === 'live' }]" @click="activeTab = 'live'">
@@ -9,10 +9,10 @@
             Live ({{ liveBuses.length }})
           </button>
           <button :class="['tab-btn', { active: activeTab === 'registered' }]" @click="activeTab = 'registered'">
-            Înregistrate ({{ buses.length }})
+            {{ t('registeredTab') }} ({{ buses.length }})
           </button>
         </div>
-        <button v-if="activeTab === 'registered'" @click="openCreate" class="btn-primary">+ Adaugă autobuz</button>
+        <button v-if="activeTab === 'registered'" @click="openCreate" class="btn-primary">+ {{ t('addBus') }}</button>
       </div>
     </div>
 
@@ -20,41 +20,41 @@
     <div class="summary-cards">
       <div class="summary-card">
         <div class="card-value">{{ liveBuses.length }}</div>
-        <div class="card-label">Autobuze active</div>
+        <div class="card-label">{{ t('activeBusesLabel') }}</div>
       </div>
       <div class="summary-card green">
         <div class="card-value">{{ liveRouteCount }}</div>
-        <div class="card-label">Trasee deservite</div>
+        <div class="card-label">{{ t('routesServed') }}</div>
       </div>
       <div class="summary-card amber">
         <div class="card-value">{{ liveAvgSpeed }} km/h</div>
-        <div class="card-label">Viteză medie</div>
+        <div class="card-label">{{ t('avgSpeed') }}</div>
       </div>
     </div>
 
-    <div v-if="isLoading" class="loading">Se încarcă...</div>
+    <div v-if="isLoading" class="loading">{{ t('loading') }}</div>
 
     <!-- Live buses tab -->
     <div v-else-if="activeTab === 'live'" class="table-container">
       <div class="live-header">
-        <input v-model="liveSearch" class="search-input" placeholder="Caută după traseu sau ID..." />
+        <input v-model="liveSearch" class="search-input" :placeholder="t('searchByRouteOrId')" />
       </div>
       <table class="data-table">
         <thead>
           <tr>
-            <th>ID Bus</th>
-            <th>Traseu</th>
-            <th>Direcție</th>
-            <th>Viteză</th>
-            <th>Ocupare</th>
-            <th>Stația următoare</th>
-            <th>Status</th>
+            <th>{{ t('busIdCol') }}</th>
+            <th>{{ t('routeCol') }}</th>
+            <th>{{ t('directionCol') }}</th>
+            <th>{{ t('speed') }}</th>
+            <th>{{ t('occupancy') }}</th>
+            <th>{{ t('nextStationCol') }}</th>
+            <th>{{ t('statusCol') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="bus in paginatedLiveBuses" :key="bus.id">
             <td class="id-col">{{ bus.shortId }}</td>
-            <td><span class="route-chip"><span class="route-dot"></span> Linia {{ bus.routeNumber }}</span></td>
+            <td><span class="route-chip"><span class="route-dot"></span> {{ t('lineNumber', 'Line {number}', { number: bus.routeNumber }) }}</span></td>
             <td>{{ bus.routeName || '—' }}</td>
             <td>{{ bus.speed.toFixed(0) }} km/h</td>
             <td>
@@ -66,11 +66,11 @@
               </div>
             </td>
             <td>{{ bus.nextStationName || '—' }}</td>
-            <td><span class="status-badge active">Activ</span></td>
+            <td><span class="status-badge active">{{ t('statusActive') }}</span></td>
           </tr>
           <tr v-if="filteredLiveBuses.length === 0">
             <td colspan="7" class="empty-row">
-              {{ liveSearch ? 'Niciun rezultat.' : 'Niciun autobuz activ momentan.' }}
+              {{ liveSearch ? t('noResult') : t('noActiveBuses') }}
             </td>
           </tr>
         </tbody>
@@ -80,7 +80,7 @@
         <button @click="liveCurrentPage > 1 && liveCurrentPage--" :disabled="liveCurrentPage === 1" class="page-btn">&laquo;</button>
         <button v-for="p in liveTotalPages" :key="p" @click="liveCurrentPage = p" :class="['page-btn', { active: p === liveCurrentPage }]">{{ p }}</button>
         <button @click="liveCurrentPage < liveTotalPages && liveCurrentPage++" :disabled="liveCurrentPage === liveTotalPages" class="page-btn">&raquo;</button>
-        <span class="page-info">{{ filteredLiveBuses.length }} autobuze</span>
+        <span class="page-info">{{ filteredLiveBuses.length }} {{ t('busesCountLabel') }}</span>
       </div>
     </div>
 
@@ -90,11 +90,11 @@
         <thead>
           <tr>
             <th>ID</th>
-            <th>Nr. înmatriculare</th>
-            <th>Denumire internă</th>
-            <th>Traseu curent</th>
-            <th>Status</th>
-            <th>Acțiuni</th>
+            <th>{{ t('licensePlate') }}</th>
+            <th>{{ t('internalName') }}</th>
+            <th>{{ t('currentRoute') }}</th>
+            <th>{{ t('statusCol') }}</th>
+            <th>{{ t('actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -105,24 +105,24 @@
             <td>
               <span v-if="bus.currentRouteNumber" class="route-chip">
                 <span class="route-dot"></span>
-                Linia {{ bus.currentRouteNumber }} — {{ bus.currentRouteName }}
+                {{ t('lineNumber', 'Line {number}', { number: bus.currentRouteNumber }) }} — {{ bus.currentRouteName }}
               </span>
-              <span v-else class="no-route">Neasignat</span>
+              <span v-else class="no-route">{{ t('unassigned') }}</span>
             </td>
             <td>
               <span :class="['status-badge', bus.currentRouteId ? 'active' : 'garage']">
-                {{ bus.currentRouteId ? 'În serviciu' : 'Garaj' }}
+                {{ bus.currentRouteId ? t('inServiceStatus') : t('garageStatus') }}
               </span>
             </td>
             <td>
               <div class="action-buttons">
-                <button @click="openEdit(bus)" class="btn-icon btn-edit" title="Editează">✏️</button>
-                <button @click="deleteBus(bus)" class="btn-icon btn-delete" title="Șterge">🗑️</button>
+                <button @click="openEdit(bus)" class="btn-icon btn-edit" :title="t('editBus')">✏️</button>
+                <button @click="deleteBus(bus)" class="btn-icon btn-delete" :title="t('delete')">🗑️</button>
               </div>
             </td>
           </tr>
           <tr v-if="buses.length === 0">
-            <td colspan="6" class="empty-row">Niciun autobuz înregistrat.</td>
+            <td colspan="6" class="empty-row">{{ t('noBusesRegistered') }}</td>
           </tr>
         </tbody>
       </table>
@@ -138,28 +138,28 @@
     <!-- Create / Edit modal -->
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal">
-        <h3>{{ editingBus ? 'Editează autobuz' : 'Adaugă autobuz nou' }}</h3>
+        <h3>{{ editingBus ? t('editBus') : t('addNewBus') }}</h3>
         <form @submit.prevent="handleSubmit">
           <div class="form-group">
-            <label>Nr. înmatriculare</label>
+            <label>{{ t('licensePlate') }}</label>
             <input v-model="form.licensePlate" required placeholder="ex: SB-01-ABC" />
           </div>
           <div class="form-group">
-            <label>Denumire internă</label>
+            <label>{{ t('internalName') }}</label>
             <input v-model="form.internalName" required placeholder="ex: Bus 045" />
           </div>
           <div class="form-group">
-            <label>Traseu asignat</label>
+            <label>{{ t('assignedRoute') }}</label>
             <select v-model="form.currentRouteId">
-              <option :value="null">— Neasignat (garaj) —</option>
+              <option :value="null">— {{ t('unassignedGarage') }} —</option>
               <option v-for="route in routes" :key="route.id" :value="route.id">
-                Linia {{ route.routeNumber }} — {{ route.name }}
+                {{ t('lineNumber', 'Line {number}', { number: route.routeNumber }) }} — {{ route.name }}
               </option>
             </select>
           </div>
           <div class="modal-actions">
-            <button type="button" @click="closeModal" class="btn-secondary">Anulează</button>
-            <button type="submit" class="btn-primary">{{ editingBus ? 'Salvează' : 'Creează' }}</button>
+            <button type="button" @click="closeModal" class="btn-secondary">{{ t('cancel') }}</button>
+            <button type="submit" class="btn-primary">{{ editingBus ? t('save') : t('create') }}</button>
           </div>
         </form>
       </div>
@@ -171,6 +171,9 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { adminBusesService, adminRoutesService, type Bus, type Route } from '@/services/adminService'
 import { usePagination } from '@/composables/usePagination'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 import { database } from '@/main'
 import { ref as dbRef, onValue, off } from 'firebase/database'
 
@@ -255,7 +258,7 @@ const loadData = async () => {
     buses.value = busData
     routes.value = routeData
   } catch {
-    alert('Eroare la încărcarea datelor.')
+    alert(t('dataLoadError'))
   } finally {
     isLoading.value = false
   }
@@ -324,17 +327,17 @@ const handleSubmit = async () => {
     await loadData()
     closeModal()
   } catch {
-    alert('Eroare la salvarea autobuzului.')
+    alert(t('busSaveError'))
   }
 }
 
 const deleteBus = async (bus: Bus) => {
-  if (!confirm(`Ștergi autobuzul "${bus.licensePlate}" (${bus.internalName})?`)) return
+  if (!confirm(t('confirmDeleteBus', '', { name: bus.licensePlate, internal: bus.internalName }))) return
   try {
     await adminBusesService.deleteBus(bus.id)
     await loadData()
   } catch {
-    alert('Eroare la ștergerea autobuzului.')
+    alert(t('busDeleteError'))
   }
 }
 

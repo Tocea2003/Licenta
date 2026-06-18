@@ -24,15 +24,15 @@
         </router-link>
         <router-link to="/admin/buses" class="nav-item">
           <span class="nav-icon">🚌</span>
-          <span class="nav-text">Flotă Autobuze</span>
+          <span class="nav-text">{{ t('busFleet') }}</span>
         </router-link>
         <router-link to="/admin/users" class="nav-item">
           <span class="nav-icon">👥</span>
-          <span class="nav-text">Utilizatori</span>
+          <span class="nav-text">{{ t('users') }}</span>
         </router-link>
         <router-link to="/admin/tickets" class="nav-item">
           <span class="nav-icon">🎫</span>
-          <span class="nav-text">Bilete & Revenue</span>
+          <span class="nav-text">{{ t('ticketsAndRevenue') }}</span>
         </router-link>
       </nav>
 
