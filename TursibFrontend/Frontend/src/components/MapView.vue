@@ -128,20 +128,6 @@
 
     <div class="map-aura"></div>
 
-    <div class="map-hud" :class="{ 'map-hud--sidebar-open': showSidebar && !isMobile }">
-      <div class="hud-chip hud-chip-primary">
-        <span class="hud-dot live"></span>
-        {{ currentLanguage.toUpperCase() }} • {{ liveBuses.length }} {{ t('liveBusesCount') }}
-      </div>
-      <div class="hud-chip">
-        <span class="hud-dot nearby"></span>
-        {{ nearbyStations.length }} {{ t('nearbyStationsCount') }}
-      </div>
-      <div class="hud-chip" v-if="showTransfer || showMultimodal">
-        <span class="hud-dot route"></span>
-        {{ t('activeRoute') }}
-      </div>
-    </div>
 
     <div
       v-if="notificationFeedback"
@@ -3485,9 +3471,11 @@ const getStationETAs = (stationId: number) => {
   top: 16px;
   right: 16px;
   z-index: 900;
-  display: grid;
-  grid-template-columns: repeat(3, 40px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
+  max-width: 144px;
 }
 
 .action-btn {
@@ -3687,7 +3675,7 @@ const getStationETAs = (stationId: number) => {
   .top-right-buttons {
     top: 10px;
     right: 10px;
-    grid-template-columns: repeat(3, 44px);
+    max-width: 152px;
     gap: 6px;
   }
 
