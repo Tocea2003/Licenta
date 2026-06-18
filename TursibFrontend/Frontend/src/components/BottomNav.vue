@@ -110,7 +110,7 @@ const openPlan = () => {
   justify-content: space-around;
   align-items: center;
   padding: 8px 8px max(8px, env(safe-area-inset-bottom));
-  z-index: var(--z-overlay, 100);
+  z-index: 1100;
   box-shadow: 0 -1px 0 var(--border-primary), 0 -4px 16px rgba(15, 23, 42, 0.06);
 }
 
