@@ -212,6 +212,8 @@
 html {
   font-size: 16px;
   scroll-behavior: smooth;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -223,7 +225,9 @@ body {
   color: var(--text-primary);
   background: var(--bg-secondary);
   transition: var(--transition-colors);
-  min-height: 100dvh;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 #app {

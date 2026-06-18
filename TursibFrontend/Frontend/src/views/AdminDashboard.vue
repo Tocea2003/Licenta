@@ -85,8 +85,9 @@ const handleLogout = () => {
 <style scoped>
 .admin-dashboard {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   background: var(--bg-secondary);
+  overflow: hidden;
 }
 
 /* Sidebar */
@@ -247,6 +248,7 @@ const handleLogout = () => {
   margin-left: 280px;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .admin-header {
