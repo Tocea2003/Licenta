@@ -3472,10 +3472,8 @@ const getStationETAs = (stationId: number) => {
   right: 16px;
   z-index: 900;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-direction: column;
   gap: 8px;
-  max-width: 144px;
 }
 
 .action-btn {
@@ -3675,7 +3673,6 @@ const getStationETAs = (stationId: number) => {
   .top-right-buttons {
     top: 10px;
     right: 10px;
-    max-width: 152px;
     gap: 6px;
   }
 
