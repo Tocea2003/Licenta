@@ -3664,7 +3664,7 @@ const getStationETAs = (stationId: number) => {
 /* Responsive mobile */
 @media (max-width: 900px) {
   .sidebar-toggle-btn {
-    top: 10px;
+    top: 80px;
     left: 10px;
     width: 36px;
     height: 36px;

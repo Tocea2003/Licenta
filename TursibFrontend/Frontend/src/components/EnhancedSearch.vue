@@ -620,7 +620,7 @@ if (typeof window !== 'undefined') {
     transform: none;
     top: 10px;
     width: auto;
-    max-width: calc(100vw - 54px - 130px);
+    max-width: calc(100vw - 54px - 60px);
   }
 }
 
