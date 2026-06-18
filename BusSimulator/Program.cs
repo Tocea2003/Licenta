@@ -29,12 +29,17 @@ namespace BusSimulator
             var firebaseClient = new FirebaseClient(FirebaseUrl);
             var httpClient = new HttpClient();
 
-            var routes = await LoadAllRoutes(httpClient);
-
-            if (routes.Count == 0)
+            List<RouteInfo> routes;
+            int startupAttempt = 0;
+            while (true)
             {
-                Console.WriteLine("❌ No routes found!");
-                return;
+                startupAttempt++;
+                routes = await LoadAllRoutes(httpClient);
+                if (routes.Count > 0) break;
+
+                var delay = Math.Min(startupAttempt * 30, 300);
+                Console.WriteLine($"⏳ No routes loaded (attempt {startupAttempt}). Retrying in {delay}s...");
+                await Task.Delay(TimeSpan.FromSeconds(delay));
             }
 
             Console.WriteLine($"📍 Found {routes.Count} routes in GTFS");
@@ -52,9 +57,16 @@ namespace BusSimulator
                 }
             }
 
-            // Load routes for all buses in parallel
+            // Initialize buses in small batches to avoid rate limiting
             Console.WriteLine($"⏳ Initializing {allBuses.Count} buses...");
-            await Task.WhenAll(allBuses.Select(b => b.Initialize()));
+            const int batchSize = 3;
+            for (int i = 0; i < allBuses.Count; i += batchSize)
+            {
+                var batch = allBuses.Skip(i).Take(batchSize);
+                await Task.WhenAll(batch.Select(b => b.Initialize()));
+                if (i + batchSize < allBuses.Count)
+                    await Task.Delay(1000);
+            }
 
             var readyBuses = allBuses.Where(b => b.IsReady).ToList();
             Console.WriteLine($"✅ {readyBuses.Count} buses ready!");
@@ -103,16 +115,33 @@ namespace BusSimulator
 
         static async Task<List<RouteInfo>> LoadAllRoutes(HttpClient httpClient)
         {
-            try
+            const int maxRetries = 5;
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
-                var response = await httpClient.GetStringAsync($"{ApiUrl}/routes");
-                return JsonConvert.DeserializeObject<List<RouteInfo>>(response) ?? new List<RouteInfo>();
+                try
+                {
+                    var response = await httpClient.GetStringAsync($"{ApiUrl}/routes");
+                    return JsonConvert.DeserializeObject<List<RouteInfo>>(response) ?? new List<RouteInfo>();
+                }
+                catch (HttpRequestException ex) when (ex.Message.Contains("429"))
+                {
+                    var delay = (int)Math.Pow(2, attempt) * 5;
+                    Console.WriteLine($"⚠️ Rate limited (429) loading routes. Retry {attempt}/{maxRetries} in {delay}s...");
+                    await Task.Delay(TimeSpan.FromSeconds(delay));
+                }
+                catch (Exception ex)
+                {
+                    if (attempt == maxRetries)
+                    {
+                        Console.WriteLine($"❌ Failed to load routes after {maxRetries} attempts: {ex.Message}");
+                        return new List<RouteInfo>();
+                    }
+                    var delay = attempt * 5;
+                    Console.WriteLine($"⚠️ Route load error (attempt {attempt}/{maxRetries}): {ex.Message}. Retrying in {delay}s...");
+                    await Task.Delay(TimeSpan.FromSeconds(delay));
+                }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Failed to load routes: {ex.Message}");
-                return new List<RouteInfo>();
-            }
+            return new List<RouteInfo>();
         }
     }
 
@@ -361,42 +390,64 @@ namespace BusSimulator
 
         private async Task LoadStations()
         {
-            try
+            for (int attempt = 1; attempt <= 5; attempt++)
             {
-                var response = await httpClient.GetStringAsync($"{Program.ApiUrl}/routes/{route.Id}/stations");
-                stations = JsonConvert.DeserializeObject<List<Station>>(response) ?? new List<Station>();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Failed to load stations for route {route.Id}: {ex.Message}");
+                try
+                {
+                    var response = await httpClient.GetStringAsync($"{Program.ApiUrl}/routes/{route.Id}/stations");
+                    stations = JsonConvert.DeserializeObject<List<Station>>(response) ?? new List<Station>();
+                    return;
+                }
+                catch (HttpRequestException ex) when (ex.Message.Contains("429"))
+                {
+                    var delay = (int)Math.Pow(2, attempt) * 3;
+                    Console.WriteLine($"⚠️ Rate limited loading stations for route {route.Id}. Retry in {delay}s...");
+                    await Task.Delay(TimeSpan.FromSeconds(delay));
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Failed to load stations for route {route.Id}: {ex.Message}");
+                    return;
+                }
             }
         }
 
         private async Task CalculateRoutePoints()
         {
-            try
+            for (int attempt = 1; attempt <= 3; attempt++)
             {
-                Console.WriteLine($"🗺️  Bus {busId}: Loading GTFS shape for route {route.Id}...");
-
-                var shapeResponse = await httpClient.GetStringAsync($"{Program.ApiUrl}/shapes/route/{route.Id}");
-                var shapeData = JsonConvert.DeserializeObject<dynamic>(shapeResponse);
-
-                if (shapeData?.points != null && ((int)shapeData.points.Count) > 0)
+                try
                 {
-                    foreach (var point in shapeData!.points)
-                    {
-                        double lat = point.latitude;
-                        double lon = point.longitude;
-                        routePoints.Add((lat, lon));
-                    }
+                    Console.WriteLine($"🗺️  Bus {busId}: Loading GTFS shape for route {route.Id}...");
 
-                    Console.WriteLine($"   ✅ Loaded {routePoints.Count} GTFS shape points");
-                    return;
+                    var shapeResponse = await httpClient.GetStringAsync($"{Program.ApiUrl}/shapes/route/{route.Id}");
+                    var shapeData = JsonConvert.DeserializeObject<dynamic>(shapeResponse);
+
+                    if (shapeData?.points != null && ((int)shapeData.points.Count) > 0)
+                    {
+                        foreach (var point in shapeData!.points)
+                        {
+                            double lat = point.latitude;
+                            double lon = point.longitude;
+                            routePoints.Add((lat, lon));
+                        }
+
+                        Console.WriteLine($"   ✅ Loaded {routePoints.Count} GTFS shape points");
+                        return;
+                    }
+                    break;
                 }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"⚠️ Bus {busId}: GTFS shapes not available ({ex.Message}), trying OSRM...");
+                catch (HttpRequestException ex) when (ex.Message.Contains("429"))
+                {
+                    var delay = (int)Math.Pow(2, attempt) * 3;
+                    Console.WriteLine($"⚠️ Bus {busId}: Rate limited loading shape. Retry in {delay}s...");
+                    await Task.Delay(TimeSpan.FromSeconds(delay));
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Bus {busId}: GTFS shapes not available ({ex.Message}), trying OSRM...");
+                    break;
+                }
             }
 
             try
