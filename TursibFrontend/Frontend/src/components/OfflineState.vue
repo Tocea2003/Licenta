@@ -10,26 +10,26 @@
       </div>
     </div>
     
-    <h2>{{ title }}</h2>
-    <p>{{ description }}</p>
+    <h2>{{ title || t('noInternetConnection') }}</h2>
+    <p>{{ description || t('cannotConnectToServer') }}</p>
     
     <div class="offline-actions">
       <button @click="handleRetry" class="btn-retry" :disabled="retrying">
         <span v-if="retrying" class="spinner-small"></span>
-        {{ retrying ? 'Se verifică...' : '🔄 Încearcă din nou' }}
+        {{ retrying ? t('checking') : '🔄 ' + t('tryAgain') }}
       </button>
-      
+
       <button v-if="showOfflineMode" @click="handleOfflineMode" class="btn-offline">
-        📱 Continuă Offline
+        📱 {{ t('continueOffline') }}
       </button>
     </div>
     
     <div class="tips">
-      <h3>Sugestii:</h3>
+      <h3>{{ t('suggestionsTitle') }}</h3>
       <ul>
-        <li>Verifică conexiunea la internet</li>
-        <li>Verifică setările Wi-Fi sau datele mobile</li>
-        <li>Încearcă să reîncarci pagina</li>
+        <li>{{ t('checkInternetConnection') }}</li>
+        <li>{{ t('checkWifiSettings') }}</li>
+        <li>{{ t('tryReloadPage') }}</li>
       </ul>
     </div>
   </div>
@@ -37,6 +37,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 const props = withDefaults(
   defineProps<{
@@ -45,8 +48,8 @@ const props = withDefaults(
     showOfflineMode?: boolean
   }>(),
   {
-    title: 'Fără conexiune la internet',
-    description: 'Nu ne putem conecta la server. Verifică conexiunea și încearcă din nou.',
+    title: '',
+    description: '',
     showOfflineMode: false,
   }
 )

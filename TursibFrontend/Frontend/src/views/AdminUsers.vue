@@ -28,7 +28,7 @@
         <thead>
           <tr>
             <th>ID</th>
-            <th>Username</th>
+            <th>{{ t('username') }}</th>
             <th>{{ t('roleCol') }}</th>
             <th>{{ t('registeredAt') }}</th>
             <th>{{ t('actions') }}</th>

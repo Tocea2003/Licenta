@@ -4,25 +4,25 @@
       <div class="offline-content">
         <span class="offline-icon">📴</span>
         <div class="offline-text">
-          <strong>Mod Offline</strong>
+          <strong>{{ t('offlineMode') }}</strong>
           <span class="offline-message">
-            Folosim date salvate local. Funcționalitatea live este dezactivată.
+            {{ t('offlineUsingLocalData') }}
           </span>
         </div>
       </div>
       <button v-if="isSyncing" class="sync-button syncing" disabled>
         <span class="spinner"></span>
-        Se sincronizează...
+        {{ t('syncing') }}
       </button>
       <button v-else @click="handleSync" class="sync-button">
-        🔄 Sincronizează
+        🔄 {{ t('sync') }}
       </button>
     </div>
   </Transition>
   
   <Transition name="slide-down">
     <div v-if="showSyncSuccess" class="sync-success">
-      ✅ Datele au fost sincronizate cu succes!
+      ✅ {{ t('syncSuccess') }}
     </div>
   </Transition>
 </template>
@@ -30,7 +30,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useOfflineMode } from '@/composables/useOfflineMode'
+import { useLanguage } from '@/composables/useLanguage'
 
+const { t } = useLanguage()
 const { isOnline, isSyncing, syncData } = useOfflineMode()
 const showSyncSuccess = ref(false)
 

@@ -1,23 +1,23 @@
 <template>
   <div class="trip-planner">
     <div class="planner-header">
-      <h2>🗓️ Planificare Călătorie</h2>
-      <p>Găsește cea mai bună rută și orar pentru călătoria ta</p>
+      <h2>🗓️ {{ t('tripPlanningTitle') }}</h2>
+      <p>{{ t('tripPlannerSubtitle') }}</p>
     </div>
 
     <div class="search-form">
       <!-- Punct de plecare -->
       <div class="form-group">
-        <label>📍 Plecare din:</label>
+        <label>📍 {{ t('departureFromColon') }}</label>
         <div class="location-input-group">
           <input
             ref="fromAddressInput"
             v-model="searchFrom"
             @input="handleFromInput"
-            placeholder="Caută adresă sau stație..."
+            :placeholder="t('searchAddressOrStation')"
             class="location-input"
           />
-          <button @click="useMyLocation" class="btn-location" title="Locația mea">
+          <button @click="useMyLocation" class="btn-location" :title="t('myLocation')">
             📍
           </button>
         </div>
@@ -43,12 +43,12 @@
 
       <!-- Punct de sosire -->
       <div class="form-group">
-        <label>🎯 Destinație:</label>
+        <label>🎯 {{ t('destinationColon') }}</label>
         <input
           ref="toAddressInput"
           v-model="searchTo"
           @input="handleToInput"
-          placeholder="Caută adresă sau stație..."
+          :placeholder="t('searchAddressOrStation')"
           class="location-input"
         />
         <div v-if="showToSuggestions && (addressToSuggestions.length || toSuggestions.length)" class="suggestions">
@@ -74,15 +74,15 @@
       <!-- Mod căutare: Pleacă acum / Pleacă la ora / Ajunge la ora -->
       <div class="form-row">
         <div class="form-group">
-          <label>🕐 Când:</label>
+          <label>🕐 {{ t('when') }}:</label>
           <select v-model="searchMode" class="time-input">
-            <option value="leaveNow">Pleacă acum</option>
-            <option value="departAt">Pleacă la ora</option>
-            <option value="arriveBy">Ajunge la ora</option>
+            <option value="leaveNow">{{ t('leaveNow') }}</option>
+            <option value="departAt">{{ t('departAt') }}</option>
+            <option value="arriveBy">{{ t('arriveBy') }}</option>
           </select>
         </div>
         <div v-if="searchMode !== 'leaveNow'" class="form-group">
-          <label>📅 Data:</label>
+          <label>📅 {{ t('date') }}:</label>
           <input
             v-model="selectedDate"
             type="date"
@@ -91,7 +91,7 @@
           />
         </div>
         <div v-if="searchMode !== 'leaveNow'" class="form-group">
-          <label>{{ searchMode === 'arriveBy' ? '🏁 Ora sosirii:' : '🕐 Ora plecării:' }}</label>
+          <label>{{ searchMode === 'arriveBy' ? '🏁 ' + t('arrivalTime') + ':' : '🕐 ' + t('departureTime') + ':' }}</label>
           <input
             v-model="selectedTime"
             type="time"
@@ -104,34 +104,34 @@
       <div class="preferences">
         <label class="checkbox-label">
           <input v-model="preferences.minTransfers" type="checkbox" />
-          Preferă trasee cu mai puține schimbări
+          {{ t('preferFewerTransfers') }}
         </label>
         <label class="checkbox-label">
           <input v-model="preferences.maxWalkingDistance" type="checkbox" />
-          Limitează distanța de mers pe jos (max 500m)
+          {{ t('limitWalkingDistance') }}
         </label>
       </div>
 
       <button @click="searchTrips" class="btn-search" :disabled="!canSearch">
-        🔍 Caută Trasee
+        🔍 {{ t('searchTrips') }}
       </button>
     </div>
 
     <!-- Rezultate -->
     <div v-if="isSearching" class="loading">
       <div class="spinner"></div>
-      <p>Căutare trasee disponibile...</p>
+      <p>{{ t('searchingAvailableRoutes') }}</p>
     </div>
 
     <div v-if="!isSearching && searchResults.length" class="results">
-      <h3>📋 Trasee găsite ({{ searchResults.length }})</h3>
+      <h3>📋 {{ t('routesFoundCount') }} ({{ searchResults.length }})</h3>
       <div
         v-for="(trip, index) in searchResults"
         :key="index"
         class="trip-card"
         :class="{ 'recommended': index === 0 }"
       >
-        <div v-if="index === 0" class="recommended-badge">⭐ Recomandat</div>
+        <div v-if="index === 0" class="recommended-badge">⭐ {{ t('recommended') }}</div>
         
         <div class="trip-header">
           <div class="trip-time">
@@ -154,7 +154,7 @@
             <div v-if="segment.type === 'walk'" class="segment-walk">
               <div class="segment-icon">🚶</div>
               <div class="segment-details">
-                <div class="segment-title">Mers pe jos</div>
+                <div class="segment-title">{{ t('walkOnFoot') }}</div>
                 <div class="segment-info">
                   {{ segment.distance }}m · {{ segment.duration }} min
                 </div>
@@ -171,10 +171,10 @@
               </div>
               <div class="segment-details">
                 <div class="segment-title">
-                  Autobuz {{ segment.routeNumber }} - {{ segment.routeName }}
+                  {{ t('bus') }} {{ segment.routeNumber }} - {{ segment.routeName }}
                 </div>
                 <div class="segment-info">
-                  {{ segment.stopsCount }} stații · {{ segment.duration }} min
+                  {{ segment.stopsCount }} {{ t('stations') }} · {{ segment.duration }} min
                 </div>
                 <div class="segment-route">
                   <strong>{{ segment.boardingTime }}</strong> {{ segment.from }}
@@ -186,18 +186,18 @@
 
             <!-- Transfer indicator -->
             <div v-if="segIndex < trip.segments.length - 1" class="transfer-indicator">
-              ⤵ Schimbare
+              ⤵ {{ t('transferIndicator') }}
             </div>
           </div>
         </div>
 
         <div class="trip-footer">
           <div class="trip-stats">
-            <span>🚌 {{ trip.transfersCount }} schimbări</span>
-            <span>🚶 {{ trip.totalWalkingDistance }}m mers pe jos</span>
+            <span>🚌 {{ trip.transfersCount }} {{ t('transfers') }}</span>
+            <span>🚶 {{ trip.totalWalkingDistance }}m {{ t('walkingLabel') }}</span>
           </div>
           <button @click="selectTrip(trip)" class="btn-select">
-            Selectează
+            {{ t('select') }}
           </button>
         </div>
       </div>
@@ -205,15 +205,15 @@
 
     <div v-if="!isSearching && searchAttempted && searchResults.length === 0" class="no-results">
       <div class="no-results-icon">🚫</div>
-      <h3>Nu s-au găsit trasee</h3>
-      <p>Încearcă să modifici criteriile de căutare sau intervalul orar.</p>
+      <h3>{{ t('noRoutesFoundTitle') }}</h3>
+      <p>{{ t('tryModifySearchCriteria') }}</p>
     </div>
 
     <!-- Hartă cu traseu -->
     <div v-if="showMap && selectedTrip" class="map-overlay">
       <div class="map-container">
         <div class="map-header">
-          <h3>🗺️ Traseu pe hartă</h3>
+          <h3>🗺️ {{ t('routeOnMap') }}</h3>
           <button @click="closeMap" class="close-map-btn">✕</button>
         </div>
         <div class="map-content">
@@ -228,7 +228,7 @@
           ></iframe>
         </div>
         <div class="map-footer">
-          <p>💡 Traseul afișat include călătoria completă de la {{fromLocation?.name}} la {{toLocation?.name}}</p>
+          <p>💡 {{ t('routeShowsCompleteTrip', undefined, { from: fromLocation?.name || '', to: toLocation?.name || '' }) }}</p>
         </div>
       </div>
     </div>
@@ -239,6 +239,9 @@
 import { ref, computed, onMounted } from 'vue'
 import type { Station } from '@/services/apiService'
 import apiService from '@/services/apiService'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 interface TripSegment {
   type: 'walk' | 'bus'
