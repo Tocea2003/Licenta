@@ -161,12 +161,19 @@ namespace TursibBackend.Controllers
             return Ok(ToDto(ticket, ticket.Payment));
         }
 
+        // Effective status: a ticket past its validity is "expired" even if the stored
+        // value is still "active" (the DB field is never auto-updated on expiry).
+        private static string EffectiveStatus(Ticket t) =>
+            t.Status == "used"
+                ? "used"
+                : (DateTime.UtcNow >= t.ValidUntil ? "expired" : t.Status);
+
         private static object ToDto(Ticket t, Payment? p) => new
         {
             id = t.Id,
             ticketType = t.TicketType,
             priceRon = t.PriceRon,
-            status = t.Status,
+            status = EffectiveStatus(t),
             purchasedAt = t.PurchasedAt,
             validFrom = t.ValidFrom,
             validUntil = t.ValidUntil,

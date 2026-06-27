@@ -429,7 +429,11 @@ namespace TursibBackend.Controllers
                     t.Id,
                     t.TicketType,
                     t.PriceRon,
-                    t.Status,
+                    // Effective status: a ticket past its validity is "expired" even if
+                    // the stored value is still "active" (the DB field is never auto-updated).
+                    Status = t.Status == "used"
+                        ? "used"
+                        : (DateTime.UtcNow >= t.ValidUntil ? "expired" : t.Status),
                     t.PurchasedAt,
                     t.ValidFrom,
                     t.ValidUntil,
