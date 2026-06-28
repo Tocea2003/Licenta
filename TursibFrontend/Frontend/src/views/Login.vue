@@ -238,12 +238,14 @@ const handleGoogleError = (error: string) => {
 <style scoped>
 .login-container {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--gradient-bg);
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 20px;
 }
 
@@ -305,6 +307,9 @@ const handleGoogleError = (error: string) => {
   position: relative;
   z-index: 1;
   animation: slideIn 0.5s ease-out;
+  /* margin auto keeps the card centered when it fits, but still lets the
+     full card scroll into view on short screens (overflow stays reachable) */
+  margin: auto;
 }
 
 @keyframes slideIn {
