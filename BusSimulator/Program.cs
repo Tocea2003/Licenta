@@ -164,6 +164,24 @@ namespace BusSimulator
         private DateTime dwellEndTime = DateTime.MinValue;
         private double lastSpeed = 30;
 
+        // The simulator runs on a cloud server (Render) whose clock is UTC.
+        // Use Sibiu/Romania local time so peak/night/weekend logic matches real life.
+        private static readonly TimeZoneInfo RomaniaTz = ResolveRomaniaTimeZone();
+        private static DateTime NowRo => TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, RomaniaTz).DateTime;
+
+        private static TimeZoneInfo ResolveRomaniaTimeZone()
+        {
+            // "Europe/Bucharest" on Linux, "GTB Standard Time" on Windows.
+            foreach (var id in new[] { "Europe/Bucharest", "GTB Standard Time" })
+            {
+                try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
+                catch (TimeZoneNotFoundException) { }
+                catch (InvalidTimeZoneException) { }
+            }
+            // Last-resort fallback: fixed UTC+2 (no DST) so we never crash.
+            return TimeZoneInfo.CreateCustomTimeZone("RO-Fallback", TimeSpan.FromHours(2), "Romania", "Romania");
+        }
+
         public bool IsReady => routePoints.Count > 0;
 
         public BusSimulator(int busId, RouteInfo route, int busIndex, int totalBuses,
@@ -305,7 +323,7 @@ namespace BusSimulator
             else
                 baseSpeed = 35 + random.NextDouble() * 15;
 
-            var hour = DateTime.Now.Hour;
+            var hour = NowRo.Hour;
             if ((hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18))
                 baseSpeed *= 0.75;
             else if (hour >= 22 || hour <= 5)
@@ -317,7 +335,7 @@ namespace BusSimulator
         private int CalculateDwellTime()
         {
             int baseDwell = random.Next(10000, 30000);
-            var hour = DateTime.Now.Hour;
+            var hour = NowRo.Hour;
 
             if ((hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18))
                 baseDwell += random.Next(5000, 15000);
@@ -566,11 +584,12 @@ namespace BusSimulator
             int change = random.Next(-15, 25);
             occupancy = Math.Max(0, Math.Min(100, occupancy + change));
 
-            var hour = DateTime.Now.Hour;
+            var now = NowRo;
+            var hour = now.Hour;
             bool isPeak = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18);
             bool isNight = hour >= 22 || hour <= 5;
-            bool isWeekend = DateTime.Now.DayOfWeek == DayOfWeek.Saturday ||
-                             DateTime.Now.DayOfWeek == DayOfWeek.Sunday;
+            bool isWeekend = now.DayOfWeek == DayOfWeek.Saturday ||
+                             now.DayOfWeek == DayOfWeek.Sunday;
 
             if (isPeak && !isWeekend)
             {
