@@ -21,6 +21,9 @@ namespace TursibBackend.Services
         private const int TRANSFER_PENALTY_MINUTES = 5; // Penalitate pentru fiecare transfer
         private const int AVG_BUS_SPEED_KM_PER_HOUR = 25; // Viteza medie autobuz în oraș
         private const int STATION_STOP_TIME_MINUTES = 1; // Timp de oprire la fiecare stație
+        private const int MIN_TRANSFER_SECONDS = 60; // Timp minim de transfer între două vehicule la aceeași stație
+        private const int MAX_SCHEDULE_SEARCH_SECONDS = 12 * 3600; // Cât în viitor căutăm o cursă (12h)
+        private const int MAX_SCHEDULE_ALTERNATIVES = 5; // Câte plecări reale enumerăm (gen Google)
 
         private record GraphCacheEntry(TransportGraph Graph, List<RouteModel> AllRoutes, List<Station> AllStations);
 
@@ -84,6 +87,31 @@ namespace TursibBackend.Services
 
             // Determină data efectivă pentru filtrarea pe ziua săptămânii
             var effectiveDate = arrivalTime ?? departureTime ?? DateTime.Now;
+
+            // ── PLANIFICATOR PE ORAR REAL (time-dependent Dijkstra peste StopTimes) ──
+            // Folosește orele reale de plecare/sosire ale curselor, ca Google Maps.
+            // Dacă datele de orar lipsesc (ex. teste in-memory, GTFS neimportat),
+            // se face fallback la Dijkstra estimativ de mai jos.
+            try
+            {
+                var scheduleIndex = await GetOrBuildScheduleIndexAsync(effectiveDate);
+                if (scheduleIndex != null && scheduleIndex.Trips.Count > 0)
+                {
+                    var scheduled = PlanScheduleBasedRoutes(
+                        scheduleIndex, startStationId, endStationId, departureTime, arrivalTime, effectiveDate);
+                    if (scheduled.Count > 0)
+                    {
+                        _logger.LogInformation("🕒 Planificator pe orar: {Count} opțiuni reale între {Start} și {End}",
+                            scheduled.Count, startStationId, endStationId);
+                        return scheduled;
+                    }
+                    _logger.LogInformation("🕒 Planificator pe orar nu a găsit curse — fallback la estimativ");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "🕒 Planificatorul pe orar a eșuat — fallback la Dijkstra estimativ");
+            }
 
             // Obține rutele active în ziua selectată (din GTFS calendar)
             HashSet<int>? activeRouteIds = null;
@@ -726,6 +754,577 @@ namespace TursibBackend.Services
         private double ToRadians(double degrees)
         {
             return degrees * Math.PI / 180;
+        }
+
+        #endregion
+
+        #region Schedule-Based Planner (time-dependent Dijkstra peste StopTimes)
+
+        // ── Structuri de date pentru indexul de orar ───────────────────────────
+
+        /// <summary>O oprire dintr-o cursă: stația, secunda de sosire și de plecare.</summary>
+        private record ScheduleStop(int StopId, int ArrSec, int DepSec);
+
+        /// <summary>O cursă reală (un Trip GTFS) cu opririle ei în ordine.</summary>
+        private sealed class ScheduleTrip
+        {
+            public int RouteId { get; init; }
+            public int DirectionId { get; init; }
+            public List<ScheduleStop> Stops { get; init; } = new();
+        }
+
+        /// <summary>O plecare reală dintr-o stație (pentru indexul per-stație).</summary>
+        private record Departure(int DepSec, int TripIndex, int StopIndex);
+
+        /// <summary>Muchie de mers pe jos între două stații apropiate.</summary>
+        private record WalkLink(int ToStationId, int WalkSec, double DistKm);
+
+        /// <summary>
+        /// Indexul complet de orar pentru o anumită zi: cursele active, plecările
+        /// sortate per stație, legăturile pietonale și dicționarele de rute/stații.
+        /// </summary>
+        private sealed class ScheduleIndex
+        {
+            public List<ScheduleTrip> Trips { get; init; } = new();
+            // stationId -> plecările care pleacă din ea, sortate crescător după DepSec
+            public Dictionary<int, List<Departure>> DeparturesByStation { get; init; } = new();
+            // stationId -> stații accesibile pe jos
+            public Dictionary<int, List<WalkLink>> WalkLinks { get; init; } = new();
+            public Dictionary<int, Station> Stations { get; init; } = new();
+            public Dictionary<int, RouteModel> Routes { get; init; } = new();
+        }
+
+        private record ScheduleCacheEntry(ScheduleIndex? Index);
+
+        // ── Construcția / cache-ul indexului ──────────────────────────────────
+
+        /// <summary>
+        /// Construiește (sau ia din cache) indexul de orar pentru ziua dată.
+        /// Returnează null dacă datele de orar nu sunt disponibile (ex. EF in-memory,
+        /// tabelele GTFS lipsesc), caz în care apelantul face fallback la estimativ.
+        /// </summary>
+        private async Task<ScheduleIndex?> GetOrBuildScheduleIndexAsync(DateTime targetDate)
+        {
+            var cacheKey = $"schedule_index_{targetDate:yyyy-MM-dd}";
+            if (_cache.TryGetValue(cacheKey, out ScheduleCacheEntry? cached) && cached != null)
+                return cached.Index;
+
+            var index = await BuildScheduleIndexAsync(targetDate);
+            _cache.Set(cacheKey, new ScheduleCacheEntry(index), TimeSpan.FromMinutes(5));
+            return index;
+        }
+
+        private async Task<ScheduleIndex?> BuildScheduleIndexAsync(DateTime targetDate)
+        {
+            var connString = _context.Database.GetConnectionString();
+            if (string.IsNullOrEmpty(connString))
+                return null; // ex. provider in-memory din teste -> fallback estimativ
+
+            var activeServiceIds = await GetActiveServiceIdsForDate(targetDate, connString);
+            if (activeServiceIds.Count == 0)
+                return null;
+
+            var trips = new List<ScheduleTrip>();
+            var tripIndexByTripId = new Dictionary<string, int>();
+
+            using (var conn = new SqliteConnection(connString))
+            {
+                await conn.OpenAsync();
+
+                // Tabelele StopTimes/Trips trebuie să existe
+                using (var checkCmd = conn.CreateCommand())
+                {
+                    checkCmd.CommandText =
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('StopTimes','Trips')";
+                    if (Convert.ToInt64(await checkCmd.ExecuteScalarAsync()) < 2)
+                        return null;
+                }
+
+                // Aducem toate opririle curselor active, în ordinea (TripId, StopSequence).
+                // Filtrăm pe ServiceId-urile active în memorie pentru a evita un IN gigant.
+                var sql = @"
+                    SELECT t.TripId, t.RouteId, COALESCE(t.DirectionId, 0) AS DirectionId,
+                           t.ServiceId, st.StopId, st.ArrivalTime, st.DepartureTime
+                    FROM Trips t
+                    INNER JOIN StopTimes st ON st.TripId = t.TripId
+                    ORDER BY t.TripId, st.StopSequence";
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = sql;
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var serviceId = reader.IsDBNull(3) ? "" : reader.GetString(3);
+                    if (!activeServiceIds.Contains(serviceId))
+                        continue;
+
+                    var tripId = reader.GetString(0);
+                    if (!tripIndexByTripId.TryGetValue(tripId, out var idx))
+                    {
+                        idx = trips.Count;
+                        tripIndexByTripId[tripId] = idx;
+                        trips.Add(new ScheduleTrip
+                        {
+                            RouteId = reader.GetInt32(1),
+                            DirectionId = reader.GetInt32(2)
+                        });
+                    }
+
+                    var arrSec = ParseGtfsTime(reader.GetString(5));
+                    var depSec = ParseGtfsTime(reader.GetString(6));
+                    if (arrSec < 0 || depSec < 0) continue;
+
+                    trips[idx].Stops.Add(new ScheduleStop(reader.GetInt32(4), arrSec, depSec));
+                }
+            }
+
+            if (trips.Count == 0)
+                return null;
+
+            // Dicționare de stații/rute din EF (au coordonate, nume, culori)
+            var stations = await _context.Stations.AsNoTracking().ToListAsync();
+            var routes = await _context.Routes.AsNoTracking().ToListAsync();
+            var stationDict = stations.ToDictionary(s => s.Id);
+            var routeDict = routes.ToDictionary(r => r.Id);
+
+            // Index de plecări per stație (toate opririle în afară de ultima din fiecare cursă)
+            var departuresByStation = new Dictionary<int, List<Departure>>();
+            for (int ti = 0; ti < trips.Count; ti++)
+            {
+                var stops = trips[ti].Stops;
+                for (int si = 0; si < stops.Count - 1; si++)
+                {
+                    var stopId = stops[si].StopId;
+                    if (!departuresByStation.TryGetValue(stopId, out var list))
+                    {
+                        list = new List<Departure>();
+                        departuresByStation[stopId] = list;
+                    }
+                    list.Add(new Departure(stops[si].DepSec, ti, si));
+                }
+            }
+            foreach (var list in departuresByStation.Values)
+                list.Sort((a, b) => a.DepSec.CompareTo(b.DepSec));
+
+            // Legături pietonale între stații apropiate (sub pragul de walking)
+            var walkLinks = BuildWalkLinks(stations);
+
+            return new ScheduleIndex
+            {
+                Trips = trips,
+                DeparturesByStation = departuresByStation,
+                WalkLinks = walkLinks,
+                Stations = stationDict,
+                Routes = routeDict
+            };
+        }
+
+        /// <summary>
+        /// Determină ServiceId-urile active într-o anumită zi (din ServiceCalendars).
+        /// </summary>
+        private async Task<HashSet<string>> GetActiveServiceIdsForDate(DateTime targetDate, string connString)
+        {
+            var result = new HashSet<string>();
+
+            var dayColumn = targetDate.DayOfWeek switch
+            {
+                DayOfWeek.Monday => "Monday",
+                DayOfWeek.Tuesday => "Tuesday",
+                DayOfWeek.Wednesday => "Wednesday",
+                DayOfWeek.Thursday => "Thursday",
+                DayOfWeek.Friday => "Friday",
+                DayOfWeek.Saturday => "Saturday",
+                DayOfWeek.Sunday => "Sunday",
+                _ => "Monday"
+            };
+
+            using var conn = new SqliteConnection(connString);
+            await conn.OpenAsync();
+
+            using (var checkCmd = conn.CreateCommand())
+            {
+                checkCmd.CommandText =
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ServiceCalendars'";
+                if (Convert.ToInt64(await checkCmd.ExecuteScalarAsync()) == 0)
+                    return result;
+            }
+
+            var sql = $@"
+                SELECT ServiceId FROM ServiceCalendars
+                WHERE {dayColumn} = 1
+                  AND @TargetDate >= StartDate
+                  AND @TargetDate <= EndDate";
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.Add(new SqliteParameter("@TargetDate", targetDate.ToString("yyyy-MM-dd")));
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+                result.Add(reader.GetString(0));
+
+            return result;
+        }
+
+        /// <summary>Parsează o oră GTFS "HH:MM:SS" (poate depăși 24h) în secunde de la miezul nopții.</summary>
+        private static int ParseGtfsTime(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return -1;
+            var parts = value.Split(':');
+            if (parts.Length < 2) return -1;
+            if (!int.TryParse(parts[0], out var h)) return -1;
+            if (!int.TryParse(parts[1], out var m)) return -1;
+            var s = 0;
+            if (parts.Length >= 3 && !int.TryParse(parts[2], out s)) s = 0;
+            return h * 3600 + m * 60 + s;
+        }
+
+        private Dictionary<int, List<WalkLink>> BuildWalkLinks(List<Station> stations)
+        {
+            var links = new Dictionary<int, List<WalkLink>>();
+            for (int i = 0; i < stations.Count; i++)
+            {
+                for (int j = i + 1; j < stations.Count; j++)
+                {
+                    var a = stations[i];
+                    var b = stations[j];
+                    var dist = CalculateDistance(a.Latitude, a.Longitude, b.Latitude, b.Longitude);
+                    if (dist > MAX_WALKING_DISTANCE_KM) continue;
+
+                    var walkSec = (int)Math.Round(dist / WALKING_SPEED_KM_PER_HOUR * 3600);
+
+                    if (!links.TryGetValue(a.Id, out var la)) { la = new(); links[a.Id] = la; }
+                    if (!links.TryGetValue(b.Id, out var lb)) { lb = new(); links[b.Id] = lb; }
+                    la.Add(new WalkLink(b.Id, walkSec, dist));
+                    lb.Add(new WalkLink(a.Id, walkSec, dist));
+                }
+            }
+            return links;
+        }
+
+        // ── Algoritmul de planificare (earliest arrival + enumerare) ──────────
+
+        /// <summary>Cum am ajuns la o stație în căutarea pe orar.</summary>
+        private enum ArrivalKind { Start, Walk, Transit }
+
+        /// <summary>Un picior al călătoriei (segment de bus sau de mers pe jos).</summary>
+        private sealed class JourneyLeg
+        {
+            public bool IsWalk { get; init; }
+            public int FromStationId { get; init; }
+            public int ToStationId { get; init; }
+            public int DepSec { get; init; }
+            public int ArrSec { get; init; }
+            public int RouteId { get; init; }
+            public int StationCount { get; init; }
+            public double DistKm { get; init; }
+        }
+
+        private sealed class Journey
+        {
+            public List<JourneyLeg> Legs { get; init; } = new();
+            public int DepartSec => Legs.Count > 0 ? Legs[0].DepSec : 0;
+            public int ArriveSec => Legs.Count > 0 ? Legs[^1].ArrSec : 0;
+            // Secunda primei urcări în vehicul (pentru a enumera plecarea următoare)
+            public int FirstBoardSec
+            {
+                get
+                {
+                    foreach (var leg in Legs)
+                        if (!leg.IsWalk) return leg.DepSec;
+                    return -1;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Construiește rezultatele finale (CalculatedRoute) pentru cererea dată,
+        /// folosind orarul real. Tratează atât "departAt" cât și "arriveBy".
+        /// </summary>
+        private List<CalculatedRoute> PlanScheduleBasedRoutes(
+            ScheduleIndex index,
+            int startStationId,
+            int endStationId,
+            DateTime? departureTime,
+            DateTime? arrivalTime,
+            DateTime effectiveDate)
+        {
+            if (!index.Stations.ContainsKey(startStationId) || !index.Stations.ContainsKey(endStationId))
+                return new List<CalculatedRoute>();
+
+            var baseDate = effectiveDate.Date;
+            List<Journey> journeys;
+
+            if (arrivalTime.HasValue)
+            {
+                var arriveBySec = (int)(arrivalTime.Value - arrivalTime.Value.Date).TotalSeconds;
+                journeys = EnumerateArriveBy(index, startStationId, endStationId, arriveBySec);
+            }
+            else
+            {
+                var departReq = departureTime ?? DateTime.Now;
+                var departSec = (int)(departReq - departReq.Date).TotalSeconds;
+                journeys = EnumerateDepartAt(index, startStationId, endStationId, departSec, MAX_SCHEDULE_ALTERNATIVES);
+            }
+
+            var result = new List<CalculatedRoute>();
+            foreach (var journey in journeys)
+            {
+                var route = ConvertJourney(journey, index, baseDate);
+                result.Add(route);
+            }
+
+            // Rank + categorii (prima = cea mai rapidă/devreme)
+            for (int i = 0; i < result.Count; i++)
+            {
+                result[i].RouteRank = i + 1;
+                result[i].RouteCategory = i == 0
+                    ? "Cea mai rapidă"
+                    : $"Plecare la {result[i].DepartureTime:HH:mm}";
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Enumeră plecările reale succesive (gen lista Google): prima opțiune e
+        /// sosirea cea mai devreme plecând la/după ora cerută, apoi se avansează
+        /// la cursa următoare și se reia, până la maxResults opțiuni distincte.
+        /// </summary>
+        private List<Journey> EnumerateDepartAt(
+            ScheduleIndex index, int start, int end, int fromSec, int maxResults)
+        {
+            var journeys = new List<Journey>();
+            var seen = new HashSet<string>();
+            var cursor = fromSec;
+            var limit = fromSec + MAX_SCHEDULE_SEARCH_SECONDS;
+
+            for (int guard = 0; guard < maxResults * 6 && journeys.Count < maxResults; guard++)
+            {
+                var journey = ComputeEarliestArrival(index, start, end, cursor);
+                if (journey == null) break;
+
+                var firstBoard = journey.FirstBoardSec;
+                var signature = JourneySignature(journey);
+                if (seen.Add(signature))
+                    journeys.Add(journey);
+
+                if (firstBoard < 0) break;              // doar mers pe jos: nu există "următoarea cursă"
+                if (firstBoard >= limit) break;
+                cursor = firstBoard + 1;                 // forțează cursa următoare
+            }
+
+            return journeys;
+        }
+
+        /// <summary>
+        /// Pentru "arriveBy": enumeră călătoriile dintr-o fereastră înainte de ora
+        /// cerută, păstrează doar cele ce sosesc la timp și le alege pe cele cu
+        /// plecarea cea mai târzie (minim de așteptare), sortate după sosire.
+        /// </summary>
+        private List<Journey> EnumerateArriveBy(
+            ScheduleIndex index, int start, int end, int arriveBySec)
+        {
+            var windowStart = Math.Max(0, arriveBySec - MAX_SCHEDULE_SEARCH_SECONDS);
+            var candidates = EnumerateDepartAt(index, start, end, windowStart, MAX_SCHEDULE_ALTERNATIVES * 6);
+
+            var feasible = candidates
+                .Where(j => j.ArriveSec <= arriveBySec)
+                .OrderByDescending(j => j.DepartSec)
+                .Take(MAX_SCHEDULE_ALTERNATIVES)
+                .OrderBy(j => j.ArriveSec)
+                .ToList();
+
+            return feasible;
+        }
+
+        /// <summary>
+        /// Time-dependent Dijkstra: găsește călătoria cu sosire cât mai devreme la
+        /// destinație, plecând din stația de start nu mai devreme de earliestDepSec.
+        /// Costul fiecărei muchii reflectă timpul real de așteptare + mers al curselor.
+        /// </summary>
+        private Journey? ComputeEarliestArrival(
+            ScheduleIndex index, int start, int end, int earliestDepSec)
+        {
+            // earliest known arrival time (sec) per stație
+            var best = new Dictionary<int, int> { [start] = earliestDepSec };
+            var predecessor = new Dictionary<int, JourneyLeg>();
+            var arrivalKind = new Dictionary<int, ArrivalKind> { [start] = ArrivalKind.Start };
+            var finalized = new HashSet<int>();
+            var pq = new PriorityQueue<int, int>();
+            pq.Enqueue(start, earliestDepSec);
+
+            while (pq.Count > 0)
+            {
+                var station = pq.Dequeue();
+                if (finalized.Contains(station)) continue;
+                finalized.Add(station);
+
+                var timeHere = best[station];
+                if (station == end) break;
+
+                var kindHere = arrivalKind[station];
+
+                // 1. Urcarea în vehicule: pentru fiecare (rută, direcție) servită aici,
+                //    luăm cea mai devreme cursă care pleacă după ce putem urca.
+                var board = timeHere + (kindHere == ArrivalKind.Transit ? MIN_TRANSFER_SECONDS : 0);
+                if (index.DeparturesByStation.TryGetValue(station, out var departures))
+                {
+                    var startIdx = LowerBoundByDep(departures, board);
+                    var takenGroups = new HashSet<long>();
+                    for (int di = startIdx; di < departures.Count; di++)
+                    {
+                        var dep = departures[di];
+                        var trip = index.Trips[dep.TripIndex];
+                        long groupKey = (long)trip.RouteId * 8 + trip.DirectionId;
+                        if (!takenGroups.Add(groupKey)) continue; // deja avem cea mai devreme cursă pe acest grup
+
+                        // Coborâm la fiecare stație ulterioară din cursă
+                        for (int sj = dep.StopIndex + 1; sj < trip.Stops.Count; sj++)
+                        {
+                            var alight = trip.Stops[sj];
+                            var arr = alight.ArrSec;
+                            if (finalized.Contains(alight.StopId)) continue;
+                            if (arr < best.GetValueOrDefault(alight.StopId, int.MaxValue))
+                            {
+                                best[alight.StopId] = arr;
+                                arrivalKind[alight.StopId] = ArrivalKind.Transit;
+                                predecessor[alight.StopId] = new JourneyLeg
+                                {
+                                    IsWalk = false,
+                                    FromStationId = station,
+                                    ToStationId = alight.StopId,
+                                    DepSec = dep.DepSec,
+                                    ArrSec = arr,
+                                    RouteId = trip.RouteId,
+                                    StationCount = sj - dep.StopIndex + 1
+                                };
+                                pq.Enqueue(alight.StopId, arr);
+                            }
+                        }
+                    }
+                }
+
+                // 2. Mers pe jos către stații apropiate — interzis două mersuri la rând,
+                //    pentru a nu traversa orașul din salturi de 500m.
+                if (kindHere != ArrivalKind.Walk &&
+                    index.WalkLinks.TryGetValue(station, out var walks))
+                {
+                    foreach (var link in walks)
+                    {
+                        if (finalized.Contains(link.ToStationId)) continue;
+                        var arr = timeHere + link.WalkSec;
+                        if (arr < best.GetValueOrDefault(link.ToStationId, int.MaxValue))
+                        {
+                            best[link.ToStationId] = arr;
+                            arrivalKind[link.ToStationId] = ArrivalKind.Walk;
+                            predecessor[link.ToStationId] = new JourneyLeg
+                            {
+                                IsWalk = true,
+                                FromStationId = station,
+                                ToStationId = link.ToStationId,
+                                DepSec = timeHere,
+                                ArrSec = arr,
+                                StationCount = 2,
+                                DistKm = link.DistKm
+                            };
+                            pq.Enqueue(link.ToStationId, arr);
+                        }
+                    }
+                }
+            }
+
+            if (!predecessor.ContainsKey(end))
+                return null;
+
+            // Reconstruiește călătoria
+            var legs = new List<JourneyLeg>();
+            var cur = end;
+            while (predecessor.TryGetValue(cur, out var leg))
+            {
+                legs.Add(leg);
+                cur = leg.FromStationId;
+                if (cur == start) break;
+            }
+            legs.Reverse();
+            return new Journey { Legs = legs };
+        }
+
+        /// <summary>Primul index din lista de plecări (sortată după DepSec) cu DepSec &gt;= target.</summary>
+        private static int LowerBoundByDep(List<Departure> departures, int target)
+        {
+            int lo = 0, hi = departures.Count;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) >> 1;
+                if (departures[mid].DepSec < target) lo = mid + 1;
+                else hi = mid;
+            }
+            return lo;
+        }
+
+        private static string JourneySignature(Journey journey)
+        {
+            // Identifică o opțiune după liniile folosite + ora primei urcări,
+            // ca să nu listăm de două ori aceeași plecare.
+            var legs = journey.Legs
+                .Select(l => l.IsWalk ? "w" : $"r{l.RouteId}");
+            return string.Join(">", legs) + "@" + journey.FirstBoardSec;
+        }
+
+        /// <summary>Transformă o Journey internă în CalculatedRoute (forma consumată de frontend).</summary>
+        private CalculatedRoute ConvertJourney(Journey journey, ScheduleIndex index, DateTime baseDate)
+        {
+            var segments = new List<RouteSegment>();
+
+            foreach (var leg in journey.Legs)
+            {
+                var fromStation = index.Stations.GetValueOrDefault(leg.FromStationId);
+                var toStation = index.Stations.GetValueOrDefault(leg.ToStationId);
+                var durationMin = (int)Math.Ceiling((leg.ArrSec - leg.DepSec) / 60.0);
+
+                if (leg.IsWalk)
+                {
+                    segments.Add(new RouteSegment
+                    {
+                        Type = "walk",
+                        StartStation = fromStation,
+                        EndStation = toStation,
+                        Duration = durationMin,
+                        Distance = leg.DistKm,
+                        StartTime = baseDate.AddSeconds(leg.DepSec),
+                        EndTime = baseDate.AddSeconds(leg.ArrSec)
+                    });
+                }
+                else
+                {
+                    var route = index.Routes.GetValueOrDefault(leg.RouteId);
+                    segments.Add(new RouteSegment
+                    {
+                        Type = "bus",
+                        RouteId = leg.RouteId,
+                        RouteNumber = route?.RouteNumber,
+                        RouteName = route?.Name,
+                        Color = route?.Color,
+                        StartStation = fromStation,
+                        EndStation = toStation,
+                        Duration = durationMin,
+                        StationCount = leg.StationCount,
+                        StartTime = baseDate.AddSeconds(leg.DepSec),
+                        EndTime = baseDate.AddSeconds(leg.ArrSec)
+                    });
+                }
+            }
+
+            var busCount = segments.Count(s => s.Type == "bus");
+            return new CalculatedRoute
+            {
+                RouteType = busCount <= 1 ? "direct" : "transfer",
+                TotalDuration = (int)Math.Ceiling((journey.ArriveSec - journey.DepartSec) / 60.0),
+                Segments = segments,
+                DepartureTime = baseDate.AddSeconds(journey.DepartSec),
+                ArrivalTime = baseDate.AddSeconds(journey.ArriveSec)
+            };
         }
 
         #endregion
