@@ -12,6 +12,9 @@ services:
       - JWT_KEY=${JWT_KEY}
       - GTFS_PATH=/app/gtfs
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost}
     volumes:
       - ./data:/app/data
     restart: unless-stopped

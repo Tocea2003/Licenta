@@ -84,19 +84,29 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-// Configurare CORS
+// Configurare CORS: exact origins only (no wildcard/substring matching)
+var allowedOrigins = new List<string>
+{
+    "https://licenta-six-sand.vercel.app",  // production frontend
+    "https://localhost",                    // Capacitor Android
+    "capacitor://localhost",                // Capacitor iOS
+};
+if (builder.Environment.IsDevelopment())
+{
+    allowedOrigins.AddRange(new[] { "http://localhost:8080", "http://localhost:5173", "http://localhost:5174" });
+}
+// Extra origins (e.g. Vercel preview URLs), comma-separated
+var extraOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+if (!string.IsNullOrWhiteSpace(extraOrigins))
+{
+    allowedOrigins.AddRange(extraOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowVueApp", policy =>
     {
-        policy.WithOrigins(
-                  "http://localhost:8080",
-                  "http://localhost:5173",
-                  "http://localhost:5174",
-                  "https://aplicatie-web-pentru-urmarirea-in-timp.onrender.com")
-              .SetIsOriginAllowed(origin =>
-                  origin.EndsWith(".vercel.app") ||
-                  origin.Contains("localhost"))
+        policy.WithOrigins(allowedOrigins.ToArray())
               .AllowAnyHeader()
               .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
     });
