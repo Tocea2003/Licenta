@@ -9,6 +9,8 @@
 !TursibBackend.Tests/**
 !TursibFrontend/
 !TursibFrontend/**
+!.github/
+!.github/**
 !render.yaml
 !docker-compose.yml
 !Lucrare_Licenta_Lavu_Cristian_Ioan_IMBUNATATITA.docx
