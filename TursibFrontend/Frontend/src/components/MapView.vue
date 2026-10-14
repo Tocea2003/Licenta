@@ -642,6 +642,9 @@ import { tripHistoryService, type TripHistoryItem } from '@/services/tripHistory
 import { useLanguage } from '@/composables/useLanguage'
 import { reverseGeocode } from '@/services/geocodingService'
 import { useFavorites } from '@/composables/useFavorites'
+import { haversineKm, bearingDeg, angleDiff, findNearestStation, trimShapeToStations } from '@/utils/geo'
+import { fetchOsrmRoute } from '@/services/osrmService'
+import { buildBusSegmentPath, buildWalkingPath } from '@/services/tripGeometry'
 
 const router = useRouter()
 
@@ -1025,7 +1028,7 @@ const nearbyStations = computed(() => {
     if (!station || typeof station.latitude !== 'number' || typeof station.longitude !== 'number') {
       continue
     }
-    const distance = calculateDistance(userLat, userLon, station.latitude, station.longitude)
+    const distance = haversineKm(userLat, userLon, station.latitude, station.longitude)
     stationsWithDistance.push({ ...station, distance })
   }
   
@@ -1072,7 +1075,7 @@ const getCachedDistance = (busId: string, busLat: number, busLon: number, userLa
     return cached.distance
   }
   
-  const distance = calculateDistance(userLat, userLon, busLat, busLon)
+  const distance = haversineKm(userLat, userLon, busLat, busLon)
   distanceCache.set(cacheKey, { distance, timestamp: Date.now() })
   
   // Curăță cache-ul vechi
@@ -1315,19 +1318,6 @@ onUnmounted(() => {
   busLayerGroup.clearLayers()
 })
 
-// Funcție pentru calcularea distanței dintre două puncte GPS (Haversine formula)
-const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const R = 6371 // Raza Pământului în km
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLon = (lon2 - lon1) * Math.PI / 180
-  const a = 
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c // Distanța în km
-}
-
 // ========================
 // MAP READY + CLICK
 // ========================
@@ -1486,24 +1476,8 @@ const calculateStreetRoute = async (stations: Station[]) => {
   isLoadingRoute.value = true
   
   try {
-    // Fallback: OSRM API
-    const coordinates = stations
-      .map(s => `${s.longitude},${s.latitude}`)
-      .join(';')
-    
-    const url = `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`
-    
-    const response = await fetch(url)
-    const data = await response.json()
-    
-    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-      const geometry = data.routes[0].geometry.coordinates
-      routePath.value = geometry.map((coord: number[]) => [coord[1], coord[0]] as [number, number])
-    } else {
-      routePath.value = stations.map(s => [s.latitude, s.longitude] as [number, number])
-    }
-  } catch {
-    routePath.value = stations.map(s => [s.latitude, s.longitude] as [number, number])
+    const route = await fetchOsrmRoute('driving', stations.map(st => ({ lat: st.latitude, lon: st.longitude })))
+    routePath.value = route?.path ?? stations.map(st => [st.latitude, st.longitude] as [number, number])
   } finally {
     isLoadingRoute.value = false
   }
@@ -1757,26 +1731,6 @@ const handleSnappedCoordinates = (
   snappedEnd.value = end
 }
 
-// Găsește cea mai apropiată stație de un punct
-const findNearestStation = (lat: number, lon: number, stations: typeof props.allStations): typeof props.allStations[0] | null => {
-  if (!stations || stations.length === 0) return null
-
-  let nearest = stations[0]
-  if (!nearest) return null
-
-  let minDistance = calculateDistance(lat, lon, nearest.latitude, nearest.longitude)
-  
-  for (const station of stations) {
-    const distance = calculateDistance(lat, lon, station.latitude, station.longitude)
-    if (distance < minDistance) {
-      minDistance = distance
-      nearest = station
-    }
-  }
-  
-  return nearest
-}
-
 // Calculează ambele trasee de mers pe jos (la stația de urcare și de la stația de coborâre)
 const calculateBothWalkingRoutes = async (
   userLoc: { lat: number; lon: number },
@@ -1784,49 +1738,18 @@ const calculateBothWalkingRoutes = async (
   endStation: typeof props.allStations[0],
   destination: { lat: number; lon: number; name: string }
 ) => {
-  try {
-    // Primul traseu: de la user la stația de urcare
-    const route1Url = `https://router.project-osrm.org/route/v1/foot/${userLoc.lon},${userLoc.lat};${startStation.longitude},${startStation.latitude}?overview=full&geometries=geojson`
-    const response1 = await fetch(route1Url)
-    const data1 = await response1.json()
-    
-    let firstDistance = 0
-    let firstTime = 0
-    
-    if (data1.code === 'Ok' && data1.routes && data1.routes.length > 0) {
-      const geometry1 = data1.routes[0].geometry.coordinates.map((coord: number[]) => 
-        [coord[1], coord[0]] as [number, number]
-      )
-      walkingPath.value = geometry1
-      firstDistance = data1.routes[0].distance
-      firstTime = Math.ceil(data1.routes[0].duration / 60)
-    }
-    
-    // Al doilea traseu: de la stația de coborâre la destinație
-    const route2Url = `https://router.project-osrm.org/route/v1/foot/${endStation.longitude},${endStation.latitude};${destination.lon},${destination.lat}?overview=full&geometries=geojson`
-    const response2 = await fetch(route2Url)
-    const data2 = await response2.json()
-    
-    let secondDistance = 0
-    let secondTime = 0
-    
-    if (data2.code === 'Ok' && data2.routes && data2.routes.length > 0) {
-      const geometry2 = data2.routes[0].geometry.coordinates.map((coord: number[]) => 
-        [coord[1], coord[0]] as [number, number]
-      )
-      secondWalkingPath.value = geometry2
-      secondDistance = data2.routes[0].distance
-      secondTime = Math.ceil(data2.routes[0].duration / 60)
-    }
-    
-    return {
-      firstDistance,
-      firstTime,
-      secondDistance,
-      secondTime
-    }
-  } catch {
-    return null
+  const [first, second] = await Promise.all([
+    fetchOsrmRoute('foot', [userLoc, { lat: startStation.latitude, lon: startStation.longitude }]),
+    fetchOsrmRoute('foot', [{ lat: endStation.latitude, lon: endStation.longitude }, destination])
+  ])
+  if (first) walkingPath.value = first.path
+  if (second) secondWalkingPath.value = second.path
+
+  return {
+    firstDistance: first?.distance ?? 0,
+    firstTime: first ? Math.ceil(first.duration / 60) : 0,
+    secondDistance: second?.distance ?? 0,
+    secondTime: second ? Math.ceil(second.duration / 60) : 0
   }
 }
 
@@ -2066,27 +1989,6 @@ const fetchAlternativeRoutes = async (startStationId: number, endStationId: numb
 }
 
 // Handler pentru selectarea unei rute alternative
-// Trunchiază shape-ul rutei între două stații (backend returnează ruta completă)
-const trimShapeToStations = (
-  points: Array<{latitude: number, longitude: number}>,
-  from: {latitude: number, longitude: number},
-  to: {latitude: number, longitude: number}
-): [number, number][] => {
-  if (!points || points.length === 0) return []
-  let fromIdx = 0, fromDist = Infinity, toIdx = points.length - 1, toDist = Infinity
-  for (let i = 0; i < points.length; i++) {
-    const point = points[i]
-    if (!point) continue
-    const dFrom = Math.hypot(point.latitude - from.latitude, point.longitude - from.longitude)
-    const dTo   = Math.hypot(point.latitude - to.latitude,   point.longitude - to.longitude)
-    if (dFrom < fromDist) { fromDist = dFrom; fromIdx = i }
-    if (dTo   < toDist)   { toDist   = dTo;   toIdx   = i }
-  }
-  const start = Math.min(fromIdx, toIdx)
-  const end   = Math.max(fromIdx, toIdx)
-  return points.slice(start, end + 1).map(p => [p.latitude, p.longitude] as [number, number])
-}
-
 const handleAlternativeRouteSelected = async (route: any) => {
   selectedAlternative.value = route
   showAlternatives.value = false
@@ -2114,16 +2016,7 @@ const handleAlternativeRouteSelected = async (route: any) => {
   if (busSegments.length === 0) {
     // Walk-only route selected
     if (route.routeType === 'walk-only' && savedUserLocation.value && savedDestination.value) {
-      try {
-        const walkUrl = `https://router.project-osrm.org/route/v1/foot/${savedUserLocation.value.lon},${savedUserLocation.value.lat};${savedDestination.value.lon},${savedDestination.value.lat}?overview=full&geometries=geojson`
-        const resp = await fetch(walkUrl)
-        const data = await resp.json()
-        if (data.routes?.[0]?.geometry?.coordinates) {
-          actualWalkingPath.value = data.routes[0].geometry.coordinates.map(
-            (c: number[]) => [c[1], c[0]] as [number, number]
-          )
-        }
-      } catch {}
+      actualWalkingPath.value = await buildWalkingPath(savedUserLocation.value, savedDestination.value)
 
       const walkSeg = route.segments[0]
       multimodalData.value = {
@@ -2171,57 +2064,15 @@ const handleAlternativeRouteSelected = async (route: any) => {
         return
       }
       
-      // Încărcăm segmentul GTFS de autobuz (doar partea pe care o parcurg)
-      const gtfsSegment = await apiService.getRouteSegment(
-        foundRoute.id, 
-        segment.startStation.id, 
-        segment.endStation.id
-      )
-      
-      let busPart: [number, number][] = gtfsSegment?.points
-        ? trimShapeToStations(gtfsSegment.points, segment.startStation, segment.endStation)
-        : []
-      
-      
-      // Dacă GTFS nu returnează suficiente puncte, calculăm cu OSRM
-      if (busPart.length < 2) {
-        const coords = `${segment.startStation.longitude},${segment.startStation.latitude};${segment.endStation.longitude},${segment.endStation.latitude}`
-        const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
-        try {
-          const resp = await fetch(url)
-          const data = await resp.json()
-          if (data.code === 'Ok' && data.routes?.[0]) {
-            busPart = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          }
-        } catch {
-        }
-      }
-      
-      // Calculăm traseele de mers pe jos dacă avem locația salvată
+      // Segmentul de autobuz (doar partea parcursă), GTFS sau OSRM ca rezervă
+      const busPart = await buildBusSegmentPath(foundRoute.id, segment.startStation, segment.endStation)
+
+      // Traseele de mers pe jos, dacă avem locația salvată
       if (savedUserLocation.value && savedDestination.value) {
-        // 1. Traseu de la user la prima stație
-        try {
-          const url1 = `https://router.project-osrm.org/route/v1/foot/${savedUserLocation.value.lon},${savedUserLocation.value.lat};${segment.startStation.longitude},${segment.startStation.latitude}?overview=full&geometries=geojson`
-          const resp1 = await fetch(url1)
-          const data1 = await resp1.json()
-          if (data1.code === 'Ok' && data1.routes?.[0]) {
-            actualWalkingPath.value = data1.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          }
-        } catch {
-        }
-        
-        // 2. Traseu de la ultima stație la destinație
-        try {
-          const url2 = `https://router.project-osrm.org/route/v1/foot/${segment.endStation.longitude},${segment.endStation.latitude};${savedDestination.value.lon},${savedDestination.value.lat}?overview=full&geometries=geojson`
-          const resp2 = await fetch(url2)
-          const data2 = await resp2.json()
-          if (data2.code === 'Ok' && data2.routes?.[0]) {
-            actualSecondWalkingPath.value = data2.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          }
-        } catch {
-        }
+        actualWalkingPath.value = await buildWalkingPath(savedUserLocation.value, { lat: segment.startStation.latitude, lon: segment.startStation.longitude })
+        actualSecondWalkingPath.value = await buildWalkingPath({ lat: segment.endStation.latitude, lon: segment.endStation.longitude }, savedDestination.value)
       }
-      
+
       // Construiește traseul COMPLET (ROȘU): mers pe jos + autobuz + mers pe jos
       completeRoutePath.value = [
         ...actualWalkingPath.value,
@@ -2275,32 +2126,7 @@ const handleAlternativeRouteSelected = async (route: any) => {
       const routes = await apiService.getRoutes()
       const foundRoute = routes.find(r => r.routeNumber === busSegment.routeNumber)
       if (!foundRoute) return []
-
-      let busPart: [number, number][] = []
-      try {
-        const gtfsSegment = await apiService.getRouteSegment(
-          foundRoute.id,
-          busSegment.startStation.id,
-          busSegment.endStation.id
-        )
-        busPart = gtfsSegment?.points
-          ? trimShapeToStations(gtfsSegment.points, busSegment.startStation, busSegment.endStation)
-          : []
-      } catch {}
-
-      if (busPart.length < 2) {
-        const coords = `${busSegment.startStation.longitude},${busSegment.startStation.latitude};${busSegment.endStation.longitude},${busSegment.endStation.latitude}`
-        const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
-        try {
-          const resp = await fetch(url)
-          const data = await resp.json()
-          if (data.code === 'Ok' && data.routes?.[0]) {
-            busPart = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          }
-        } catch {}
-      }
-
-      return busPart
+      return buildBusSegmentPath(foundRoute.id, busSegment.startStation, busSegment.endStation)
     }
 
     try {
@@ -2310,24 +2136,9 @@ const handleAlternativeRouteSelected = async (route: any) => {
 
       // Calculăm traseele de mers pe jos
       if (savedUserLocation.value && savedDestination.value) {
-        try {
-          const url1 = `https://router.project-osrm.org/route/v1/foot/${savedUserLocation.value.lon},${savedUserLocation.value.lat};${segment1.startStation.longitude},${segment1.startStation.latitude}?overview=full&geometries=geojson`
-          const resp1 = await fetch(url1)
-          const data1 = await resp1.json()
-          if (data1.code === 'Ok' && data1.routes?.[0]) {
-            actualWalkingPath.value = data1.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          }
-        } catch {}
-
         const lastSegmentEnd = segment3 ? segment3.endStation : segment2.endStation
-        try {
-          const url2 = `https://router.project-osrm.org/route/v1/foot/${lastSegmentEnd.longitude},${lastSegmentEnd.latitude};${savedDestination.value.lon},${savedDestination.value.lat}?overview=full&geometries=geojson`
-          const resp2 = await fetch(url2)
-          const data2 = await resp2.json()
-          if (data2.code === 'Ok' && data2.routes?.[0]) {
-            actualSecondWalkingPath.value = data2.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          }
-        } catch {}
+        actualWalkingPath.value = await buildWalkingPath(savedUserLocation.value, { lat: segment1.startStation.latitude, lon: segment1.startStation.longitude })
+        actualSecondWalkingPath.value = await buildWalkingPath({ lat: lastSegmentEnd.latitude, lon: lastSegmentEnd.longitude }, savedDestination.value)
       }
 
       // Construiește traseul COMPLET
@@ -2420,7 +2231,7 @@ const handleMultimodalRouteRequested = async (
   const alternatives = await fetchAlternativeRoutes(startStation.id, endStation.id)
 
   // Calculate direct walking distance and time
-  const directWalkDistanceKm = calculateDistance(userLoc.lat, userLoc.lon, destination.lat, destination.lon)
+  const directWalkDistanceKm = haversineKm(userLoc.lat, userLoc.lon, destination.lat, destination.lon)
   const directWalkTimeMin = Math.round((directWalkDistanceKm / 5) * 60) // 5 km/h walking speed
 
   // Add walking-only option when distance is walkable (< 3km ~36min)
@@ -2694,7 +2505,7 @@ const handleTripSelected = async (trip: TripHistoryItem) => {
 
   // Add walking option for trip history too
   const dest = savedDestination.value!
-  const walkDist = calculateDistance(trip.startCoords.lat, trip.startCoords.lon, dest.lat, dest.lon)
+  const walkDist = haversineKm(trip.startCoords.lat, trip.startCoords.lon, dest.lat, dest.lon)
   const walkTime = Math.round((walkDist / 5) * 60)
   const bestBus = alternatives.length > 0 ? alternatives[0].totalDuration : Infinity
   if (walkDist < 3 || walkTime <= bestBus) {
@@ -2844,44 +2655,13 @@ watch(() => props.tripPlan, async (plan) => {
     ? resolveStationByName(secondBusSegment?.endStationName)
     : null
 
-  const buildBusSegmentPath = async (routeId: number, fromStation: Station, toStation: Station) => {
-    let segmentPath: [number, number][] = []
-    try {
-      const segment = await apiService.getRouteSegment(routeId, fromStation.id, toStation.id)
-      if (segment?.points?.length) {
-        segmentPath = trimShapeToStations(segment.points, fromStation, toStation)
-      }
-    } catch {}
-
-    if (segmentPath.length < 2) {
-      try {
-        const coords = `${fromStation.longitude},${fromStation.latitude};${toStation.longitude},${toStation.latitude}`
-        const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
-        const data = await response.json()
-        if (data.code === 'Ok' && data.routes?.[0]) {
-          segmentPath = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-        }
-      } catch {}
-    }
-
-    return segmentPath
-  }
-
   // Colectăm toate căile pentru a calcula bounds
   const allPoints: [number, number][] = []
 
   // 1. Mers pe jos: origin → stație urcare (dacă originea e adresă, nu stație)
   if (plan.walkToStartMinutes && plan.walkToStartMinutes > 0) {
-    try {
-      const resp = await fetch(
-        `https://router.project-osrm.org/route/v1/foot/${plan.originLon},${plan.originLat};${boarding.longitude},${boarding.latitude}?overview=full&geometries=geojson`
-      )
-      const data = await resp.json()
-      if (data.code === 'Ok' && data.routes?.[0]) {
-        actualWalkingPath.value = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-        allPoints.push(...actualWalkingPath.value)
-      }
-    } catch {}
+    actualWalkingPath.value = await buildWalkingPath({ lat: plan.originLat, lon: plan.originLon }, { lat: boarding.latitude, lon: boarding.longitude })
+    allPoints.push(...actualWalkingPath.value)
   } else {
     allPoints.push([plan.originLat, plan.originLon])
   }
@@ -2921,16 +2701,8 @@ watch(() => props.tripPlan, async (plan) => {
 
   // 4. Mers pe jos: stație coborâre → destinație
   if (plan.walkToEndMinutes && plan.walkToEndMinutes > 0) {
-    try {
-      const resp = await fetch(
-        `https://router.project-osrm.org/route/v1/foot/${alighting.longitude},${alighting.latitude};${plan.destLon},${plan.destLat}?overview=full&geometries=geojson`
-      )
-      const data = await resp.json()
-      if (data.code === 'Ok' && data.routes?.[0]) {
-        actualSecondWalkingPath.value = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-        allPoints.push(...actualSecondWalkingPath.value)
-      }
-    } catch {}
+    actualSecondWalkingPath.value = await buildWalkingPath({ lat: alighting.latitude, lon: alighting.longitude }, { lat: plan.destLat, lon: plan.destLon })
+    allPoints.push(...actualSecondWalkingPath.value)
   } else {
     allPoints.push([plan.destLat, plan.destLon])
   }
@@ -3117,20 +2889,6 @@ const handleNotificationToggle = async (payload: { stationId: number; routeId?: 
 const stationETACache = new Map<string, Array<{ busId: string, routeId: number, routeNumber: string, eta: string, color: string }>>()
 const ETA_CACHE_DURATION = 5000 // 5 secunde
 
-/** Compass bearing (0-360°) from point A to point B */
-const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const dLon = (lon2 - lon1) * Math.PI / 180
-  const lat1R = lat1 * Math.PI / 180
-  const lat2R = lat2 * Math.PI / 180
-  const y = Math.sin(dLon) * Math.cos(lat2R)
-  const x = Math.cos(lat1R) * Math.sin(lat2R) - Math.sin(lat1R) * Math.cos(lat2R) * Math.cos(dLon)
-  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
-}
-
-/** Smallest absolute angle between two headings (0–180°) */
-const angleDiff = (a: number, b: number): number =>
-  Math.abs(((a - b) + 540) % 360 - 180)
-
 const getStationETAs = (stationId: number) => {
   // Cache per 5-second bucket
   const now = Date.now()
@@ -3153,14 +2911,14 @@ const getStationETAs = (stationId: number) => {
   for (const bus of buses) {
     if (typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') continue
 
-    const distKm = calculateDistance(bus.latitude, bus.longitude, stationLat, stationLon)
+    const distKm = haversineKm(bus.latitude, bus.longitude, stationLat, stationLon)
 
     // Ignore buses more than 4 km away or already past/at the stop (<30 m)
     if (distKm > 4 || distKm < 0.03) continue
 
     // Direction check — skip buses heading away (>90° off course)
     if (typeof bus.heading === 'number') {
-      const bearing = calculateBearing(bus.latitude, bus.longitude, stationLat, stationLon)
+      const bearing = bearingDeg(bus.latitude, bus.longitude, stationLat, stationLon)
       if (angleDiff(bus.heading, bearing) > 90) continue
     }
 
