@@ -3095,6 +3095,13 @@ const getStationETAs = (stationId: number) => {
   width: 100% !important;
 }
 
+/* Pe telefon zoom-ul se face cu degetele: ascundem butoanele */
+@media (max-width: 767px) {
+  :deep(.leaflet-control-zoom) {
+    display: none;
+  }
+}
+
 /* Controalele de zoom Leaflet în stilul butoanelor plutitoare */
 :deep(.leaflet-control-zoom) {
   border: none !important;
@@ -3323,38 +3330,20 @@ const getStationETAs = (stationId: number) => {
 }
 
 /* Responsive mobile */
-@media (max-width: 900px) {
+@media (max-width: 767px) {
   .sidebar-toggle-btn {
     top: 80px;
-    left: 10px;
-    width: 36px;
-    height: 36px;
+    left: 16px;
   }
 
   .top-right-buttons {
-    top: 10px;
-    right: 10px;
-    gap: 6px;
+    top: 16px;
+    right: 16px;
   }
 
   .top-right-buttons.top-right-buttons--docked {
     top: auto;
     bottom: 12px;
-    right: 10px;
-  }
-
-  .action-btn {
-    width: 44px;
-    height: 44px;
-  }
-
-  .action-btn.language-btn {
-    font-size: 11px;
-  }
-
-  .action-btn svg {
-    width: 20px;
-    height: 20px;
   }
 }
 

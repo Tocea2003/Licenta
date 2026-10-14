@@ -1,170 +1,174 @@
 <template>
   <div class="enhanced-search-container">
-    
+
     <!-- Origin Search (only in trip mode) -->
-    <div v-if="tripMode" class="search-box origin-box">
-      <div class="search-label">📍 {{ t('departureFromColon') }}</div>
-      <input
-        v-model="originQuery"
-        type="text"
-        :placeholder="`🔍 ${t('searchDeparturePlaceholder')}`"
-        class="search-input"
-        @input="handleOriginSearch"
-        @focus="!directionsActive && (showOriginResults = true)"
-      />
-      <button v-if="originQuery" @click="clearOriginSearch" class="clear-btn">✕</button>
-    </div>
-    
-    <div v-if="tripMode && showOriginResults && !directionsActive && (geocodeOriginResults.length > 0 || filteredOriginStations.length > 0)" class="search-results">
-      <!-- Rezultate geocoding (adrese) -->
+    <label v-if="tripMode" class="search-box origin-box">
+      <MapPin :size="18" class="search-icon" aria-hidden="true" />
+      <span class="search-text">
+        <span class="search-label">{{ t('departureFromColon') }}</span>
+        <input
+          v-model="originQuery"
+          type="text"
+          :placeholder="t('searchDeparturePlaceholder')"
+          class="search-input"
+          @input="handleOriginSearch"
+          @focus="!directionsActive && (showOriginResults = true)"
+        />
+      </span>
+      <button v-if="originQuery" type="button" @click="clearOriginSearch" class="clear-btn" :aria-label="t('close')"><X :size="16" aria-hidden="true" /></button>
+    </label>
+
+    <div v-if="tripMode && showOriginResults && !directionsActive && (geocodeOriginResults.length > 0 || filteredOriginStations.length > 0)" class="search-panel">
       <div v-if="geocodeOriginResults.length > 0" class="results-section">
-        <div class="section-title">📍 {{ t('addresses') }}</div>
-        <div
+        <div class="section-title">{{ t('addresses') }}</div>
+        <button
           v-for="(result, index) in geocodeOriginResults"
           :key="`origin-address-${index}`"
-          class="search-result-item address-result"
+          type="button"
+          class="result-row"
           @click="selectOriginAddress(result)"
         >
-          <span class="result-type-icon">{{ getTypeIcon(result.type) }}</span>
-          <div class="result-address-info">
-            <span class="result-name">{{ result.displayName }}</span>
-            <span v-if="result.addressDetails.suburb || result.addressDetails.city" class="result-address-sub">
+          <MapPin :size="16" class="row-icon" aria-hidden="true" />
+          <span class="row-text">
+            <span class="row-name">{{ result.displayName }}</span>
+            <span v-if="result.addressDetails.suburb || result.addressDetails.city" class="row-sub">
               {{ [result.addressDetails.suburb, result.addressDetails.city].filter(Boolean).join(', ') }}
             </span>
-          </div>
-        </div>
+          </span>
+        </button>
       </div>
-      
-      <!-- Stații -->
+
       <div v-if="filteredOriginStations.length > 0" class="results-section">
-        <div class="section-title">🚏 {{ t('stationsSection') }}</div>
-        <div
+        <div class="section-title">{{ t('stationsSection') }}</div>
+        <button
           v-for="station in filteredOriginStations"
           :key="`origin-station-${station.id}`"
-          class="search-result-item"
+          type="button"
+          class="result-row"
           @click="selectOriginStation(station)"
         >
-          <span class="result-name">{{ station.name }}</span>
-          <span v-if="selectedLocation" class="result-distance">
-            {{ calculateDistance(station.latitude, station.longitude) }} km
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Destination Search -->
-    <div class="search-box">
-      <div v-if="tripMode" class="search-label">🎯 {{ t('destinationColon') }}</div>
-      <input
-        v-model="searchQuery"
-        type="text"
-        :placeholder="tripMode ? `🔍 ${t('destinationPlaceholderShort')}` : `🔍 ${t('searchStationEllipsis')}`"
-        class="search-input"
-        @input="handleSearch"
-        @focus="!directionsActive && (showResults = true)"
-      />
-      <button v-if="searchQuery" @click="clearSearch" class="clear-btn">✕</button>
-    </div>
-
-    <!-- Quick Access Favorites (dropdown when focused, no query) -->
-    <div v-if="showResults && !directionsActive && !searchQuery && !originQuery && favorites.length > 0" class="quick-access">
-      <div class="section-title">⭐ {{ t('favorites') }}</div>
-      <div class="favorites-grid">
-        <button
-          v-for="favorite in favorites.slice(0, 3)"
-          :key="favorite.id"
-          @click="selectFavorite(favorite)"
-          class="favorite-chip"
-        >
-          <span class="chip-icon">{{ favorite.icon }}</span>
-          <span class="chip-name">{{ favorite.name }}</span>
+          <Bus :size="16" class="row-icon" aria-hidden="true" />
+          <span class="row-text"><span class="row-name">{{ station.name }}</span></span>
+          <span v-if="selectedLocation" class="row-meta">{{ calculateDistance(station.latitude, station.longitude) }} km</span>
         </button>
       </div>
     </div>
 
-    <!-- Recent Searches (dropdown when focused, no query) -->
-    <div v-if="showResults && !directionsActive && !searchQuery && !originQuery && latestSearches.length > 0" class="recent-searches">
-      <div class="section-title">
-        🕒 {{ t('recentSearches') }}
-        <button @click="clearAllSearches" class="clear-all-btn">{{ t('clearAll') }}</button>
-      </div>
-      <div
-        v-for="search in latestSearches.slice(0, 5)"
-        :key="search.id"
-        @click="selectRecentSearch(search)"
-        class="recent-item"
-      >
-        <span class="recent-icon">{{ getSearchIcon(search.type) }}</span>
-        <div class="recent-info">
-          <span class="recent-name">{{ search.result.name }}</span>
-          <span class="recent-time">{{ getRelativeTime(search.timestamp) }}</span>
-        </div>
-        <button @click.stop="removeSearch(search.id)" class="remove-btn">×</button>
-      </div>
-    </div>
+    <!-- Destination Search -->
+    <label class="search-box">
+      <Search :size="18" class="search-icon" aria-hidden="true" />
+      <span class="search-text">
+        <span v-if="tripMode" class="search-label">{{ t('destinationColon') }}</span>
+        <span v-else class="sr-only">{{ t('searchStationEllipsis') }}</span>
+        <input
+          v-model="searchQuery"
+          type="search"
+          :placeholder="tripMode ? t('destinationPlaceholderShort') : t('searchStationEllipsis')"
+          class="search-input"
+          @input="handleSearch"
+          @focus="!directionsActive && (showResults = true)"
+        />
+      </span>
+      <button v-if="searchQuery" type="button" @click="clearSearch" class="clear-btn" :aria-label="t('close')"><X :size="16" aria-hidden="true" /></button>
+    </label>
 
-    <div v-if="showResults && !directionsActive && (geocodeResults.length > 0 || filteredStations.length > 0)" class="search-results">
-      <!-- Rezultate geocoding (adrese) -->
-      <div v-if="geocodeResults.length > 0" class="results-section">
-        <div class="section-title">📍 {{ t('addresses') }}</div>
-        <div
-          v-for="(result, index) in geocodeResults"
-          :key="`address-${index}`"
-          class="search-result-item address-result"
-          @click="selectAddress(result)"
-        >
-          <span class="result-type-icon">{{ getTypeIcon(result.type) }}</span>
-          <div class="result-address-info">
-            <span class="result-name">{{ result.displayName }}</span>
-            <span v-if="result.addressDetails.suburb || result.addressDetails.city" class="result-address-sub">
-              {{ [result.addressDetails.suburb, result.addressDetails.city].filter(Boolean).join(', ') }}
-            </span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Stații -->
-      <div v-if="filteredStations.length > 0" class="results-section">
-        <div class="section-title">🚏 {{ t('stationsSection') }}</div>
-        <div
-          v-for="station in filteredStations"
-          :key="`station-${station.id}`"
-          class="search-result-item"
-          @click="selectStation(station)"
-        >
-          <div class="result-main">
-            <span class="result-name">{{ station.name }}</span>
-            <span v-if="selectedLocation" class="result-distance">
-              {{ calculateDistance(station.latitude, station.longitude) }} km
-            </span>
-          </div>
+    <!-- Favorites + recent searches (focused, no query) -->
+    <div
+      v-if="showResults && !directionsActive && !searchQuery && !originQuery && (favorites.length > 0 || latestSearches.length > 0)"
+      class="search-panel"
+    >
+      <div v-if="favorites.length > 0" class="results-section">
+        <div class="section-title">{{ t('favorites') }}</div>
+        <div class="favorites-row">
           <button
-            class="result-notification-btn"
-            :title="t('enableAlertsForStation')"
-            @click.stop="requestStationNotification(station)"
+            v-for="favorite in favorites.slice(0, 3)"
+            :key="favorite.id"
+            type="button"
+            @click="selectFavorite(favorite)"
+            class="favorite-chip"
           >
-            🔔
+            <component :is="favorite.type === 'home' ? Home : favorite.type === 'work' ? Briefcase : Star" :size="16" aria-hidden="true" />
+            <span class="chip-name">{{ favorite.name }}</span>
           </button>
         </div>
       </div>
+
+      <div v-if="latestSearches.length > 0" class="results-section">
+        <div class="section-title">
+          {{ t('recentSearches') }}
+          <button type="button" @click="clearAllSearches" class="link-btn">{{ t('clearAll') }}</button>
+        </div>
+        <div v-for="search in latestSearches.slice(0, 5)" :key="search.id" class="recent-row">
+          <button type="button" class="result-row" @click="selectRecentSearch(search)">
+            <component :is="search.type === 'station' ? Bus : History" :size="16" class="row-icon" aria-hidden="true" />
+            <span class="row-text">
+              <span class="row-name">{{ search.result.name }}</span>
+              <span class="row-sub">{{ getRelativeTime(search.timestamp) }}</span>
+            </span>
+          </button>
+          <button type="button" @click.stop="removeSearch(search.id)" class="clear-btn" :aria-label="t('close')"><X :size="14" aria-hidden="true" /></button>
+        </div>
+      </div>
     </div>
-    
-    <div v-if="showResults && !directionsActive && searchQuery && geocodeResults.length === 0 && filteredStations.length === 0 && !isSearching" class="no-results">
+
+    <div v-if="showResults && !directionsActive && (geocodeResults.length > 0 || filteredStations.length > 0)" class="search-panel">
+      <div v-if="filteredStations.length > 0" class="results-section">
+        <div class="section-title">{{ t('stationsSection') }}</div>
+        <div v-for="station in filteredStations" :key="`station-${station.id}`" class="recent-row">
+          <button type="button" class="result-row" @click="selectStation(station)">
+            <Bus :size="16" class="row-icon" aria-hidden="true" />
+            <span class="row-text"><span class="row-name">{{ station.name }}</span></span>
+            <span v-if="selectedLocation" class="row-meta">{{ calculateDistance(station.latitude, station.longitude) }} km</span>
+          </button>
+          <button
+            type="button"
+            class="clear-btn"
+            :title="t('enableAlertsForStation')"
+            :aria-label="t('enableAlertsForStation')"
+            @click.stop="requestStationNotification(station)"
+          >
+            <Bell :size="16" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      <div v-if="geocodeResults.length > 0" class="results-section">
+        <div class="section-title">{{ t('addresses') }}</div>
+        <button
+          v-for="(result, index) in geocodeResults"
+          :key="`address-${index}`"
+          type="button"
+          class="result-row"
+          @click="selectAddress(result)"
+        >
+          <MapPin :size="16" class="row-icon" aria-hidden="true" />
+          <span class="row-text">
+            <span class="row-name">{{ result.displayName }}</span>
+            <span v-if="result.addressDetails.suburb || result.addressDetails.city" class="row-sub">
+              {{ [result.addressDetails.suburb, result.addressDetails.city].filter(Boolean).join(', ') }}
+            </span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div v-if="showResults && !directionsActive && searchQuery && geocodeResults.length === 0 && filteredStations.length === 0 && !isSearching" class="search-panel search-panel--note">
       {{ t('noResultsFound') }}
     </div>
-    
-    <div v-if="isSearching" class="searching">
+
+    <div v-if="isSearching" class="search-panel search-panel--note">
       {{ t('searching') }}
     </div>
 
-    <!-- Search Routes Button (only in trip mode) -->
-    <button 
-      v-if="tripMode && originLocation && destinationLocation" 
-      @click="searchRoutes" 
+    <button
+      v-if="tripMode && originLocation && destinationLocation"
+      type="button"
+      @click="searchRoutes"
       class="search-routes-btn"
       :disabled="isSearchingRoutes"
     >
-      {{ isSearchingRoutes ? `🔍 ${t('searching')}` : `🚌 ${t('searchRoutesBtn')}` }}
+      <Search :size="18" aria-hidden="true" />
+      {{ isSearchingRoutes ? t('searching') : t('searchRoutesBtn') }}
     </button>
   </div>
 </template>
@@ -172,10 +176,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { Station } from '@/services/apiService'
+import { Bell, Briefcase, Bus, History, Home, MapPin, Search, Star, X } from 'lucide-vue-next'
 import { useFavorites, type FavoriteLocation } from '@/composables/useFavorites'
 import { useRecentSearches } from '@/composables/useRecentSearches'
 import { useStatistics } from '@/composables/useStatistics'
-import { searchAddresses, getTypeIcon, type GeocodingResult } from '@/services/geocodingService'
+import { searchAddresses, type GeocodingResult } from '@/services/geocodingService'
 import { useLanguage } from '@/composables/useLanguage'
 
 const { t } = useLanguage()
@@ -569,11 +574,6 @@ const removeSearch = (id: string) => {
   removeRecentSearch(id)
 }
 
-// Get icon for search type
-const getSearchIcon = (type: string): string => {
-  return type === 'station' ? '🚏' : '📍'
-}
-
 const clearSearch = () => {
   searchQuery.value = ''
   destinationLocation.value = null
@@ -599,448 +599,270 @@ if (typeof window !== 'undefined') {
 <style scoped>
 .enhanced-search-container {
   position: absolute;
-  top: 20px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 700;
-  width: 210px;
-  max-width: calc(100vw - 100px);
-}
-
-@media (min-width: 768px) and (max-width: 900px) {
-  .enhanced-search-container {
-    max-width: calc(100vw - 230px);
-  }
+  width: 360px;
+  max-width: calc(100% - 200px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--font-sans);
 }
 
 @media (max-width: 767px) {
   .enhanced-search-container {
-    left: 54px;
+    left: 16px;
+    right: 72px;
     transform: none;
-    top: 10px;
+    top: 16px;
     width: auto;
-    max-width: calc(100vw - 54px - 60px);
+    max-width: none;
   }
 }
 
-/* Quick Access Favorites */
-.quick-access {
-  margin-bottom: 12px;
-  background: var(--bg-primary);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: var(--shadow-md);
-}
-
-.favorites-grid {
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  margin-top: 8px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-  scrollbar-width: none;
-}
-.favorites-grid::-webkit-scrollbar { display: none; }
-
-.favorite-chip {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  flex-shrink: 0;
-  min-width: 64px;
-  max-width: 90px;
-}
-
-.favorite-chip:hover {
-  background: #eff6ff;
-  border-color: #3b82f6;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.15);
-}
-
-.chip-icon {
-  font-size: 20px;
-}
-
-.chip-name {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-primary);
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-/* Recent Searches */
-.recent-searches {
-  margin-bottom: 10px;
-  background: var(--bg-primary);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: var(--shadow-md);
-  overflow: hidden;
-}
-
-.recent-searches .section-title {
-  padding: 10px 12px 6px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.clear-all-btn {
-  background: none;
-  border: none;
-  color: #ef4444;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: all 0.2s;
-  text-transform: none;
-}
-
-.clear-all-btn:hover {
-  background: #fee2e2;
-}
-
-.recent-item {
-  padding: 8px 12px;
+.search-box {
   display: flex;
   align-items: center;
   gap: 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-  border-top: 1px solid var(--border-color);
+  min-height: 52px;
+  padding: 4px 6px 4px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-lg);
+  cursor: text;
 }
 
-.recent-item:first-child {
-  border-top: none;
+.search-box:focus-within {
+  box-shadow: var(--ring-focus), var(--shadow-lg);
 }
 
-.recent-item:hover {
-  background: var(--bg-secondary);
-}
-
-.recent-icon {
-  font-size: 18px;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-tertiary);
-  border-radius: 6px;
+.search-icon {
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
-.recent-info {
+.search-text {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-
-.recent-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.recent-time {
-  font-size: 10px;
-  color: var(--text-tertiary);
-}
-
-.remove-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: none;
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  font-size: 20px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.remove-btn:hover {
-  background: #fee2e2;
-}
-
-.search-box {
-  position: relative;
-  margin-bottom: 8px;
-}
-
-.origin-box {
-  margin-bottom: 8px;
 }
 
 .search-label {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 13px;
-  margin-bottom: 6px;
-  padding-left: 2px;
-  background: var(--bg-primary);
-  backdrop-filter: blur(8px);
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 6px;
+  font-size: 12px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
 }
 
 .search-input {
   width: 100%;
-  padding: 14px 40px 14px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  font-size: 15px;
-  background: var(--bg-primary);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--shadow-sm);
-  transition: all 0.2s;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 16px;
   color: var(--text-primary);
+  outline: none;
 }
 
 .search-input::placeholder {
   color: var(--text-tertiary);
 }
 
-.search-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  background: var(--bg-primary);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+.search-input::-webkit-search-cancel-button {
+  display: none;
 }
 
 .clear-btn {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--bg-tertiary);
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
   border: none;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--text-secondary);
-  font-size: 14px;
-  transition: all 0.2s;
 }
 
 .clear-btn:hover {
-  background: rgba(107, 114, 128, 0.2);
-  color: #374151;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
-.search-results {
-  margin-top: 8px;
-  background: var(--bg-primary);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: var(--shadow-lg);
-  max-height: 350px;
+/* Panou derulant cu rezultate */
+.search-panel {
+  max-height: 60vh;
   overflow-y: auto;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-xl);
+  padding: 6px 0;
 }
 
-.results-section {
-  padding: 4px 0;
+.search-panel--note {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
 }
 
 .results-section + .results-section {
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 4px;
+  padding-top: 4px;
 }
 
 .section-title {
-  padding: 10px 14px 6px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px 4px;
+  font-size: 12px;
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  color: var(--text-secondary);
 }
 
-.search-result-item {
-  padding: 12px 14px;
+.link-btn {
+  min-height: 32px;
+  border: none;
+  background: none;
+  color: var(--accent-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: var(--fw-bold);
+  letter-spacing: normal;
+  text-transform: none;
   cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: all 0.2s;
-  background: transparent;
 }
 
-.search-result-item:hover {
-  background: var(--bg-secondary);
-}
-
-.result-main {
+.recent-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  padding-right: 8px;
+}
+
+.result-row {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 6px 16px;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--text-primary);
+  cursor: pointer;
 }
 
-.address-result {
-  align-items: flex-start;
-  gap: 10px;
+.result-row:hover,
+.result-row:focus-visible {
+  background: var(--bg-secondary);
+  outline: none;
 }
 
-.result-type-icon {
-  font-size: 16px;
+.row-icon {
+  color: var(--text-secondary);
   flex-shrink: 0;
-  margin-top: 1px;
 }
 
-.result-address-info {
+.row-text {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
 }
 
-.result-address-sub {
-  font-size: 11px;
-  color: var(--text-tertiary);
+.row-name {
+  font-size: 15px;
+  font-weight: var(--fw-semibold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.result-name {
-  color: var(--text-primary);
-  font-size: 14px;
-  flex: 1;
-  font-weight: 500;
+.row-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
-.result-notification-btn {
-  border: 1px solid #93c5fd;
-  background: #eff6ff;
-  color: #1d4ed8;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
+.row-meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.favorites-row {
+  display: flex;
+  gap: 8px;
+  padding: 4px 16px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.favorite-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-full);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
   cursor: pointer;
-  transition: all 0.2s;
+}
+
+.favorite-chip:hover {
+  background: var(--bg-tertiary);
+}
+
+.chip-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-routes-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-}
-
-.result-notification-btn:hover {
-  background: #dbeafe;
-  transform: translateY(-1px);
-}
-
-.result-distance {
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-  margin-left: 12px;
-}
-
-.no-results, .searching {
-  margin-top: 8px;
-  padding: 16px;
-  background: var(--bg-primary);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: var(--shadow-md);
-  color: var(--text-secondary);
-  text-align: center;
-  font-size: 14px;
-}
-
-.searching {
-  color: #3b82f6;
-}
-
-/* Search Routes Button */
-.search-routes-btn {
-  width: 100%;
-  padding: 14px 20px;
-  margin-top: 12px;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
+  gap: 8px;
+  min-height: 48px;
   border: none;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 15px;
+  border-radius: var(--radius-md);
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
+  font: inherit;
+  font-weight: var(--fw-bold);
   cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-}
-
-.search-routes-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-}
-
-.search-routes-btn:active {
-  transform: translateY(0);
+  box-shadow: var(--shadow-lg);
 }
 
 .search-routes-btn:disabled {
   opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
 }
 
-/* Scrollbar styling */
-.search-results::-webkit-scrollbar {
-  width: 5px;
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
-
-.search-results::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.search-results::-webkit-scrollbar-thumb {
-  background: rgba(209, 213, 219, 0.8);
-  border-radius: 10px;
-}
-
-.search-results::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.9);
-}
-
 </style>
