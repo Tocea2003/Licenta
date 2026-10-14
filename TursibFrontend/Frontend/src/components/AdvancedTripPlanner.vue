@@ -286,7 +286,6 @@ const toLocation = ref<{ lat: number; lon: number; name: string } | null>(null)
 const selectedDate = ref('')
 const selectedTime = ref('')
 const searchMode = ref<'leaveNow' | 'departAt' | 'arriveBy'>('leaveNow')
-const userLocation = ref<{ lat: number; lon: number } | null>(null)
 
 // Suggestions
 const showFromSuggestions = ref(false)

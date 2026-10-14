@@ -81,14 +81,13 @@ namespace TursibBackend.Controllers
             // Hash password
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-            // Verifică dacă este primul user (devine Admin)
-            var isFirstUser = !await _context.Users.AnyAsync();
-
+            // Înregistrarea publică creează doar utilizatori obișnuiți.
+            // Contul de admin se creează la pornire din ADMIN_USERNAME / ADMIN_PASSWORD.
             var user = new User
             {
                 Username = request.Username,
                 PasswordHash = passwordHash,
-                Role = isFirstUser ? "Admin" : "User", // Primul user devine Admin, restul User
+                Role = "User",
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -147,15 +146,12 @@ namespace TursibBackend.Controllers
                         counter++;
                     }
 
-                    // Verifică dacă este primul user (devine Admin)
-                    var isFirstUser = !await _context.Users.AnyAsync();
-
                     user = new User
                     {
                         Username = username,
                         Email = googleUser.Email,
                         PasswordHash = "", // Google users nu au parolă locală
-                        Role = isFirstUser ? "Admin" : "User",
+                        Role = "User",
                         CreatedAt = DateTime.UtcNow
                     };
 

@@ -51,7 +51,7 @@ const findMyLocation = async () => {
           timeout: 18000,
           maximumAge: 0
         })
-      } catch (retryError) {
+      } catch {
         // Păstrăm prima poziție dacă retry-ul eșuează.
       }
     }

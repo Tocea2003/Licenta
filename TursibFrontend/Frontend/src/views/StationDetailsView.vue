@@ -83,7 +83,7 @@
             v-for="route in routes" 
             :key="route.id"
             class="route-card"
-            @click="viewRoute(route)"
+            @click="viewRoute()"
           >
             <div class="route-number" :style="{ background: route.color }">
               {{ route.routeNumber }}
@@ -122,7 +122,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import apiService, { type Station, type Route, type StationScheduleEntry } from '@/services/apiService'
 import { useFavorites } from '@/composables/useFavorites'
-import { enableNotifications as enableNotificationsComposable, disableNotifications, useNotifications } from '@/composables/useNotifications'
+import { enableNotifications as enableNotificationsComposable, disableNotifications } from '@/composables/useNotifications'
 import SkeletonLoader from '@/components/SkeletonLoader.vue'
 import { useLanguage } from '@/composables/useLanguage'
 
@@ -231,7 +231,7 @@ const goBack = () => {
   router.back()
 }
 
-const viewRoute = (routeData: Route) => {
+const viewRoute = () => {
   router.push('/')
   // TODO: trigger route selection in main map
 }
@@ -251,7 +251,6 @@ const addToFavorites = () => {
   alert(`✅ ${t('stationAddedFavorite')}`)
 }
 
-const { settings: notifSettings } = useNotifications()
 const notificationsActive = ref(false)
 const notificationMessage = ref('')
 const notificationMessageType = ref<'success' | 'error' | 'info'>('info')

@@ -128,6 +128,7 @@ public class RouteCalculatorServiceTests : IDisposable
         var stationE = MakeStation(24, "E", 45.80, 24.13);
 
         await SeedLinearRoute(1, "1", new[] { stationA, stationB, stationC });
+        _db.Stations.AddRange(stationD, stationE);
         _db.Routes.Add(MakeRoute(2, "2", "Route 2"));
         _db.RouteStations.AddRange(
             new RouteStation { Id = 2001, RouteId = 2, StationId = 22, Order = 1 },
@@ -251,6 +252,7 @@ public class RouteCalculatorServiceTests : IDisposable
         var stationD = MakeStation(93, "D", 45.81, 24.14);
 
         await SeedLinearRoute(1, "1", new[] { stationA, stationB });
+        _db.Stations.AddRange(stationC, stationD);
         _db.Routes.Add(MakeRoute(2, "2", "Route 2"));
         _db.RouteStations.AddRange(
             new RouteStation { Id = 3001, RouteId = 2, StationId = 92, Order = 1 },

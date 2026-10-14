@@ -84,19 +84,29 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-// Configurare CORS
+// Configurare CORS: exact origins only (no wildcard/substring matching)
+var allowedOrigins = new List<string>
+{
+    "https://licenta-six-sand.vercel.app",  // production frontend
+    "https://localhost",                    // Capacitor Android
+    "capacitor://localhost",                // Capacitor iOS
+};
+if (builder.Environment.IsDevelopment())
+{
+    allowedOrigins.AddRange(new[] { "http://localhost:8080", "http://localhost:5173", "http://localhost:5174" });
+}
+// Extra origins (e.g. Vercel preview URLs), comma-separated
+var extraOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+if (!string.IsNullOrWhiteSpace(extraOrigins))
+{
+    allowedOrigins.AddRange(extraOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowVueApp", policy =>
     {
-        policy.WithOrigins(
-                  "http://localhost:8080",
-                  "http://localhost:5173",
-                  "http://localhost:5174",
-                  "https://aplicatie-web-pentru-urmarirea-in-timp.onrender.com")
-              .SetIsOriginAllowed(origin =>
-                  origin.EndsWith(".vercel.app") ||
-                  origin.Contains("localhost"))
+        policy.WithOrigins(allowedOrigins.ToArray())
               .AllowAnyHeader()
               .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
     });
@@ -122,7 +132,33 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.Migrate();
+    // Migrations only apply to relational providers (tests use InMemory)
+    if (db.Database.IsRelational())
+        db.Database.Migrate();
+
+    // Bootstrap admin account from environment (only if no admin exists yet)
+    var adminUsername = Environment.GetEnvironmentVariable("ADMIN_USERNAME");
+    var adminPassword = Environment.GetEnvironmentVariable("ADMIN_PASSWORD");
+    if (!string.IsNullOrWhiteSpace(adminUsername) && !string.IsNullOrWhiteSpace(adminPassword)
+        && !db.Users.Any(u => u.Role == "Admin"))
+    {
+        var existing = db.Users.FirstOrDefault(u => u.Username == adminUsername);
+        if (existing != null)
+        {
+            existing.Role = "Admin";
+            existing.PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword);
+        }
+        else
+        {
+            db.Users.Add(new TursibBackend.Models.User
+            {
+                Username = adminUsername,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
+                Role = "Admin"
+            });
+        }
+        db.SaveChanges();
+    }
 }
 
 // Configure the HTTP request pipeline.

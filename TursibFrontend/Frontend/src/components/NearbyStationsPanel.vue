@@ -72,7 +72,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { Station } from '@/services/apiService'
 
 interface StationWithDistance extends Station {
@@ -95,7 +94,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const emit = defineEmits<{
+defineEmits<{
   close: []
   toggleNotification: [payload: { stationId: number; routeId?: number }]
 }>()
