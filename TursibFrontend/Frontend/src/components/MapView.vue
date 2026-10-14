@@ -3059,7 +3059,7 @@ const getStationETAs = (stationId: number) => {
 
 /* Asigură-te că Leaflet își încarcă corect iconițele */
 :deep(.leaflet-container) {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   height: 100% !important;
   width: 100% !important;
 }

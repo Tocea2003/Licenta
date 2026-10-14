@@ -1055,7 +1055,7 @@ defineExpose({ openPlanTab, setPlanOrigin, setPlanDestination })
   box-shadow: var(--shadow-xl);
   backdrop-filter: blur(18px);
   overflow: hidden;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-sans);
   position: relative;
 }
 

@@ -419,7 +419,7 @@ const handleLogout = () => {
   cursor: pointer;
   background: transparent;
   color: var(--text-secondary);
-  font: 500 12px/1 var(--font-sans, 'Inter', sans-serif);
+  font: 500 12px/1 var(--font-sans);
   transition: all 0.15s;
   white-space: nowrap;
 }
