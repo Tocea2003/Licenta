@@ -122,7 +122,33 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.Migrate();
+    // Migrations only apply to relational providers (tests use InMemory)
+    if (db.Database.IsRelational())
+        db.Database.Migrate();
+
+    // Bootstrap admin account from environment (only if no admin exists yet)
+    var adminUsername = Environment.GetEnvironmentVariable("ADMIN_USERNAME");
+    var adminPassword = Environment.GetEnvironmentVariable("ADMIN_PASSWORD");
+    if (!string.IsNullOrWhiteSpace(adminUsername) && !string.IsNullOrWhiteSpace(adminPassword)
+        && !db.Users.Any(u => u.Role == "Admin"))
+    {
+        var existing = db.Users.FirstOrDefault(u => u.Username == adminUsername);
+        if (existing != null)
+        {
+            existing.Role = "Admin";
+            existing.PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword);
+        }
+        else
+        {
+            db.Users.Add(new TursibBackend.Models.User
+            {
+                Username = adminUsername,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
+                Role = "Admin"
+            });
+        }
+        db.SaveChanges();
+    }
 }
 
 // Configure the HTTP request pipeline.
