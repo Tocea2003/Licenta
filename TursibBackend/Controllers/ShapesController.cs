@@ -38,13 +38,7 @@ namespace TursibBackend.Controllers
             }
 
             // Cache MISS - interogare database
-            var shapePoints = await _context.Database
-                .SqlQueryRaw<ShapePointDto>(@"
-                    SELECT Latitude, Longitude, Sequence 
-                    FROM Shapes 
-                    WHERE ShapeId = {0}
-                    ORDER BY Sequence", shapeId)
-                .ToListAsync();
+            var shapePoints = await QueryShapePoints(shapeId);
 
             if (!shapePoints.Any())
             {
@@ -80,12 +74,11 @@ namespace TursibBackend.Controllers
 
             // Cache MISS - interogare database
             // Găsește un trip reprezentativ pentru traseu (prima cursă)
-            var trip = await _context.Database
-                .SqlQueryRaw<TripDto>(@"
-                    SELECT TripId, ShapeId, DirectionId 
-                    FROM Trips 
-                    WHERE RouteId = {0}
-                    LIMIT 1", routeId)
+            var trip = await _context.Trips
+                .AsNoTracking()
+                .Where(t => t.RouteId == routeId)
+                .OrderBy(t => t.Id)
+                .Select(t => new TripDto { TripId = t.TripId, ShapeId = t.ShapeId, DirectionId = t.DirectionId ?? 0 })
                 .FirstOrDefaultAsync();
 
             if (trip == null || string.IsNullOrEmpty(trip.ShapeId))
@@ -95,13 +88,7 @@ namespace TursibBackend.Controllers
                 return NotFound();
             }
 
-            var shapePoints = await _context.Database
-                .SqlQueryRaw<ShapePointDto>(@"
-                    SELECT Latitude, Longitude, Sequence 
-                    FROM Shapes 
-                    WHERE ShapeId = {0}
-                    ORDER BY Sequence", trip.ShapeId)
-                .ToListAsync();
+            var shapePoints = await QueryShapePoints(trip.ShapeId);
 
             var result = new
             {
@@ -142,14 +129,13 @@ namespace TursibBackend.Controllers
 
             // Cache MISS - interogare database
             // Găsește un trip care conține AMBELE stații (nu LIMIT 1 arbitrar)
-            var trip = await _context.Database
-                .SqlQueryRaw<TripDto>(@"
-                    SELECT t.TripId, t.ShapeId, t.DirectionId
-                    FROM Trips t
-                    INNER JOIN StopTimes st1 ON st1.TripId = t.TripId AND st1.StopId = {1}
-                    INNER JOIN StopTimes st2 ON st2.TripId = t.TripId AND st2.StopId = {2}
-                    WHERE t.RouteId = {0}
-                    LIMIT 1", routeId, fromStationId, toStationId)
+            var trip = await _context.Trips
+                .AsNoTracking()
+                .Where(t => t.RouteId == routeId
+                    && _context.StopTimes.Any(st => st.TripId == t.TripId && st.StopId == fromStationId)
+                    && _context.StopTimes.Any(st => st.TripId == t.TripId && st.StopId == toStationId))
+                .OrderBy(t => t.Id)
+                .Select(t => new TripDto { TripId = t.TripId, ShapeId = t.ShapeId, DirectionId = t.DirectionId ?? 0 })
                 .FirstOrDefaultAsync();
 
             if (trip == null || string.IsNullOrEmpty(trip.ShapeId))
@@ -160,12 +146,11 @@ namespace TursibBackend.Controllers
             }
 
             // Găsește secvența stațiilor în trip
-            var stopSequences = await _context.Database
-                .SqlQueryRaw<StopSequenceDto>(@"
-                    SELECT StopId, StopSequence
-                    FROM StopTimes
-                    WHERE TripId = {0} AND (StopId = {1} OR StopId = {2})
-                    ORDER BY StopSequence", trip.TripId, fromStationId, toStationId)
+            var stopSequences = await _context.StopTimes
+                .AsNoTracking()
+                .Where(st => st.TripId == trip.TripId && (st.StopId == fromStationId || st.StopId == toStationId))
+                .OrderBy(st => st.StopSequence)
+                .Select(st => new StopSequenceDto { StopId = st.StopId, StopSequence = st.StopSequence })
                 .ToListAsync();
 
             if (stopSequences.Count != 2)
@@ -185,13 +170,7 @@ namespace TursibBackend.Controllers
             }
 
             // Obține toate punctele shape pentru întregul traseu
-            var allShapePoints = await _context.Database
-                .SqlQueryRaw<ShapePointDto>(@"
-                    SELECT Latitude, Longitude, Sequence 
-                    FROM Shapes 
-                    WHERE ShapeId = {0}
-                    ORDER BY Sequence", trip.ShapeId)
-                .ToListAsync();
+            var allShapePoints = await QueryShapePoints(trip.ShapeId);
 
             // Pentru simplitate, returnează toate punctele
             // În viitor, poți calcula exact care puncte shape corespund segmentului dintre stații
@@ -213,6 +192,14 @@ namespace TursibBackend.Controllers
 
             return Ok(result);
         }
+
+        private Task<List<ShapePointDto>> QueryShapePoints(string shapeId) =>
+            _context.ShapePoints
+                .AsNoTracking()
+                .Where(p => p.ShapeId == shapeId)
+                .OrderBy(p => p.Sequence)
+                .Select(p => new ShapePointDto { Latitude = p.Latitude, Longitude = p.Longitude, Sequence = p.Sequence })
+                .ToListAsync();
     }
 
     public class ShapePointDto

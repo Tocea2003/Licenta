@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.RateLimiting;
 using TursibBackend.Data;
 using TursibBackend.Services;
-using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,10 +29,14 @@ builder.Services.AddLogging(logging =>
     logging.AddDebug();
 });
 
-// Configurare DbContext pentru Entity Framework Core cu SQLite
+// Configurare DbContext pentru Entity Framework Core cu PostgreSQL
+// (local: Postgres din Homebrew/Docker, producție: Supabase via ConnectionStrings__DefaultConnection)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new InvalidOperationException(
+        "Connection string not configured. Set ConnectionStrings__DefaultConnection (env) or user-secrets.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"))
-           .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
+    options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure()));
 
 // Register Services
 builder.Services.AddScoped<JwtService>();
@@ -136,6 +139,24 @@ using (var scope = app.Services.CreateScope())
     if (db.Database.IsRelational())
         db.Database.Migrate();
 
+    // Comenzi de întreținere din linia de comandă (rulează și se opresc):
+    //   dotnet run -- copy-from-sqlite <cale TursibDb.db>
+    //   dotnet run -- import-gtfs <folder GTFS>
+    if (args.Length >= 2 && args[0] is "copy-from-sqlite" or "import-gtfs")
+    {
+        if (args[0] == "copy-from-sqlite")
+        {
+            Console.WriteLine($"📦 Copying data from {args[1]} ...");
+            await DatabaseMaintenance.CopyFromSqliteAsync(db, args[1]);
+        }
+        else
+        {
+            await new TursibBackend.GTFSImporter(db, args[1]).ImportAllAsync();
+        }
+        Console.WriteLine("✅ Done.");
+        return;
+    }
+
     // Bootstrap admin account from environment (only if no admin exists yet)
     var adminUsername = Environment.GetEnvironmentVariable("ADMIN_USERNAME");
     var adminPassword = Environment.GetEnvironmentVariable("ADMIN_PASSWORD");
@@ -200,7 +221,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 // Endpoint pentru import GTFS
-app.MapPost("/api/import-gtfs", (IConfiguration config, ILogger<Program> logger) =>
+app.MapPost("/api/import-gtfs", async (ApplicationDbContext db, IConfiguration config, ILogger<Program> logger) =>
 {
     try
     {
@@ -208,7 +229,7 @@ app.MapPost("/api/import-gtfs", (IConfiguration config, ILogger<Program> logger)
             ?? config["GtfsPath"]
             ?? throw new InvalidOperationException("GTFS path not configured");
 
-        TursibBackend.RunGTFSImport.ExecuteImport(gtfsPath);
+        await new TursibBackend.GTFSImporter(db, gtfsPath).ImportAllAsync();
         return Results.Ok(new { message = "GTFS import completed successfully" });
     }
     catch (Exception ex)
@@ -223,89 +244,32 @@ app.MapPost("/api/import-gtfs", (IConfiguration config, ILogger<Program> logger)
 // --- Debug endpoints: development only ---
 if (app.Environment.IsDevelopment())
 {
-    var connString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=TursibDb.db";
-
-    app.MapGet("/api/debug/routestations", () =>
+    app.MapGet("/api/debug/routestations", async (ApplicationDbContext db) =>
     {
-        using var conn = new Microsoft.Data.Sqlite.SqliteConnection(connString);
-        conn.Open();
+        var total = await db.RouteStations.CountAsync();
+        var byRoute = await db.RouteStations
+            .GroupBy(rs => rs.RouteId)
+            .Select(g => new { routeId = g.Key, stationCount = g.Count() })
+            .OrderBy(x => x.routeId)
+            .Take(10)
+            .ToListAsync();
 
-        var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM RouteStations";
-        var count = cmd.ExecuteScalar();
-
-        cmd.CommandText = "SELECT RouteId, COUNT(*) as StationCount FROM RouteStations GROUP BY RouteId LIMIT 10";
-        var results = new List<object>();
-        using (var reader = cmd.ExecuteReader())
-        {
-            while (reader.Read())
-            {
-                results.Add(new { routeId = reader.GetInt32(0), stationCount = reader.GetInt32(1) });
-            }
-        }
-
-        return Results.Ok(new { totalRouteStations = count, byRoute = results });
+        return Results.Ok(new { totalRouteStations = total, byRoute });
     })
     .WithName("DebugRouteStations")
     .RequireAuthorization(policy => policy.RequireRole("Admin"));
 
-    app.MapGet("/api/debug/gtfs", () =>
+    app.MapGet("/api/debug/gtfs", async (ApplicationDbContext db) =>
     {
-        using var conn = new Microsoft.Data.Sqlite.SqliteConnection(connString);
-        conn.Open();
-
-        var info = new Dictionary<string, object>();
-
-        var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM Routes";
-        info["routes"] = cmd.ExecuteScalar()!;
-
-        cmd.CommandText = "SELECT COUNT(*) FROM Stations";
-        info["stations"] = cmd.ExecuteScalar()!;
-
-        cmd.CommandText = "SELECT COUNT(*) FROM Trips";
-        info["trips"] = cmd.ExecuteScalar()!;
-
-        cmd.CommandText = "SELECT COUNT(*) FROM StopTimes";
-        info["stopTimes"] = cmd.ExecuteScalar()!;
-
-        cmd.CommandText = "SELECT COUNT(*) FROM Shapes";
-        info["shapes"] = cmd.ExecuteScalar()!;
-
-        cmd.CommandText = "SELECT TripId FROM Trips WHERE RouteId = 1 LIMIT 1";
-        var tripId = cmd.ExecuteScalar()?.ToString();
-        info["sampleTripRoute1"] = tripId ?? "none";
-
-        if (!string.IsNullOrEmpty(tripId))
+        return Results.Ok(new
         {
-            var countCmd = conn.CreateCommand();
-            countCmd.CommandText = "SELECT COUNT(*) FROM StopTimes WHERE TripId = @tid";
-            countCmd.Parameters.AddWithValue("@tid", tripId);
-            info["stopsInSampleTrip"] = countCmd.ExecuteScalar()!;
-
-            var stopsCmd = conn.CreateCommand();
-            stopsCmd.CommandText = "SELECT StopId, StopSequence FROM StopTimes WHERE TripId = @tid ORDER BY StopSequence LIMIT 3";
-            stopsCmd.Parameters.AddWithValue("@tid", tripId);
-            var stops = new List<object>();
-            using (var reader = stopsCmd.ExecuteReader())
-            {
-                while (reader.Read())
-                {
-                    var stopId = reader.GetInt32(0);
-                    var seq = reader.GetInt32(1);
-
-                    var checkCmd = conn.CreateCommand();
-                    checkCmd.CommandText = "SELECT COUNT(*) FROM Stations WHERE Id = @sid";
-                    checkCmd.Parameters.AddWithValue("@sid", stopId);
-                    var exists = Convert.ToInt32(checkCmd.ExecuteScalar()) > 0;
-
-                    stops.Add(new { stopId, sequence = seq, existsInStations = exists });
-                }
-            }
-            info["sampleStops"] = stops;
-        }
-
-        return Results.Ok(info);
+            routes = await db.Routes.CountAsync(),
+            stations = await db.Stations.CountAsync(),
+            trips = await db.Trips.CountAsync(),
+            stopTimes = await db.StopTimes.CountAsync(),
+            shapes = await db.ShapePoints.CountAsync(),
+            serviceCalendars = await db.ServiceCalendars.CountAsync()
+        });
     })
     .WithName("DebugGTFS")
     .RequireAuthorization(policy => policy.RequireRole("Admin"));

@@ -5,7 +5,6 @@ using Microsoft.Extensions.Caching.Memory;
 using TursibBackend.Data;
 using TursibBackend.Models;
 using System.Diagnostics;
-using Microsoft.Data.Sqlite;
 
 namespace TursibBackend.Controllers
 {
@@ -152,54 +151,23 @@ namespace TursibBackend.Controllers
                 return NotFound(new { message = $"Stația cu ID-ul {id} nu a fost găsită." });
             }
 
-            // Interogăm StopTimes și Trips via SQL raw deoarece aceste tabele
-            // sunt create de GTFSImporter și nu sunt gestionate de EF Core
-            var connectionString = _context.Database.GetConnectionString();
-            var schedule = new List<StationScheduleEntry>();
-
-            using (var conn = new SqliteConnection(connectionString))
-            {
-                await conn.OpenAsync();
-                var sql = @"
-                    SELECT 
-                        r.Id AS RouteId,
-                        r.RouteNumber,
-                        r.Name AS RouteName,
-                        r.Color AS RouteColor,
-                        t.TripHeadsign AS Direction,
-                        t.DirectionId,
-                        st.ArrivalTime,
-                        st.DepartureTime
-                    FROM StopTimes st
-                    JOIN Trips t ON st.TripId = t.TripId
-                    JOIN Routes r ON t.RouteId = r.Id
-                    WHERE st.StopId = @StopId
-                    ORDER BY r.RouteNumber, t.DirectionId, st.DepartureTime";
-
-                using (var cmd = conn.CreateCommand())
+            var schedule = await (
+                from st in _context.StopTimes.AsNoTracking()
+                join t in _context.Trips.AsNoTracking() on st.TripId equals t.TripId
+                join r in _context.Routes.AsNoTracking() on t.RouteId equals r.Id
+                where st.StopId == id
+                orderby r.RouteNumber, t.DirectionId, st.DepartureTime
+                select new StationScheduleEntry
                 {
-                    cmd.CommandText = sql;
-                    cmd.Parameters.Add(new SqliteParameter("@StopId", id));
-
-                    using (var reader = await cmd.ExecuteReaderAsync())
-                    {
-                        while (await reader.ReadAsync())
-                        {
-                            schedule.Add(new StationScheduleEntry
-                            {
-                                RouteId = reader.GetInt32(0),
-                                RouteNumber = reader.GetString(1),
-                                RouteName = reader.GetString(2),
-                                RouteColor = reader.IsDBNull(3) ? null : reader.GetString(3),
-                                Direction = reader.IsDBNull(4) ? null : reader.GetString(4),
-                                DirectionId = reader.GetInt32(5),
-                                ArrivalTime = reader.GetString(6),
-                                DepartureTime = reader.GetString(7)
-                            });
-                        }
-                    }
-                }
-            }
+                    RouteId = r.Id,
+                    RouteNumber = r.RouteNumber,
+                    RouteName = r.Name,
+                    RouteColor = r.Color,
+                    Direction = t.TripHeadsign,
+                    DirectionId = t.DirectionId ?? 0,
+                    ArrivalTime = st.ArrivalTime,
+                    DepartureTime = st.DepartureTime
+                }).ToListAsync();
 
             _cache.Set(cacheKey, schedule, TimeSpan.FromMinutes(CACHE_DURATION_MINUTES));
 

@@ -1,638 +1,273 @@
-using System;
-using Microsoft.Data.Sqlite;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using CsvHelper;
 using CsvHelper.Configuration;
+using Microsoft.EntityFrameworkCore;
+using TursibBackend.Data;
+using TursibBackend.Models;
+using RouteModel = TursibBackend.Models.Route;
 
 namespace TursibBackend
 {
+    /// <summary>
+    /// Importă un feed GTFS (routes, stops, shapes, trips, calendar, stop_times)
+    /// în baza de date, prin EF Core. Totul rulează într-o singură tranzacție:
+    /// dacă importul eșuează, datele vechi rămân neatinse.
+    /// </summary>
     public class GTFSImporter
     {
-        private readonly string connectionString;
-        private readonly string gtfsPath;
+        private const int BatchSize = 5000;
 
-        public GTFSImporter(string connectionString, string gtfsPath)
+        private readonly ApplicationDbContext _db;
+        private readonly string _gtfsPath;
+
+        public GTFSImporter(ApplicationDbContext db, string gtfsPath)
         {
-            this.connectionString = connectionString;
-            this.gtfsPath = gtfsPath;
+            _db = db;
+            _gtfsPath = gtfsPath;
         }
 
-        public void ImportAll()
+        public async Task ImportAllAsync()
         {
+            if (!Directory.Exists(_gtfsPath))
+                throw new DirectoryNotFoundException($"GTFS directory not found: {_gtfsPath}");
+
             Console.WriteLine("🚀 Starting GTFS import...");
-            
-            CreateTables();
-            ClearExistingData();
-            ImportRoutes();
-            ImportStops();
-            ImportShapes();
-            ImportTrips();
-            ImportCalendar();
-            ImportStopTimes();
-            ImportRouteStations();
-            UpdateBusRoutes();
-            
+            _db.ChangeTracker.AutoDetectChangesEnabled = false;
+
+            // Strategia cu retry (EnableRetryOnFailure) cere ca tranzacția să fie o unitate re-executabilă
+            var strategy = _db.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                _db.ChangeTracker.Clear();
+                await using var transaction = await _db.Database.BeginTransactionAsync();
+
+                await ClearExistingData();
+                await ImportRoutes();
+                await ImportStops();
+                await ImportShapes();
+                await ImportTrips();
+                await ImportCalendar();
+                var stopTimes = await ImportStopTimes();
+                await ImportRouteStations(stopTimes);
+                await UpdateBusRoutes();
+                await DatabaseMaintenance.ResetIdentitySequencesAsync(_db);
+
+                await transaction.CommitAsync();
+            });
             Console.WriteLine("✅ GTFS import completed!");
         }
 
-        private void CreateTables()
-        {
-            Console.WriteLine("📋 Creating tables...");
-            using (var conn = new SqliteConnection(connectionString))
-            {
-                conn.Open();
-                
-                // Create Shapes table
-                var createShapesSql = @"
-                CREATE TABLE IF NOT EXISTS Shapes (
-                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    ShapeId TEXT NOT NULL,
-                    Latitude REAL NOT NULL,
-                    Longitude REAL NOT NULL,
-                    Sequence INTEGER NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS IX_Shapes_ShapeId ON Shapes(ShapeId);";
-                
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = createShapesSql;
-                    cmd.ExecuteNonQuery();
-                }
-
-                // Create Trips table
-                var createTripsSql = @"
-                CREATE TABLE IF NOT EXISTS Trips (
-                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    TripId TEXT NOT NULL,
-                    RouteId INTEGER NOT NULL,
-                    ServiceId TEXT,
-                    TripHeadsign TEXT,
-                    DirectionId INTEGER,
-                    ShapeId TEXT,
-                    FOREIGN KEY (RouteId) REFERENCES Routes(Id)
-                );
-                CREATE INDEX IF NOT EXISTS IX_Trips_TripId ON Trips(TripId);
-                CREATE INDEX IF NOT EXISTS IX_Trips_RouteId ON Trips(RouteId);";
-                
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = createTripsSql;
-                    cmd.ExecuteNonQuery();
-                }
-
-                // Create StopTimes table
-                var createStopTimesSql = @"
-                CREATE TABLE IF NOT EXISTS StopTimes (
-                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    TripId TEXT NOT NULL,
-                    ArrivalTime TEXT NOT NULL,
-                    DepartureTime TEXT NOT NULL,
-                    StopId INTEGER NOT NULL,
-                    StopSequence INTEGER NOT NULL,
-                    FOREIGN KEY (StopId) REFERENCES Stations(Id)
-                );
-                CREATE INDEX IF NOT EXISTS IX_StopTimes_TripId ON StopTimes(TripId);
-                CREATE INDEX IF NOT EXISTS IX_StopTimes_StopId ON StopTimes(StopId);";
-                
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = createStopTimesSql;
-                    cmd.ExecuteNonQuery();
-                }
-
-                // Create ServiceCalendars table (din calendar.txt)
-                var createCalendarSql = @"
-                CREATE TABLE IF NOT EXISTS ServiceCalendars (
-                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    ServiceId TEXT NOT NULL,
-                    Monday INTEGER NOT NULL DEFAULT 0,
-                    Tuesday INTEGER NOT NULL DEFAULT 0,
-                    Wednesday INTEGER NOT NULL DEFAULT 0,
-                    Thursday INTEGER NOT NULL DEFAULT 0,
-                    Friday INTEGER NOT NULL DEFAULT 0,
-                    Saturday INTEGER NOT NULL DEFAULT 0,
-                    Sunday INTEGER NOT NULL DEFAULT 0,
-                    StartDate TEXT NOT NULL,
-                    EndDate TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS IX_ServiceCalendars_ServiceId ON ServiceCalendars(ServiceId);";
-
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = createCalendarSql;
-                    cmd.ExecuteNonQuery();
-                }
-            }
-            Console.WriteLine("✅ Tables created");
-        }
-
-        private void ClearExistingData()
+        private async Task ClearExistingData()
         {
             Console.WriteLine("🗑️  Clearing existing data...");
-            using (var conn = new SqliteConnection(connectionString))
-            {
-                conn.Open();
-                var commands = new[]
-                {
-                    "DELETE FROM StopTimes",
-                    "DELETE FROM Trips",
-                    "DELETE FROM Shapes",
-                    "DELETE FROM ServiceCalendars",
-                    "DELETE FROM RouteStations",
-                    "DELETE FROM Stations",
-                    "DELETE FROM Routes"
-                };
-
-                foreach (var cmd in commands)
-                {
-                    try
-                    {
-                        using (var command = conn.CreateCommand())
-                        {
-                            command.CommandText = cmd;
-                            command.ExecuteNonQuery();
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"  Warning: {ex.Message}");
-                    }
-                }
-            }
-            Console.WriteLine("✅ Data cleared");
+            // Autobuzele referă rutele: le detașăm înainte de ștergere
+            await _db.Buses.ExecuteUpdateAsync(b => b.SetProperty(x => x.CurrentRouteId, (int?)null));
+            await _db.StopTimes.ExecuteDeleteAsync();
+            await _db.Trips.ExecuteDeleteAsync();
+            await _db.ShapePoints.ExecuteDeleteAsync();
+            await _db.ServiceCalendars.ExecuteDeleteAsync();
+            await _db.RouteStations.ExecuteDeleteAsync();
+            await _db.Stations.ExecuteDeleteAsync();
+            await _db.Routes.ExecuteDeleteAsync();
         }
 
-        private void ImportRoutes()
+        private async Task ImportRoutes()
         {
-            Console.WriteLine("📍 Importing routes...");
-            var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+            var routes = ReadCsv("routes.txt").Select(r => new RouteModel
             {
-                HasHeaderRecord = true,
-            };
+                Id = int.Parse(r["route_id"]),
+                RouteNumber = r["route_short_name"],
+                Name = r["route_long_name"],
+                Color = "#" + r["route_color"]
+            }).ToList();
 
-            using (var reader = new StreamReader(Path.Combine(gtfsPath, "routes.txt")))
-            using (var csv = new CsvReader(reader, config))
-            using (var conn = new SqliteConnection(connectionString))
-            {
-                conn.Open();
-                var records = csv.GetRecords<dynamic>().ToList();
-                
-                int successCount = 0;
-                foreach (var record in records)
-                {
-                    try
-                    {
-                        var dict = (IDictionary<string, object>)record;
-                        var routeId = dict["route_id"].ToString();
-                        var shortName = dict["route_short_name"].ToString();
-                        var longName = dict["route_long_name"].ToString();
-                        var color = dict["route_color"].ToString();
-                        
-                        var sql = @"INSERT OR REPLACE INTO Routes (Id, RouteNumber, Name, Color) 
-                                    VALUES (@Id, @RouteNumber, @Name, @Color)";
-                        
-                        using (var cmd = conn.CreateCommand())
-                        {
-                            cmd.CommandText = sql;
-                            cmd.Parameters.Add(new SqliteParameter("@Id", int.Parse(routeId)));
-                            cmd.Parameters.Add(new SqliteParameter("@RouteNumber", shortName));
-                            cmd.Parameters.Add(new SqliteParameter("@Name", longName));
-                            cmd.Parameters.Add(new SqliteParameter("@Color", "#" + color));
-                            cmd.ExecuteNonQuery();
-                        }
-                        successCount++;
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"  ⚠️ Error importing route: {ex.Message}");
-                    }
-                }
-                Console.WriteLine($"✅ Imported {successCount}/{records.Count} routes");
-            }
+            await InsertInBatches(routes);
+            Console.WriteLine($"✅ Imported {routes.Count} routes");
         }
 
-        private void ImportStops()
+        private async Task ImportStops()
         {
-            Console.WriteLine("🚏 Importing stops...");
-            var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+            var stations = ReadCsv("stops.txt").Select(r => new Station
             {
-                HasHeaderRecord = true,
-            };
+                Id = int.Parse(r["stop_id"]),
+                Name = r["stop_name"],
+                Latitude = ParseDouble(r["stop_lat"]),
+                Longitude = ParseDouble(r["stop_lon"])
+            }).ToList();
 
-            using (var reader = new StreamReader(Path.Combine(gtfsPath, "stops.txt")))
-            using (var csv = new CsvReader(reader, config))
-            using (var conn = new SqliteConnection(connectionString))
-            {
-                conn.Open();
-                var records = csv.GetRecords<dynamic>().ToList();
-                
-                foreach (var record in records)
-                {
-                    var dict = (IDictionary<string, object>)record;
-                    var stopId = dict["stop_id"].ToString();
-                    var stopName = dict["stop_name"].ToString();
-                    var lat = double.Parse(dict["stop_lat"].ToString(), CultureInfo.InvariantCulture);
-                    var lon = double.Parse(dict["stop_lon"].ToString(), CultureInfo.InvariantCulture);
-                    
-                    var sql = @"INSERT INTO Stations (Id, Name, Latitude, Longitude) 
-                                VALUES (@Id, @Name, @Latitude, @Longitude)";
-                    
-                    using (var cmd = conn.CreateCommand())
-                    {
-                        cmd.CommandText = sql;
-                        cmd.Parameters.Add(new SqliteParameter("@Id", int.Parse(stopId)));
-                        cmd.Parameters.Add(new SqliteParameter("@Name", stopName));
-                        cmd.Parameters.Add(new SqliteParameter("@Latitude", lat));
-                        cmd.Parameters.Add(new SqliteParameter("@Longitude", lon));
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-                Console.WriteLine($"✅ Imported {records.Count} stops");
-            }
+            await InsertInBatches(stations);
+            Console.WriteLine($"✅ Imported {stations.Count} stops");
         }
 
-        private void ImportShapes()
+        private async Task ImportShapes()
         {
-            Console.WriteLine("🗺️  Importing shapes...");
-            var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+            var points = ReadCsv("shapes.txt").Select(r => new ShapePoint
             {
-                HasHeaderRecord = true,
-            };
+                ShapeId = r["shape_id"],
+                Latitude = ParseDouble(r["shape_pt_lat"]),
+                Longitude = ParseDouble(r["shape_pt_lon"]),
+                Sequence = int.Parse(r["shape_pt_sequence"])
+            }).ToList();
 
-            using (var reader = new StreamReader(Path.Combine(gtfsPath, "shapes.txt")))
-            using (var csv = new CsvReader(reader, config))
-            using (var conn = new SqliteConnection(connectionString))
-            {
-                conn.Open();
-                
-                using (var transaction = conn.BeginTransaction())
-                {
-                    var records = csv.GetRecords<dynamic>().ToList();
-                    var count = 0;
-                    
-                    foreach (var record in records)
-                    {
-                        var dict = (IDictionary<string, object>)record;
-                        var shapeId = dict["shape_id"].ToString();
-                        var lat = double.Parse(dict["shape_pt_lat"].ToString(), CultureInfo.InvariantCulture);
-                        var lon = double.Parse(dict["shape_pt_lon"].ToString(), CultureInfo.InvariantCulture);
-                        var seq = int.Parse(dict["shape_pt_sequence"].ToString());
-                        
-                        var sql = @"INSERT INTO Shapes (ShapeId, Latitude, Longitude, Sequence) 
-                                    VALUES (@ShapeId, @Latitude, @Longitude, @Sequence)";
-                        
-                        using (var cmd = conn.CreateCommand())
-                        {
-                            cmd.CommandText = sql;
-                            cmd.Parameters.Add(new SqliteParameter("@ShapeId", shapeId));
-                            cmd.Parameters.Add(new SqliteParameter("@Latitude", lat));
-                            cmd.Parameters.Add(new SqliteParameter("@Longitude", lon));
-                            cmd.Parameters.Add(new SqliteParameter("@Sequence", seq));
-                            cmd.ExecuteNonQuery();
-                        }
-                        
-                        count++;
-                        if (count % 5000 == 0)
-                        {
-                            Console.WriteLine($"  Imported {count} shape points...");
-                        }
-                    }
-                    
-                    transaction.Commit();
-                    Console.WriteLine($"✅ Imported {records.Count} shape points");
-                }
-            }
+            await InsertInBatches(points);
+            Console.WriteLine($"✅ Imported {points.Count} shape points");
         }
 
-        private void ImportTrips()
+        private async Task ImportTrips()
         {
-            Console.WriteLine("🚌 Importing trips...");
-            var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+            var trips = ReadCsv("trips.txt").Select(r => new Trip
             {
-                HasHeaderRecord = true,
-            };
+                TripId = r["trip_id"],
+                RouteId = int.Parse(r["route_id"]),
+                ServiceId = r["service_id"],
+                TripHeadsign = r.GetValueOrDefault("trip_headsign"),
+                DirectionId = int.TryParse(r.GetValueOrDefault("direction_id"), out var dir) ? dir : null,
+                ShapeId = r.GetValueOrDefault("shape_id")
+            }).ToList();
 
-            using (var reader = new StreamReader(Path.Combine(gtfsPath, "trips.txt")))
-            using (var csv = new CsvReader(reader, config))
-            using (var conn = new SqliteConnection(connectionString))
-            {
-                conn.Open();
-                
-                using (var transaction = conn.BeginTransaction())
-                {
-                    var records = csv.GetRecords<dynamic>().ToList();
-                    
-                    foreach (var record in records)
-                    {
-                        var dict = (IDictionary<string, object>)record;
-                        var tripId = dict["trip_id"].ToString();
-                        var routeId = int.Parse(dict["route_id"].ToString());
-                        var serviceId = dict["service_id"].ToString();
-                        var headsign = dict["trip_headsign"].ToString();
-                        var directionId = int.Parse(dict["direction_id"].ToString());
-                        var shapeId = dict["shape_id"].ToString();
-                        
-                        var sql = @"INSERT INTO Trips (TripId, RouteId, ServiceId, TripHeadsign, DirectionId, ShapeId) 
-                                    VALUES (@TripId, @RouteId, @ServiceId, @TripHeadsign, @DirectionId, @ShapeId)";
-                        
-                        using (var cmd = conn.CreateCommand())
-                        {
-                            cmd.CommandText = sql;
-                            cmd.Parameters.Add(new SqliteParameter("@TripId", tripId));
-                            cmd.Parameters.Add(new SqliteParameter("@RouteId", routeId));
-                            cmd.Parameters.Add(new SqliteParameter("@ServiceId", serviceId));
-                            cmd.Parameters.Add(new SqliteParameter("@TripHeadsign", headsign));
-                            cmd.Parameters.Add(new SqliteParameter("@DirectionId", directionId));
-                            cmd.Parameters.Add(new SqliteParameter("@ShapeId", shapeId));
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
-                    
-                    transaction.Commit();
-                    Console.WriteLine($"✅ Imported {records.Count} trips");
-                }
-            }
+            await InsertInBatches(trips);
+            Console.WriteLine($"✅ Imported {trips.Count} trips");
         }
 
-        private void ImportCalendar()
+        private async Task ImportCalendar()
         {
-            Console.WriteLine("📅 Importing calendar (service days)...");
-            var calendarPath = Path.Combine(gtfsPath, "calendar.txt");
-            if (!File.Exists(calendarPath))
+            if (!File.Exists(Path.Combine(_gtfsPath, "calendar.txt")))
             {
                 Console.WriteLine("  ⚠️ calendar.txt not found, skipping calendar import");
                 return;
             }
 
-            var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+            // GTFS folosește YYYYMMDD; stocăm yyyy-MM-dd pentru comparații lexicografice
+            static string ToIsoDate(string raw) => $"{raw[..4]}-{raw.Substring(4, 2)}-{raw.Substring(6, 2)}";
+
+            var calendars = ReadCsv("calendar.txt").Select(r => new ServiceCalendar
             {
-                HasHeaderRecord = true,
-            };
+                ServiceId = r["service_id"],
+                Monday = r["monday"] == "1",
+                Tuesday = r["tuesday"] == "1",
+                Wednesday = r["wednesday"] == "1",
+                Thursday = r["thursday"] == "1",
+                Friday = r["friday"] == "1",
+                Saturday = r["saturday"] == "1",
+                Sunday = r["sunday"] == "1",
+                StartDate = ToIsoDate(r["start_date"]),
+                EndDate = ToIsoDate(r["end_date"])
+            }).ToList();
 
-            using (var reader = new StreamReader(calendarPath))
-            using (var csv = new CsvReader(reader, config))
-            using (var conn = new SqliteConnection(connectionString))
-            {
-                conn.Open();
-
-                using (var transaction = conn.BeginTransaction())
-                {
-                    var records = csv.GetRecords<dynamic>().ToList();
-
-                    foreach (var record in records)
-                    {
-                        var dict = (IDictionary<string, object>)record;
-                        var serviceId = dict["service_id"].ToString();
-                        var monday = int.Parse(dict["monday"].ToString());
-                        var tuesday = int.Parse(dict["tuesday"].ToString());
-                        var wednesday = int.Parse(dict["wednesday"].ToString());
-                        var thursday = int.Parse(dict["thursday"].ToString());
-                        var friday = int.Parse(dict["friday"].ToString());
-                        var saturday = int.Parse(dict["saturday"].ToString());
-                        var sunday = int.Parse(dict["sunday"].ToString());
-
-                        // GTFS dates are YYYYMMDD format → convert to yyyy-MM-dd
-                        var startDateRaw = dict["start_date"].ToString();
-                        var endDateRaw = dict["end_date"].ToString();
-                        var startDate = $"{startDateRaw.Substring(0,4)}-{startDateRaw.Substring(4,2)}-{startDateRaw.Substring(6,2)}";
-                        var endDate = $"{endDateRaw.Substring(0,4)}-{endDateRaw.Substring(4,2)}-{endDateRaw.Substring(6,2)}";
-
-                        var sql = @"INSERT INTO ServiceCalendars
-                                    (ServiceId, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday, StartDate, EndDate)
-                                    VALUES (@ServiceId, @Monday, @Tuesday, @Wednesday, @Thursday, @Friday, @Saturday, @Sunday, @StartDate, @EndDate)";
-
-                        using (var cmd = conn.CreateCommand())
-                        {
-                            cmd.CommandText = sql;
-                            cmd.Parameters.Add(new SqliteParameter("@ServiceId", serviceId));
-                            cmd.Parameters.Add(new SqliteParameter("@Monday", monday));
-                            cmd.Parameters.Add(new SqliteParameter("@Tuesday", tuesday));
-                            cmd.Parameters.Add(new SqliteParameter("@Wednesday", wednesday));
-                            cmd.Parameters.Add(new SqliteParameter("@Thursday", thursday));
-                            cmd.Parameters.Add(new SqliteParameter("@Friday", friday));
-                            cmd.Parameters.Add(new SqliteParameter("@Saturday", saturday));
-                            cmd.Parameters.Add(new SqliteParameter("@Sunday", sunday));
-                            cmd.Parameters.Add(new SqliteParameter("@StartDate", startDate));
-                            cmd.Parameters.Add(new SqliteParameter("@EndDate", endDate));
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
-
-                    transaction.Commit();
-                    Console.WriteLine($"✅ Imported {records.Count} calendar entries");
-                }
-            }
+            await InsertInBatches(calendars);
+            Console.WriteLine($"✅ Imported {calendars.Count} calendar entries");
         }
 
-        private void ImportStopTimes()
+        private async Task<List<StopTime>> ImportStopTimes()
         {
-            Console.WriteLine("⏰ Importing stop times...");
-            var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+            var stopTimes = ReadCsv("stop_times.txt").Select(r => new StopTime
             {
-                HasHeaderRecord = true,
-            };
+                TripId = r["trip_id"],
+                ArrivalTime = r["arrival_time"],
+                DepartureTime = r["departure_time"],
+                StopId = int.Parse(r["stop_id"]),
+                StopSequence = int.Parse(r["stop_sequence"])
+            }).ToList();
 
-            using (var reader = new StreamReader(Path.Combine(gtfsPath, "stop_times.txt")))
-            using (var csv = new CsvReader(reader, config))
-            using (var conn = new SqliteConnection(connectionString))
-            {
-                conn.Open();
-                
-                using (var transaction = conn.BeginTransaction())
-                {
-                    var records = csv.GetRecords<dynamic>().ToList();
-                    var count = 0;
-                    
-                    foreach (var record in records)
-                    {
-                        var dict = (IDictionary<string, object>)record;
-                        var tripId = dict["trip_id"].ToString();
-                        var arrivalTime = dict["arrival_time"].ToString();
-                        var departureTime = dict["departure_time"].ToString();
-                        var stopId = int.Parse(dict["stop_id"].ToString());
-                        var stopSeq = int.Parse(dict["stop_sequence"].ToString());
-                        
-                        var sql = @"INSERT INTO StopTimes (TripId, ArrivalTime, DepartureTime, StopId, StopSequence) 
-                                    VALUES (@TripId, @ArrivalTime, @DepartureTime, @StopId, @StopSequence)";
-                        
-                        using (var cmd = conn.CreateCommand())
-                        {
-                            cmd.CommandText = sql;
-                            cmd.Parameters.Add(new SqliteParameter("@TripId", tripId));
-                            cmd.Parameters.Add(new SqliteParameter("@ArrivalTime", arrivalTime));
-                            cmd.Parameters.Add(new SqliteParameter("@DepartureTime", departureTime));
-                            cmd.Parameters.Add(new SqliteParameter("@StopId", stopId));
-                            cmd.Parameters.Add(new SqliteParameter("@StopSequence", stopSeq));
-                            cmd.ExecuteNonQuery();
-                        }
-                        
-                        count++;
-                        if (count % 5000 == 0)
-                        {
-                            Console.WriteLine($"  Imported {count} stop times...");
-                        }
-                    }
-                    
-                    transaction.Commit();
-                    Console.WriteLine($"✅ Imported {records.Count} stop times");
-                }
-            }
+            await InsertInBatches(stopTimes);
+            Console.WriteLine($"✅ Imported {stopTimes.Count} stop times");
+            return stopTimes;
         }
 
-        private void ImportRouteStations()
+        /// <summary>
+        /// Pentru fiecare traseu alege o cursă reprezentativă și salvează stațiile ei în ordine.
+        /// Alegem numărul de stații cel mai frecvent (mode), apoi cea mai devreme cursă din acel grup,
+        /// ca să evităm cursele speciale/outlier (ex: o singură cursă extinsă).
+        /// </summary>
+        private async Task ImportRouteStations(List<StopTime> stopTimes)
         {
             Console.WriteLine("🔗 Creating route-station relationships...");
-            using (var conn = new SqliteConnection(connectionString))
-            {
-                conn.Open();
+            var trips = await _db.Trips.AsNoTracking().ToListAsync();
+            var stopsByTrip = stopTimes
+                .GroupBy(st => st.TripId)
+                .ToDictionary(g => g.Key, g => g.OrderBy(st => st.StopSequence).ToList());
 
-                // Pentru fiecare traseu, găsește o cursă reprezentativă și extrage stațiile în ordine
-                var routes = conn.CreateCommand();
-                routes.CommandText = "SELECT DISTINCT RouteId FROM Trips";
-                
-                using (var reader = routes.ExecuteReader())
+            var routeStations = new List<RouteStation>();
+            foreach (var routeTrips in trips.GroupBy(t => t.RouteId))
+            {
+                var stats = routeTrips
+                    .Where(t => stopsByTrip.ContainsKey(t.TripId))
+                    .Select(t => new
+                    {
+                        Stops = stopsByTrip[t.TripId],
+                        FirstDeparture = stopsByTrip[t.TripId].Min(st => st.DepartureTime)
+                    })
+                    .ToList();
+                if (stats.Count == 0)
                 {
-                    var routeIds = new List<int>();
-                    while (reader.Read())
-                    {
-                        routeIds.Add(reader.GetInt32(0));
-                    }
-                    
-                    int totalStations = 0;
-                    foreach (var routeId in routeIds)
-                    {
-                        // Găsește o cursă reprezentativă pentru acest traseu.
-                        // Alegem mai întâi numărul de stații cel mai frecvent (mode),
-                        // apoi cea mai devreme cursă din acel grup. Astfel evităm
-                        // cursele speciale/outlier (ex: doar o singură cursă extinsă).
-                        var tripCmd = conn.CreateCommand();
-                        tripCmd.CommandText = @"
-                            WITH trip_stats AS (
-                                SELECT t.TripId,
-                                       COUNT(st.StopId) AS StopCount,
-                                       MIN(st.DepartureTime) AS FirstDeparture
-                                FROM Trips t
-                                JOIN StopTimes st ON st.TripId = t.TripId
-                                WHERE t.RouteId = @RouteId
-                                GROUP BY t.TripId
-                            ),
-                            stop_count_freq AS (
-                                SELECT StopCount, COUNT(*) AS Freq
-                                FROM trip_stats
-                                GROUP BY StopCount
-                            ),
-                            best_stop_count AS (
-                                SELECT StopCount
-                                FROM stop_count_freq
-                                ORDER BY Freq DESC, StopCount DESC
-                                LIMIT 1
-                            )
-                            SELECT ts.TripId
-                            FROM trip_stats ts
-                            JOIN best_stop_count bsc ON bsc.StopCount = ts.StopCount
-                            ORDER BY ts.FirstDeparture ASC
-                            LIMIT 1";
-                        tripCmd.Parameters.Add(new SqliteParameter("@RouteId", routeId));
-                        
-                        var tripId = tripCmd.ExecuteScalar()?.ToString();
-                        if (string.IsNullOrEmpty(tripId))
-                        {
-                            Console.WriteLine($"  ⚠️ No trip found for route {routeId}");
-                            continue;
-                        }
-                        
-                        // Obține stațiile în ordine pentru această cursă
-                        var stopsCmd = conn.CreateCommand();
-                        stopsCmd.CommandText = @"
-                            SELECT StopId, StopSequence 
-                            FROM StopTimes 
-                            WHERE TripId = @TripId 
-                            ORDER BY StopSequence";
-                        stopsCmd.Parameters.Add(new SqliteParameter("@TripId", tripId));
-                        
-                        int routeStationCount = 0;
-                        using (var stopsReader = stopsCmd.ExecuteReader())
-                        {
-                            var order = 1;  // Start from 1, not 0
-                            while (stopsReader.Read())
-                            {
-                                var stopId = stopsReader.GetInt32(0);
-                                
-                                // Inserează în RouteStations
-                                var insertCmd = conn.CreateCommand();
-                                insertCmd.CommandText = @"
-                                    INSERT OR IGNORE INTO RouteStations (RouteId, StationId, ""Order"") 
-                                    VALUES (@RouteId, @StationId, @Order)";
-                                insertCmd.Parameters.Add(new SqliteParameter("@RouteId", routeId));
-                                insertCmd.Parameters.Add(new SqliteParameter("@StationId", stopId));
-                                insertCmd.Parameters.Add(new SqliteParameter("@Order", order));
-                                
-                                try
-                                {
-                                    var affected = insertCmd.ExecuteNonQuery();
-                                    if (affected > 0)
-                                    {
-                                        routeStationCount++;
-                                        totalStations++;
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    Console.WriteLine($"  ⚠️ Error inserting route {routeId}, station {stopId}, order {order}: {ex.Message}");
-                                }
-                                
-                                order++;
-                            }
-                        }
-                        
-                        if (routeStationCount > 0)
-                        {
-                            Console.WriteLine($"  ✓ Route {routeId}: {routeStationCount} stations");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"  ⚠️ Route {routeId}: No stations added");
-                        }
-                    }
-                    
-                    Console.WriteLine($"✅ Created {totalStations} route-station relationships for {routeIds.Count} routes");
+                    Console.WriteLine($"  ⚠️ No trip found for route {routeTrips.Key}");
+                    continue;
+                }
+
+                var bestStopCount = stats
+                    .GroupBy(s => s.Stops.Count)
+                    .OrderByDescending(g => g.Count())
+                    .ThenByDescending(g => g.Key)
+                    .First().Key;
+
+                var representative = stats
+                    .Where(s => s.Stops.Count == bestStopCount)
+                    .OrderBy(s => s.FirstDeparture, StringComparer.Ordinal)
+                    .First();
+
+                var order = 1;
+                foreach (var stop in representative.Stops)
+                {
+                    routeStations.Add(new RouteStation { RouteId = routeTrips.Key, StationId = stop.StopId, Order = order++ });
                 }
             }
+
+            await InsertInBatches(routeStations);
+            Console.WriteLine($"✅ Created {routeStations.Count} route-station relationships");
         }
 
-        private void UpdateBusRoutes()
+        private async Task UpdateBusRoutes()
         {
-            Console.WriteLine("🚌 Updating bus routes...");
-            using (var conn = new SqliteConnection(connectionString))
+            // Mapare manuală: Autobuz ID → Route ID din GTFS
+            var busRouteMapping = new Dictionary<int, int>
             {
-                conn.Open();
+                { 1, 1 },   // Autobuz 1 → Linia 1
+                { 2, 11 },  // Autobuz 2 → Linia 11
+                { 3, 2 }    // Autobuz 3 → Linia 2
+            };
 
-                // Mapare manuală: Autobuz ID → Route ID din GTFS
-                var busRouteMapping = new Dictionary<int, int>
-                {
-                    { 1, 1 },   // Autobuz 1 → Linia 1
-                    { 2, 11 },  // Autobuz 2 → Linia 11
-                    { 3, 2 }    // Autobuz 3 → Linia 2
-                };
-
-                foreach (var mapping in busRouteMapping)
-                {
-                    var cmd = conn.CreateCommand();
-                    cmd.CommandText = "UPDATE Buses SET CurrentRouteId = @RouteId WHERE Id = @BusId";
-                    cmd.Parameters.Add(new SqliteParameter("@RouteId", mapping.Value));
-                    cmd.Parameters.Add(new SqliteParameter("@BusId", mapping.Key));
-                    
-                    var affected = cmd.ExecuteNonQuery();
-                    if (affected > 0)
-                    {
-                        Console.WriteLine($"  ✓ Bus {mapping.Key} → Route {mapping.Value}");
-                    }
-                }
-                
-                Console.WriteLine("✅ Bus routes updated");
+            foreach (var (busId, routeId) in busRouteMapping)
+            {
+                if (!await _db.Routes.AnyAsync(r => r.Id == routeId))
+                    continue;
+                await _db.Buses
+                    .Where(b => b.Id == busId)
+                    .ExecuteUpdateAsync(b => b.SetProperty(x => x.CurrentRouteId, routeId));
             }
         }
+
+        private async Task InsertInBatches<T>(List<T> items) where T : class
+        {
+            for (int i = 0; i < items.Count; i += BatchSize)
+            {
+                _db.AddRange(items.Skip(i).Take(BatchSize));
+                await _db.SaveChangesAsync();
+                _db.ChangeTracker.Clear();
+            }
+        }
+
+        private List<Dictionary<string, string>> ReadCsv(string fileName)
+        {
+            var config = new CsvConfiguration(CultureInfo.InvariantCulture) { HasHeaderRecord = true };
+            using var reader = new StreamReader(Path.Combine(_gtfsPath, fileName));
+            using var csv = new CsvReader(reader, config);
+
+            return csv.GetRecords<dynamic>()
+                .Select(record => ((IDictionary<string, object>)record)
+                    .ToDictionary(kv => kv.Key, kv => kv.Value?.ToString() ?? string.Empty))
+                .ToList();
+        }
+
+        private static double ParseDouble(string value) => double.Parse(value, CultureInfo.InvariantCulture);
     }
 }

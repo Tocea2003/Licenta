@@ -2,7 +2,6 @@ using TursibBackend.Data;
 using TursibBackend.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Data.Sqlite;
 using RouteModel = TursibBackend.Models.Route;
 
 namespace TursibBackend.Services
@@ -402,66 +401,44 @@ namespace TursibBackend.Services
         /// </summary>
         private async Task<HashSet<int>> GetActiveRouteIdsForDate(DateTime targetDate)
         {
-            var activeRouteIds = new HashSet<int>();
+            // Fără calendar importat nu filtrăm nimic (set gol = toate rutele)
+            if (!await _context.ServiceCalendars.AnyAsync())
+                return new HashSet<int>();
 
-            var dayColumn = targetDate.DayOfWeek switch
+            var activeServiceIds = ActiveCalendars(targetDate).Select(sc => sc.ServiceId);
+
+            // RouteId-urile care au cel puțin o cursă cu ServiceId activ în ziua selectată
+            var routeIds = await _context.Trips
+                .AsNoTracking()
+                .Where(t => t.ServiceId != null && activeServiceIds.Contains(t.ServiceId))
+                .Select(t => t.RouteId)
+                .Distinct()
+                .ToListAsync();
+
+            return routeIds.ToHashSet();
+        }
+
+        /// <summary>
+        /// Calendarele GTFS valabile în data dată și care circulă în ziua săptămânii respective.
+        /// Datele sunt stocate ca "yyyy-MM-dd", deci comparația lexicografică e corectă.
+        /// </summary>
+        private IQueryable<ServiceCalendar> ActiveCalendars(DateTime targetDate)
+        {
+            var date = targetDate.ToString("yyyy-MM-dd");
+            var inRange = _context.ServiceCalendars
+                .AsNoTracking()
+                .Where(sc => string.Compare(sc.StartDate, date) <= 0 && string.Compare(sc.EndDate, date) >= 0);
+
+            return targetDate.DayOfWeek switch
             {
-                DayOfWeek.Monday => "Monday",
-                DayOfWeek.Tuesday => "Tuesday",
-                DayOfWeek.Wednesday => "Wednesday",
-                DayOfWeek.Thursday => "Thursday",
-                DayOfWeek.Friday => "Friday",
-                DayOfWeek.Saturday => "Saturday",
-                DayOfWeek.Sunday => "Sunday",
-                _ => "Monday"
+                DayOfWeek.Monday => inRange.Where(sc => sc.Monday),
+                DayOfWeek.Tuesday => inRange.Where(sc => sc.Tuesday),
+                DayOfWeek.Wednesday => inRange.Where(sc => sc.Wednesday),
+                DayOfWeek.Thursday => inRange.Where(sc => sc.Thursday),
+                DayOfWeek.Friday => inRange.Where(sc => sc.Friday),
+                DayOfWeek.Saturday => inRange.Where(sc => sc.Saturday),
+                _ => inRange.Where(sc => sc.Sunday)
             };
-
-            var connString = _context.Database.GetConnectionString();
-            if (string.IsNullOrEmpty(connString))
-                return activeRouteIds;
-
-            using var conn = new SqliteConnection(connString);
-            await conn.OpenAsync();
-
-            // Verifică dacă tabelul ServiceCalendars există
-            using (var checkCmd = conn.CreateCommand())
-            {
-                checkCmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ServiceCalendars'";
-                var tableExists = Convert.ToInt64(await checkCmd.ExecuteScalarAsync()) > 0;
-                if (!tableExists)
-                    return activeRouteIds;
-            }
-
-            // Verifică dacă tabelul are date
-            using (var countCmd = conn.CreateCommand())
-            {
-                countCmd.CommandText = "SELECT COUNT(*) FROM ServiceCalendars";
-                var count = Convert.ToInt64(await countCmd.ExecuteScalarAsync());
-                if (count == 0)
-                    return activeRouteIds;
-            }
-
-            // Query: găsește RouteId-urile care au cel puțin un Trip cu ServiceId
-            // activ în ziua selectată și în intervalul de date valid
-            var sql = $@"
-                SELECT DISTINCT t.RouteId
-                FROM Trips t
-                INNER JOIN ServiceCalendars sc ON sc.ServiceId = t.ServiceId
-                WHERE sc.{dayColumn} = 1
-                  AND @TargetDate >= sc.StartDate
-                  AND @TargetDate <= sc.EndDate";
-
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = sql;
-            cmd.Parameters.Add(new SqliteParameter("@TargetDate", targetDate.ToString("yyyy-MM-dd")));
-
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                activeRouteIds.Add(reader.GetInt32(0));
-            }
-
-            return activeRouteIds;
         }
 
         #endregion
@@ -816,66 +793,50 @@ namespace TursibBackend.Services
 
         private async Task<ScheduleIndex?> BuildScheduleIndexAsync(DateTime targetDate)
         {
-            var connString = _context.Database.GetConnectionString();
-            if (string.IsNullOrEmpty(connString))
-                return null; // ex. provider in-memory din teste -> fallback estimativ
-
-            var activeServiceIds = await GetActiveServiceIdsForDate(targetDate, connString);
+            var activeServiceIds = await ActiveCalendars(targetDate)
+                .Select(sc => sc.ServiceId)
+                .Distinct()
+                .ToListAsync();
             if (activeServiceIds.Count == 0)
                 return null;
+
+            // Toate opririle curselor active, în ordinea (TripId, StopSequence)
+            var rows = await (
+                from t in _context.Trips.AsNoTracking()
+                join st in _context.StopTimes.AsNoTracking() on t.TripId equals st.TripId
+                where t.ServiceId != null && activeServiceIds.Contains(t.ServiceId)
+                orderby t.TripId, st.StopSequence
+                select new
+                {
+                    t.TripId,
+                    t.RouteId,
+                    DirectionId = t.DirectionId ?? 0,
+                    st.StopId,
+                    st.ArrivalTime,
+                    st.DepartureTime
+                }).ToListAsync();
 
             var trips = new List<ScheduleTrip>();
             var tripIndexByTripId = new Dictionary<string, int>();
 
-            using (var conn = new SqliteConnection(connString))
+            foreach (var row in rows)
             {
-                await conn.OpenAsync();
-
-                // Tabelele StopTimes/Trips trebuie să existe
-                using (var checkCmd = conn.CreateCommand())
+                if (!tripIndexByTripId.TryGetValue(row.TripId, out var idx))
                 {
-                    checkCmd.CommandText =
-                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('StopTimes','Trips')";
-                    if (Convert.ToInt64(await checkCmd.ExecuteScalarAsync()) < 2)
-                        return null;
-                }
-
-                // Aducem toate opririle curselor active, în ordinea (TripId, StopSequence).
-                // Filtrăm pe ServiceId-urile active în memorie pentru a evita un IN gigant.
-                var sql = @"
-                    SELECT t.TripId, t.RouteId, COALESCE(t.DirectionId, 0) AS DirectionId,
-                           t.ServiceId, st.StopId, st.ArrivalTime, st.DepartureTime
-                    FROM Trips t
-                    INNER JOIN StopTimes st ON st.TripId = t.TripId
-                    ORDER BY t.TripId, st.StopSequence";
-
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = sql;
-                using var reader = await cmd.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
-                {
-                    var serviceId = reader.IsDBNull(3) ? "" : reader.GetString(3);
-                    if (!activeServiceIds.Contains(serviceId))
-                        continue;
-
-                    var tripId = reader.GetString(0);
-                    if (!tripIndexByTripId.TryGetValue(tripId, out var idx))
+                    idx = trips.Count;
+                    tripIndexByTripId[row.TripId] = idx;
+                    trips.Add(new ScheduleTrip
                     {
-                        idx = trips.Count;
-                        tripIndexByTripId[tripId] = idx;
-                        trips.Add(new ScheduleTrip
-                        {
-                            RouteId = reader.GetInt32(1),
-                            DirectionId = reader.GetInt32(2)
-                        });
-                    }
-
-                    var arrSec = ParseGtfsTime(reader.GetString(5));
-                    var depSec = ParseGtfsTime(reader.GetString(6));
-                    if (arrSec < 0 || depSec < 0) continue;
-
-                    trips[idx].Stops.Add(new ScheduleStop(reader.GetInt32(4), arrSec, depSec));
+                        RouteId = row.RouteId,
+                        DirectionId = row.DirectionId
+                    });
                 }
+
+                var arrSec = ParseGtfsTime(row.ArrivalTime);
+                var depSec = ParseGtfsTime(row.DepartureTime);
+                if (arrSec < 0 || depSec < 0) continue;
+
+                trips[idx].Stops.Add(new ScheduleStop(row.StopId, arrSec, depSec));
             }
 
             if (trips.Count == 0)
@@ -917,53 +878,6 @@ namespace TursibBackend.Services
                 Stations = stationDict,
                 Routes = routeDict
             };
-        }
-
-        /// <summary>
-        /// Determină ServiceId-urile active într-o anumită zi (din ServiceCalendars).
-        /// </summary>
-        private async Task<HashSet<string>> GetActiveServiceIdsForDate(DateTime targetDate, string connString)
-        {
-            var result = new HashSet<string>();
-
-            var dayColumn = targetDate.DayOfWeek switch
-            {
-                DayOfWeek.Monday => "Monday",
-                DayOfWeek.Tuesday => "Tuesday",
-                DayOfWeek.Wednesday => "Wednesday",
-                DayOfWeek.Thursday => "Thursday",
-                DayOfWeek.Friday => "Friday",
-                DayOfWeek.Saturday => "Saturday",
-                DayOfWeek.Sunday => "Sunday",
-                _ => "Monday"
-            };
-
-            using var conn = new SqliteConnection(connString);
-            await conn.OpenAsync();
-
-            using (var checkCmd = conn.CreateCommand())
-            {
-                checkCmd.CommandText =
-                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ServiceCalendars'";
-                if (Convert.ToInt64(await checkCmd.ExecuteScalarAsync()) == 0)
-                    return result;
-            }
-
-            var sql = $@"
-                SELECT ServiceId FROM ServiceCalendars
-                WHERE {dayColumn} = 1
-                  AND @TargetDate >= StartDate
-                  AND @TargetDate <= EndDate";
-
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = sql;
-            cmd.Parameters.Add(new SqliteParameter("@TargetDate", targetDate.ToString("yyyy-MM-dd")));
-
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-                result.Add(reader.GetString(0));
-
-            return result;
         }
 
         /// <summary>Parsează o oră GTFS "HH:MM:SS" (poate depăși 24h) în secunde de la miezul nopții.</summary>
