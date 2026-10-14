@@ -1,78 +1,78 @@
 <template>
-  <div v-if="visible" class="nearby-panel">
-    <div class="panel-header">
-      <h3>🚏 Stații apropiate</h3>
-      <button @click="$emit('close')" class="close-btn">✕</button>
-    </div>
-    
-    <div class="stations-list">
-      <div 
-        v-for="station in stations" 
-        :key="station.id"
-        class="station-item"
-      >
-        <div class="station-info">
-          <div class="station-name">{{ station.name }}</div>
-          <div class="station-distance">{{ formatDistance(station.distance) }}</div>
+  <section v-if="visible" class="nearby-panel" :aria-label="t('nearYou')">
+    <header class="panel-header">
+      <h2 class="panel-title">{{ t('nearYou') }}</h2>
+      <span class="panel-count">{{ stations.length }} {{ t('nearbyStationsCount') }}</span>
+      <button type="button" @click="$emit('close')" class="close-btn" :aria-label="t('close')">
+        <X :size="20" aria-hidden="true" />
+      </button>
+    </header>
+
+    <ul class="stations-list">
+      <li v-for="station in stations" :key="station.id" class="station-item">
+        <div class="station-head">
+          <span class="station-name">{{ station.name }}</span>
+          <span class="station-distance">{{ formatDistance(station.distance) }}</span>
         </div>
-        
-        <!-- ETA pentru autobuze -->
+
         <div v-if="getStationETAs(station.id).length > 0" class="station-etas">
-          <div v-for="eta in getStationETAs(station.id)" :key="eta.busId" class="eta-item">
-            <span class="eta-bus" :style="{ color: eta.color }">🚌 {{ eta.routeNumber }}</span>
+          <span v-for="eta in getStationETAs(station.id)" :key="eta.busId" class="eta-chip">
+            <span class="line-pill" :style="{ background: eta.color }">{{ eta.routeNumber }}</span>
             <span class="eta-time">{{ eta.eta }}</span>
-          </div>
-        </div>
-        
-        <div class="notification-summary" v-if="isNotificationActive(station.id)">
-          <span v-if="isRouteNotificationActive(station.id)">
-            Alerte active pentru traseul {{ getActiveRouteForStation(station.id) }}
-          </span>
-          <span v-else>
-            Alerte active pentru toate autobuzele din stație
+            <span class="eta-live" aria-hidden="true"></span>
           </span>
         </div>
 
-        <!-- Buton notificări pentru toată stația -->
-        <button
-          @click="$emit('toggleNotification', { stationId: station.id })"
-          class="notification-btn"
-          :class="{ active: isNotificationActive(station.id) && !isRouteNotificationActive(station.id) }"
-        >
-          <span v-if="isNotificationActive(station.id) && !isRouteNotificationActive(station.id)">
-            🔕 Dezactivează
-          </span>
-          <span v-else>
-            🔔 Alarme pentru stație
-          </span>
-        </button>
+        <p v-if="isNotificationActive(station.id)" class="notification-summary">
+          <BellRing :size="14" aria-hidden="true" />
+          <span v-if="isRouteNotificationActive(station.id)">{{ t('alertsActiveForLine', '', { line: getActiveRouteForStation(station.id) ?? '' }) }}</span>
+          <span v-else>{{ t('alertsActiveAllBuses') }}</span>
+        </p>
 
-        <div v-if="getStationETAs(station.id).length > 0" class="route-quick-actions">
-          <div class="route-quick-title">Rapid pe traseu:</div>
-          <div class="route-chip-list">
+        <div class="station-actions">
+          <button
+            type="button"
+            @click="$emit('toggleNotification', { stationId: station.id })"
+            class="notification-btn"
+            :class="{ active: isNotificationActive(station.id) && !isRouteNotificationActive(station.id) }"
+          >
+            <BellOff v-if="isNotificationActive(station.id) && !isRouteNotificationActive(station.id)" :size="16" aria-hidden="true" />
+            <Bell v-else :size="16" aria-hidden="true" />
+            {{ isNotificationActive(station.id) && !isRouteNotificationActive(station.id) ? t('disableAlerts') : t('stationAlerts') }}
+          </button>
+
+          <template v-if="getStationETAs(station.id).length > 0">
             <button
               v-for="eta in getUniqueRouteETAs(station.id)"
               :key="`${station.id}-${eta.routeId}`"
+              type="button"
               class="route-chip"
               :class="{ active: isSpecificRouteActive(station.id, eta.routeId) }"
-              :style="{ borderColor: eta.color, color: eta.color }"
+              :title="t('alertsForLine')"
+              :aria-label="`${t('alertsForLine')}: ${eta.routeNumber}`"
+              :aria-pressed="isSpecificRouteActive(station.id, eta.routeId)"
               @click="$emit('toggleNotification', { stationId: station.id, routeId: eta.routeId })"
             >
-              <span>🔔 {{ eta.routeNumber }}</span>
+              <Bell :size="14" aria-hidden="true" />
+              <span class="line-pill" :style="{ background: eta.color }">{{ eta.routeNumber }}</span>
             </button>
-          </div>
+          </template>
         </div>
-      </div>
-      
-      <div v-if="stations.length === 0" class="no-stations">
-        Nu sunt stații în apropiere
-      </div>
-    </div>
-  </div>
+      </li>
+
+      <li v-if="stations.length === 0" class="no-stations">{{ t('noStationsNearby') }}</li>
+    </ul>
+
+    <footer class="panel-footer"><span class="eta-live" aria-hidden="true"></span>{{ t('liveHint') }}</footer>
+  </section>
 </template>
 
 <script setup lang="ts">
 import type { Station } from '@/services/apiService'
+import { Bell, BellOff, BellRing, X } from 'lucide-vue-next'
+import { useLanguage } from '@/composables/useLanguage'
+
+const { t } = useLanguage()
 
 interface StationWithDistance extends Station {
   distance: number
@@ -142,257 +142,209 @@ const getActiveRouteForStation = (stationId: number): string | null => {
     eta => eta.routeId === props.activeNotificationRouteId
   )
 
-  return matchingETA?.routeNumber ?? `Linia ${props.activeNotificationRouteId}`
+  return matchingETA?.routeNumber ?? String(props.activeNotificationRouteId)
 }
 </script>
 
 <style scoped>
 .nearby-panel {
   position: fixed;
-  right: 20px;
-  top: 80px;
-  width: 340px;
-  max-height: calc(100vh - 100px);
-  background: var(--bg-primary);
-  border-radius: 16px;
-  box-shadow: var(--shadow-lg);
-  border: 1px solid var(--border-color);
-  z-index: 1200;
+  right: 76px; /* lângă coloana de butoane plutitoare */
+  top: 16px;
+  width: 360px;
+  max-height: calc(100dvh - 32px);
   display: flex;
   flex-direction: column;
-  animation: slideInRight 0.3s ease-out;
-}
-
-@keyframes slideInRight {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  z-index: 1200;
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
 .panel-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: var(--gradient-primary);
-  color: white;
-  border-radius: 16px 16px 0 0;
-  backdrop-filter: blur(12px);
+  gap: 8px;
+  padding: 12px 8px 10px 20px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.panel-header h3 {
+.panel-title {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: var(--fw-bold);
+}
+
+.panel-count {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .close-btn {
-  background: rgba(255, 255, 255, 0.2);
+  margin-left: auto;
+  width: 44px;
+  height: 44px;
   border: none;
-  color: white;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 18px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  cursor: pointer;
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: rotate(90deg);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .stations-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 20px;
   overflow-y: auto;
-  padding: 12px;
-  max-height: calc(100vh - 180px);
-}
-
-.stations-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.stations-list::-webkit-scrollbar-track {
-  background: var(--bg-tertiary);
-  border-radius: 3px;
-}
-
-.stations-list::-webkit-scrollbar-thumb {
-  background: #667eea;
-  border-radius: 3px;
+  overscroll-behavior: contain;
 }
 
 .station-item {
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 10px;
-  border: 1px solid var(--border-color);
-  transition: all 0.2s;
-}
-
-.station-item:hover {
-  border-color: #667eea;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
-}
-
-.station-info {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.station-item:last-child {
+  border-bottom: none;
+}
+
+.station-head {
+  display: flex;
+  align-items: baseline;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+  gap: 8px;
 }
 
 .station-name {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 14px;
-  flex: 1;
+  font-size: 16px;
+  font-weight: var(--fw-bold);
 }
 
 .station-distance {
+  font-size: 13px;
   color: var(--text-secondary);
-  font-size: 12px;
-  background: var(--bg-primary);
-  padding: 2px 8px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
+  white-space: nowrap;
 }
 
 .station-etas {
-  margin: 8px 0;
-  padding: 8px;
-  background: var(--bg-primary);
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-}
-
-.eta-item {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.eta-chip {
+  display: inline-flex;
   align-items: center;
-  padding: 4px 0;
-  font-size: 13px;
+  gap: 6px;
+  padding: 4px 8px 4px 4px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  font-size: 14px;
+  font-weight: var(--fw-bold);
 }
 
-.eta-bus {
-  font-weight: 600;
-}
-
-.eta-time {
-  color: #059669;
-  font-weight: 600;
-  background: #d1fae5;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-}
-
-.notification-btn {
-  width: 100%;
-  padding: 8px 12px;
-  border: 2px solid var(--accent-primary);
-  background: var(--bg-primary);
-  color: var(--accent-primary);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.2s;
-  margin-top: 8px;
-}
-
-.notification-btn:hover {
-  background: var(--accent-primary);
-  color: var(--text-on-accent);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-
-.notification-btn.active {
-  background: #ef4444;
-  border-color: #ef4444;
-  color: white;
-}
-
-.notification-btn.active:hover {
-  background: #dc2626;
-  border-color: #dc2626;
+.eta-live {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--live);
+  display: inline-block;
 }
 
 .notification-summary {
-  margin-top: 8px;
-  margin-bottom: 4px;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: var(--fw-semibold);
   color: var(--accent-primary);
-  background: var(--accent-primary-soft);
-  border: 1px solid var(--border-secondary);
-  border-radius: 6px;
-  padding: 6px 8px;
 }
 
-.route-quick-actions {
-  margin-top: 8px;
-}
-
-.route-quick-title {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
-}
-
-.route-chip-list {
+.station-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
+.notification-btn,
 .route-chip {
-  border: 1px solid var(--border-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-full);
   background: var(--bg-primary);
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 10px;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--fw-bold);
   cursor: pointer;
-  transition: all 0.2s;
 }
 
+.route-chip {
+  padding: 0 4px 0 10px;
+}
+
+.route-chip .line-pill {
+  height: 26px;
+  border-radius: 13px;
+}
+
+.notification-btn:hover,
 .route-chip:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  background: var(--bg-tertiary);
 }
 
+.notification-btn.active,
 .route-chip.active {
-  background: #dc2626;
-  color: white !important;
-  border-color: #dc2626 !important;
+  background: var(--bg-inverse);
+  border-color: var(--bg-inverse);
+  color: var(--text-inverse);
 }
 
 .no-stations {
+  padding: 24px 0;
   text-align: center;
-  padding: 40px 20px;
-  color: var(--text-secondary);
   font-size: 14px;
+  color: var(--text-secondary);
 }
 
-@media (max-width: 900px) {
+.panel-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-subtle);
+}
+
+@media (max-width: 767px) {
   .nearby-panel {
-    right: 10px;
-    top: 116px;
-    width: calc(100% - 20px);
-    max-width: 340px;
-    max-height: calc(100vh - 130px);
+    right: 0;
+    left: 0;
+    top: auto;
+    bottom: var(--nav-height);
+    width: auto;
+    max-height: 55dvh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   }
 }
 </style>

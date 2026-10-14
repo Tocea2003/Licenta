@@ -671,8 +671,9 @@ import { tripHistoryService, type TripHistoryItem } from '@/services/tripHistory
 import { useLanguage } from '@/composables/useLanguage'
 import { reverseGeocode } from '@/services/geocodingService'
 import { useFavorites } from '@/composables/useFavorites'
-import type { BusLocation } from '@/types/bus'
-import { haversineKm, bearingDeg, angleDiff, findNearestStation, trimShapeToStations } from '@/utils/geo'
+import type { BusLocation, StationEta } from '@/types/bus'
+import { computeStationEtas } from '@/utils/liveBuses'
+import { haversineKm, findNearestStation, trimShapeToStations } from '@/utils/geo'
 import { fetchOsrmRoute } from '@/services/osrmService'
 import { buildBusSegmentPath, buildWalkingPath } from '@/services/tripGeometry'
 
@@ -2915,81 +2916,32 @@ const handleNotificationToggle = async (payload: { stationId: number; routeId?: 
   }
 }
 
-// Calcul ETA pentru autobuze care vin către o stație
-// Optimizat cu memoization și cache persistent
-const stationETACache = new Map<string, Array<{ busId: string, routeId: number, routeNumber: string, eta: string, color: string }>>()
-const ETA_CACHE_DURATION = 5000 // 5 secunde
+// ETA pentru autobuzele care vin spre o stație (logica pură e în utils/liveBuses).
+// Rezultatul e memorat 5 s pe stație: panoul îl cere de mai multe ori la fiecare randare.
+const stationETACache = new Map<string, StationEta[]>()
+const ETA_CACHE_DURATION = 5000
 
-const getStationETAs = (stationId: number) => {
-  // Cache per 5-second bucket
+const getStationETAs = (stationId: number): StationEta[] => {
   const now = Date.now()
   const cacheKey = `${stationId}-${now - (now % ETA_CACHE_DURATION)}`
-  if (stationETACache.has(cacheKey)) return stationETACache.get(cacheKey)!
+  const cached = stationETACache.get(cacheKey)
+  if (cached) return cached
 
-  const allStations = props.allStations
-  if (!allStations?.length) return []
-
-  const station = allStations.find(s => s.id === stationId)
+  const station = props.allStations?.find(s => s.id === stationId)
   if (!station) return []
 
-  const stationLat = station.latitude
-  const stationLon = station.longitude
   const buses = liveBuses.value
-
-  // Keep only the closest approaching bus per route
-  const routeBest = new Map<number, { busId: string; distKm: number; speed: number }>()
-
-  for (const bus of buses) {
-    if (typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') continue
-
-    const distKm = haversineKm(bus.latitude, bus.longitude, stationLat, stationLon)
-
-    // Ignore buses more than 4 km away or already past/at the stop (<30 m)
-    if (distKm > 4 || distKm < 0.03) continue
-
-    // Direction check — skip buses heading away (>90° off course)
-    if (typeof bus.heading === 'number') {
-      const bearing = bearingDeg(bus.latitude, bus.longitude, stationLat, stationLon)
-      if (angleDiff(bus.heading, bearing) > 90) continue
-    }
-
-    const existing = routeBest.get(bus.routeId)
-    if (!existing || distKm < existing.distKm) {
-      routeBest.set(bus.routeId, { busId: bus.id, distKm, speed: bus.speed ?? 0 })
-    }
-  }
-
-  const etas: Array<{ busId: string; routeId: number; routeNumber: string; eta: string; color: string }> = []
-
-  for (const [routeId, { busId, distKm, speed }] of routeBest) {
-    // Use actual speed if meaningful, otherwise default to 25 km/h city average
-    const avgSpeed = speed > 5 ? Math.min(speed, 50) : 25
-    const etaMin = Math.round((distKm / avgSpeed) * 60)
-    if (etaMin > 30) continue
-
-    etas.push({
-      busId,
-      routeId,
-      routeNumber: `${t('busLine')} ${routeId}`,
-      eta: etaMin <= 1 ? '<1 min' : `${etaMin} min`,
-      color: routeColors.value[routeId] || '#2563eb'
-    })
-  }
-
-  // Sort by ETA ascending, cap at 8 entries
-  etas.sort((a, b) => {
-    const ta = a.eta === '<1 min' ? 0 : parseInt(a.eta)
-    const tb = b.eta === '<1 min' ? 0 : parseInt(b.eta)
-    return ta - tb
+  const routeNumbers = new Map(buses.map(b => [b.routeId, b.routeNumber]))
+  const result = computeStationEtas(station, buses, {
+    routeColors: routeColors.value,
+    routeLabel: routeId => routeNumbers.get(routeId) || String(routeId)
   })
-  const result = etas.slice(0, 8)
 
   stationETACache.set(cacheKey, result)
   if (stationETACache.size > 20) {
     const oldest = stationETACache.keys().next().value
     if (oldest) stationETACache.delete(oldest)
   }
-
   return result
 }
 </script>
@@ -3462,85 +3414,6 @@ const getStationETAs = (stationId: number) => {
 }
 
 /* Stiluri pentru ETA în stații */
-:deep(.station-popup) {
-  min-width: 200px;
-}
-
-:deep(.station-etas) {
-  margin-top: 12px;
-  padding-top: 8px;
-  border-top: 1px solid #e5e7eb;
-}
-
-:deep(.eta-title) {
-  font-size: 11px;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
-}
-
-:deep(.eta-item) {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 0;
-  font-size: 13px;
-}
-
-:deep(.eta-bus) {
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-:deep(.eta-time) {
-  font-weight: 700;
-  color: #059669;
-  background: rgba(5, 150, 105, 0.1);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-:deep(.notification-btn) {
-  width: 100%;
-  margin-top: 10px;
-  padding: 10px 14px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-  border: none !important;
-  border-radius: 8px;
-  color: white !important;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-:deep(.notification-btn:hover) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
-  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
-}
-
-:deep(.notification-btn.active) {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
-}
-
-:deep(.notification-btn.active:hover) {
-  background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.6);
-}
-
 .notification-feedback {
   position: fixed;
   top: 82px;
