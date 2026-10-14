@@ -602,7 +602,7 @@ if (typeof window !== 'undefined') {
   top: 16px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 700;
+  z-index: 1250; /* deasupra panourilor laterale */
   width: 360px;
   max-width: calc(100% - 200px);
   display: flex;

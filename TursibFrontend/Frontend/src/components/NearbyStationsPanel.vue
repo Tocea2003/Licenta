@@ -150,9 +150,9 @@ const getActiveRouteForStation = (stationId: number): string | null => {
 .nearby-panel {
   position: fixed;
   right: 76px; /* lângă coloana de butoane plutitoare */
-  top: 16px;
+  top: 84px; /* sub bara de căutare */
   width: 360px;
-  max-height: calc(100dvh - 32px);
+  max-height: calc(100dvh - 100px);
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
