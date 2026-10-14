@@ -379,6 +379,7 @@
         color="#ffffff"
         :weight="9"
         :opacity="0.95"
+        pane="casingPane"
       />
       <l-polyline
         v-if="routePath.length > 0 && !showMultimodal"
@@ -396,6 +397,7 @@
         color="#ffffff"
         :weight="10"
         :opacity="0.95"
+        pane="casingPane"
       />
       <l-polyline
         v-if="multimodalBusPath.length > 0 && showMultimodal"
@@ -441,6 +443,7 @@
         color="#ffffff"
         :weight="10"
         :opacity="0.95"
+        pane="casingPane"
       />
       <l-polyline
         v-if="walkingPath.length > 0 && (showMultimodal || showTransfer)"
@@ -457,6 +460,7 @@
         color="#ffffff"
         :weight="10"
         :opacity="0.95"
+        pane="casingPane"
       />
       <l-polyline
         v-if="secondWalkingPath.length > 0 && showTransfer"
@@ -473,6 +477,7 @@
         color="#ffffff"
         :weight="10"
         :opacity="0.95"
+        pane="casingPane"
       />
       <l-polyline
         v-if="thirdBusPath.length > 0 && showTransfer"
@@ -1337,6 +1342,11 @@ onUnmounted(() => {
 
 // Apelat când harta Leaflet e complet inițializată
 const onMapReady = (mapInstance: any) => {
+  // Conturul alb al traseelor stă într-un pane sub liniile colorate (overlayPane = 400)
+  if (!mapInstance.getPane('casingPane')) {
+    mapInstance.createPane('casingPane').style.zIndex = '390'
+  }
+
   if (pendingMapCenter.value) {
     mapInstance.setView(pendingMapCenter.value, pendingMapZoom.value, { animate: false })
     pendingMapCenter.value = null

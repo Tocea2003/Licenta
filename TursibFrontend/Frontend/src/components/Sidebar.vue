@@ -1,27 +1,28 @@
 <template>
-  <aside class="sidebar">
+  <aside class="sidebar" :aria-label="t('planning')">
 
     <!-- Header -->
-    <div class="sidebar-header">
-      <div class="header-icon">🚌</div>
-      <div>
-        <h1>Tursib Tracker</h1>
-        <p>{{ t('appTagline') }}</p>
-      </div>
-    </div>
+    <header class="sidebar-header">
+      <span class="brand-mark" aria-hidden="true"><BusFront :size="18" /></span>
+      <span class="brand-name">Tursib</span>
+      <span class="live-badge">{{ t('live') }}</span>
+    </header>
 
     <!-- Tab Bar -->
-    <div class="tab-bar">
+    <nav class="tab-bar" role="tablist">
       <button
         v-for="tab in tabs"
         :key="tab.id"
+        type="button"
+        role="tab"
+        :aria-selected="activeTab === tab.id"
         @click="activeTab = tab.id"
         :class="['tab-btn', { active: activeTab === tab.id }]"
       >
-        <span class="tab-icon">{{ tab.icon }}</span>
+        <component :is="tab.icon" :size="18" aria-hidden="true" />
         <span class="tab-label">{{ tab.label }}</span>
       </button>
-    </div>
+    </nav>
 
     <!-- ==================== TAB: TRASEE ==================== -->
     <div v-if="activeTab === 'routes'" class="tab-content">
@@ -31,9 +32,9 @@
       </div>
 
       <div v-else-if="error" class="center-state error-state">
-        <span class="state-icon">⚠️</span>
+        <AlertTriangle :size="28" aria-hidden="true" />
         <p>{{ error }}</p>
-        <button @click="loadRoutes" class="btn-retry">{{ t('retry') }}</button>
+        <button type="button" @click="loadRoutes" class="btn-secondary-sm">{{ t('retry') }}</button>
       </div>
 
       <div v-else class="routes-section">
@@ -42,40 +43,34 @@
         <button
           v-for="route in routes"
           :key="route.id"
+          type="button"
           @click="selectRoute(route.id)"
           class="route-item"
           :class="{ active: selectedRouteId === route.id }"
+          :aria-pressed="selectedRouteId === route.id"
         >
-          <span
-            class="route-badge"
-            :style="{ background: route.color || '#3b82f6' }"
-          >{{ route.routeNumber }}</span>
+          <span class="line-pill" :style="{ background: route.color || '#5f6672' }">{{ route.routeNumber }}</span>
           <span class="route-name">{{ route.name }}</span>
-          <span v-if="selectedRouteId === route.id" class="route-check">✓</span>
+          <Check v-if="selectedRouteId === route.id" :size="18" class="route-check" aria-hidden="true" />
         </button>
       </div>
 
       <!-- Stații traseu selectat -->
       <transition name="slide-down">
         <div v-if="selectedRouteId && (loadingStations || currentStations.length > 0)" class="stations-section">
-          <div class="stations-header">
-            <span>📍 {{ t('routeStations') }}</span>
-            <span class="stations-count" v-if="!loadingStations">{{ currentStations.length }}</span>
+          <div class="section-title">
+            <span>{{ t('routeStations') }}</span>
+            <span class="count" v-if="!loadingStations">{{ currentStations.length }}</span>
           </div>
           <div v-if="loadingStations" class="loading-small">
             <div class="spinner-small"></div> {{ t('loading') }}
           </div>
-          <div v-else class="stations-list">
-            <div
-              v-for="(station, index) in currentStations"
-              :key="station.id"
-              class="station-row"
-            >
-              <span class="station-index">{{ index + 1 }}</span>
-              <span class="station-dot"></span>
+          <ol v-else class="stations-list">
+            <li v-for="station in currentStations" :key="station.id" class="station-row">
+              <span class="station-dot" aria-hidden="true"></span>
               <span class="station-name">{{ station.name }}</span>
-            </div>
-          </div>
+            </li>
+          </ol>
         </div>
       </transition>
     </div>
@@ -83,38 +78,40 @@
     <!-- ==================== TAB: ORAR ==================== -->
     <div v-if="activeTab === 'schedule'" class="tab-content">
 
-      <!-- Search input -->
       <div class="search-box">
-        <div class="search-input-wrap">
-          <span class="search-icon">🔍</span>
+        <label class="field field--search">
+          <Search :size="18" class="field-icon" aria-hidden="true" />
+          <span class="sr-only">{{ t('searchStationPlaceholder') }}</span>
           <input
             v-model="scheduleQuery"
             @input="onScheduleInput"
             :placeholder="t('searchStationPlaceholder')"
-            class="search-input"
+            class="field-input"
             autocomplete="off"
           />
-          <button v-if="scheduleQuery" @click="clearSchedule" class="clear-btn">✕</button>
-        </div>
+          <button v-if="scheduleQuery" type="button" @click="clearSchedule" class="icon-btn" :aria-label="t('close')">
+            <X :size="16" aria-hidden="true" />
+          </button>
+        </label>
 
-        <!-- Autocomplete -->
         <div v-if="filteredScheduleStations.length > 0 && !selectedScheduleStation" class="autocomplete">
           <button
             v-for="s in filteredScheduleStations.slice(0, 7)"
             :key="s.id"
+            type="button"
             @click="selectScheduleStation(s)"
             class="autocomplete-item"
           >
-            🚏 {{ s.name }}
+            <Bus :size="16" class="ac-icon" aria-hidden="true" />
+            <span class="ac-name">{{ s.name }}</span>
           </button>
         </div>
       </div>
 
-      <!-- Stație selectată → orar -->
       <div v-if="selectedScheduleStation" class="schedule-panel">
-        <div class="schedule-station-title">
-          <span class="stop-icon">🚏</span>
-          <strong>{{ selectedScheduleStation.name }}</strong>
+        <div class="board-header">
+          <span class="board-eyebrow">{{ t('stationLabel') }}</span>
+          <h2 class="board-title">{{ selectedScheduleStation.name }}</h2>
         </div>
 
         <div v-if="loadingSchedule" class="center-state">
@@ -123,32 +120,28 @@
         </div>
 
         <div v-else-if="scheduleETAs.length === 0" class="center-state">
-          <span class="state-icon">🚫</span>
+          <Clock :size="28" aria-hidden="true" />
           <p>{{ t('noServicesNextHour') }}</p>
         </div>
 
-        <div v-else class="etas-list">
-          <div
+        <ul v-else class="departures">
+          <li
             v-for="eta in scheduleETAs"
             :key="`${eta.routeNumber}-${eta.arrivalTime}`"
-            class="eta-card"
-            :style="{ borderLeftColor: eta.color }"
+            class="departure"
           >
-            <div class="eta-badge" :style="{ background: eta.color }">{{ eta.routeNumber }}</div>
-            <div class="eta-info">
-              <span class="eta-route-name">{{ eta.routeName }}</span>
-              <span class="eta-direction">{{ eta.direction }}</span>
-            </div>
-            <div class="eta-time" :class="{ urgent: eta.countdown < 120 }">
-              {{ formatETA(eta.countdown) }}
-            </div>
-          </div>
-        </div>
+            <span class="line-pill line-pill--lg" :style="{ background: eta.color }">{{ eta.routeNumber }}</span>
+            <span class="departure-info">
+              <span class="departure-dest">{{ eta.direction || eta.routeName }}</span>
+              <span class="departure-sub">{{ eta.routeName }}</span>
+            </span>
+            <span class="departure-time" :class="{ urgent: eta.countdown < 120 }">{{ formatETA(eta.countdown) }}</span>
+          </li>
+        </ul>
       </div>
 
-      <!-- Stare inițială -->
       <div v-else-if="!scheduleQuery" class="empty-hero">
-        <div class="empty-hero-icon">🕐</div>
+        <Clock :size="36" class="empty-hero-icon" aria-hidden="true" />
         <h3>{{ t('realtimeSchedule') }}</h3>
         <p>{{ t('searchStationScheduleHint') }}</p>
       </div>
@@ -157,159 +150,186 @@
     <!-- ==================== TAB: PLANIFICARE ==================== -->
     <div v-if="activeTab === 'plan'" class="tab-content">
 
-      <div class="plan-form">
-        <!-- Plecare -->
-        <div class="form-group">
-          <label class="form-label">📍 {{ t('departure') }} {{ t('from') }}</label>
-          <div v-if="planOrigin" class="selected-station-chip">
-            <span>{{ planOrigin.type === 'station' ? '🚏' : '📍' }} {{ planOrigin.name }}</span>
-            <button @click="clearOrigin" class="chip-close">✕</button>
+      <section class="plan-form">
+        <h2 class="plan-title">{{ t('whereTo') }}</h2>
+
+        <div class="endpoints">
+          <div class="endpoints-rail" aria-hidden="true">
+            <span class="rail-start"></span>
+            <span class="rail-line"></span>
+            <span class="rail-end"></span>
           </div>
-          <div v-else>
-            <div class="search-input-wrap">
-              <input v-model="planOriginQuery" @input="debouncedOriginInput"
-                :placeholder="t('originPlaceholder')" class="search-input" autocomplete="off" />
-              <button v-if="planOriginQuery" @click="clearOrigin" class="clear-btn">✕</button>
-            </div>
-            <div v-if="originSuggestions.length > 0" class="autocomplete">
-              <button v-for="s in originSuggestions" :key="`${s.type}-${s.name}`"
-                @click="selectOrigin(s)" class="autocomplete-item">
-                <span class="ac-icon">{{ s.type === 'station' ? '🚏' : (s.icon ?? '📍') }}</span>
-                <span class="ac-text">
-                  <span class="ac-name">{{ s.name }}</span>
-                  <span v-if="s.subtext" class="ac-sub">{{ s.subtext }}</span>
+
+          <div class="endpoints-fields">
+            <!-- Plecare -->
+            <div class="endpoint">
+              <div v-if="planOrigin" class="field field--filled">
+                <span class="field-text">
+                  <span class="field-label">{{ t('fieldFrom') }}</span>
+                  <span class="field-value">{{ planOrigin.name }}</span>
                 </span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Destinație -->
-        <div class="form-group">
-          <label class="form-label">🎯 {{ t('destination') }}</label>
-          <div v-if="planDest" class="selected-station-chip">
-            <span>{{ planDest.type === 'station' ? '🚏' : '📍' }} {{ planDest.name }}</span>
-            <button @click="clearDest" class="chip-close">✕</button>
-          </div>
-          <div v-else>
-            <div class="search-input-wrap">
-              <input v-model="planDestQuery" @input="debouncedDestInput"
-                :placeholder="t('destinationPlaceholder')" class="search-input" autocomplete="off" />
-              <button v-if="planDestQuery" @click="clearDest" class="clear-btn">✕</button>
-            </div>
-            <div v-if="destSuggestions.length > 0" class="autocomplete">
-              <button v-for="s in destSuggestions" :key="`${s.type}-${s.name}`"
-                @click="selectDest(s)" class="autocomplete-item">
-                <span class="ac-icon">{{ s.type === 'station' ? '🚏' : (s.icon ?? '📍') }}</span>
-                <span class="ac-text">
-                  <span class="ac-name">{{ s.name }}</span>
-                  <span v-if="s.subtext" class="ac-sub">{{ s.subtext }}</span>
+                <button type="button" @click="clearOrigin" class="icon-btn" :aria-label="t('close')"><X :size="16" aria-hidden="true" /></button>
+              </div>
+              <label v-else class="field">
+                <span class="field-text">
+                  <span class="field-label">{{ t('fieldFrom') }}</span>
+                  <input v-model="planOriginQuery" @input="debouncedOriginInput"
+                    :placeholder="t('originPlaceholder')" class="field-input" autocomplete="off" />
                 </span>
-              </button>
+                <button v-if="planOriginQuery" type="button" @click="clearOrigin" class="icon-btn" :aria-label="t('close')"><X :size="16" aria-hidden="true" /></button>
+              </label>
+              <div v-if="!planOrigin && originSuggestions.length > 0" class="autocomplete">
+                <button v-for="s in originSuggestions" :key="`${s.type}-${s.name}`" type="button"
+                  @click="selectOrigin(s)" class="autocomplete-item">
+                  <component :is="s.type === 'station' ? Bus : MapPin" :size="16" class="ac-icon" aria-hidden="true" />
+                  <span class="ac-text">
+                    <span class="ac-name">{{ s.name }}</span>
+                    <span v-if="s.subtext" class="ac-sub">{{ s.subtext }}</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Destinație -->
+            <div class="endpoint">
+              <div v-if="planDest" class="field field--filled">
+                <span class="field-text">
+                  <span class="field-label">{{ t('fieldTo') }}</span>
+                  <span class="field-value">{{ planDest.name }}</span>
+                </span>
+                <button type="button" @click="clearDest" class="icon-btn" :aria-label="t('close')"><X :size="16" aria-hidden="true" /></button>
+              </div>
+              <label v-else class="field">
+                <span class="field-text">
+                  <span class="field-label">{{ t('fieldTo') }}</span>
+                  <input v-model="planDestQuery" @input="debouncedDestInput"
+                    :placeholder="t('destinationPlaceholder')" class="field-input" autocomplete="off" />
+                </span>
+                <button v-if="planDestQuery" type="button" @click="clearDest" class="icon-btn" :aria-label="t('close')"><X :size="16" aria-hidden="true" /></button>
+              </label>
+              <div v-if="!planDest && destSuggestions.length > 0" class="autocomplete">
+                <button v-for="s in destSuggestions" :key="`${s.type}-${s.name}`" type="button"
+                  @click="selectDest(s)" class="autocomplete-item">
+                  <component :is="s.type === 'station' ? Bus : MapPin" :size="16" class="ac-icon" aria-hidden="true" />
+                  <span class="ac-text">
+                    <span class="ac-name">{{ s.name }}</span>
+                    <span v-if="s.subtext" class="ac-sub">{{ s.subtext }}</span>
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
+
+          <button type="button" class="swap-btn" @click="swapEndpoints" :aria-label="t('swapEndpoints')">
+            <ArrowUpDown :size="18" aria-hidden="true" />
+          </button>
         </div>
 
-        <!-- Mod căutare + data + ora -->
-        <div class="form-group">
-          <label class="form-label">🕐 {{ t('when') }}</label>
-          <select v-model="planMode" class="time-input">
-            <option value="leaveNow">{{ t('leaveNow') }}</option>
-            <option value="departAt">{{ t('departAt') }}</option>
-            <option value="arriveBy">{{ t('arriveBy') }}</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">📅 {{ t('date') || 'Data' }}</label>
-          <input v-model="planDate" type="date" class="time-input" />
-        </div>
-        <div v-if="planMode !== 'leaveNow'" class="form-group">
-          <label class="form-label">{{ planMode === 'arriveBy' ? `🏁 ${t('arrivalTime')}` : `🕐 ${t('departureTime')}` }}</label>
-          <input v-model="planTime" type="time" class="time-input" required />
+        <!-- Când -->
+        <div class="segmented" role="group" :aria-label="t('when')">
+          <button type="button" :class="{ active: planMode === 'leaveNow' }" @click="planMode = 'leaveNow'">{{ t('leaveNow') }}</button>
+          <button type="button" :class="{ active: planMode === 'departAt' }" @click="planMode = 'departAt'">{{ t('departAt') }}</button>
+          <button type="button" :class="{ active: planMode === 'arriveBy' }" @click="planMode = 'arriveBy'">{{ t('arriveBy') }}</button>
         </div>
 
-        <button @click="searchRoutes" :disabled="(!planOrigin && !planOriginQuery.trim()) || (!planDest && !planDestQuery.trim()) || (planMode !== 'leaveNow' && !planTime) || isSearching" class="btn-search-routes">
-          <span v-if="isSearching">⏳ {{ t('searching') }}</span>
-          <span v-else>🔍 {{ t('searchTrips') }}</span>
+        <div class="datetime-row">
+          <label class="field field--compact">
+            <span class="field-text">
+              <span class="field-label">{{ t('date') }}</span>
+              <input v-model="planDate" type="date" class="field-input" />
+            </span>
+          </label>
+          <label v-if="planMode !== 'leaveNow'" class="field field--compact">
+            <span class="field-text">
+              <span class="field-label">{{ planMode === 'arriveBy' ? t('arrivalTime') : t('departureTime') }}</span>
+              <input v-model="planTime" type="time" class="field-input" required />
+            </span>
+          </label>
+        </div>
+
+        <button type="button" @click="searchRoutes" :disabled="(!planOrigin && !planOriginQuery.trim()) || (!planDest && !planDestQuery.trim()) || (planMode !== 'leaveNow' && !planTime) || isSearching" class="btn-search-routes">
+          <span v-if="isSearching" class="spinner-small spinner-small--light" aria-hidden="true"></span>
+          <Search v-else :size="18" aria-hidden="true" />
+          {{ isSearching ? t('searching') : t('searchTrips') }}
         </button>
-      </div>
+      </section>
 
       <!-- Rezultate -->
-      <div v-if="planResults.length > 0" class="plan-results">
+      <section v-if="planResults.length > 0" class="plan-results" :aria-label="t('selectedResults')">
         <div class="results-header">
-          <strong>{{ planResults.length }} {{ planResults.length === 1 ? t('resultSingular') : t('selectedResults') }}</strong>
+          <span class="section-title">{{ planResults.length }} {{ planResults.length === 1 ? t('resultSingular') : t('selectedResults') }}</span>
           <span class="results-sub">{{ planOrigin?.name }} → {{ planDest?.name }}</span>
         </div>
 
-        <div v-for="(result, idx) in planResults" :key="idx"
-          class="result-card" :class="result.type" @click="selectPlanResult(result)" style="cursor:pointer">
-
-          <!-- Direct -->
-          <template v-if="result.type === 'direct'">
-            <div class="result-top">
-              <span class="result-badge" :style="{ background: result.route1Color }">{{ result.route1Number }}</span>
-              <span class="result-route">{{ result.route1Name }}</span>
-            </div>
-          </template>
-
-          <!-- Transfer -->
-          <template v-else>
-            <div class="result-top">
-              <template v-for="(segment, segmentIndex) in result.busSegments" :key="`${segment.routeId}-${segmentIndex}`">
-                <span class="result-badge" :style="{ background: segment.color }">{{ segment.routeNumber }}</span>
-                <span v-if="segmentIndex < result.busSegments.length - 1" class="transfer-icon">⇄</span>
-              </template>
-              <span class="result-route transfer-label">via {{ getTransferLabel(result) }}</span>
-            </div>
-          </template>
-
-          <div class="result-times">
-            <div class="time-block">
-              <span class="time-label">{{ t('departure') }}</span>
-              <span class="time-value">{{ result.departureTime }}</span>
-            </div>
-            <div class="time-arrow">→</div>
-            <div class="time-block">
-              <span class="time-label">{{ t('estArrival') }}</span>
-              <span class="time-value arrival">{{ result.arrivalTime }}</span>
-            </div>
-          </div>
-
-          <div v-if="result.walkToStartMinutes || result.walkToEndMinutes" class="walking-info">
-            <span v-if="result.walkToStartMinutes">🚶 {{ result.walkToStartMinutes }} {{ t('minutes') }} →</span>
-            🚌
-            <span v-if="result.walkToEndMinutes">→ 🚶 {{ result.walkToEndMinutes }} {{ t('minutes') }}</span>
-          </div>
-
-          <div v-if="result.walkToStartMinutes" class="walk-instruction">
-            {{ t('walkToStation') }} <strong>{{ result.boardingStation.name }}</strong> ({{ result.walkToStartMinutes }} {{ t('minutes') }}).
-          </div>
-
-          <div v-if="result.walkToEndMinutes" class="walk-instruction">
-            {{ t('afterAlightingAt') }} <strong>{{ result.alightingStation.name }}</strong>, {{ t('walkMore') }} {{ result.walkToEndMinutes }} {{ t('minutes') }} {{ t('toDestination') }}
-          </div>
-
-          <div class="result-meta">
-            <span class="result-countdown" :class="{ urgent: result.minutesUntil < 5 }">
+        <button
+          v-for="(result, idx) in planResults"
+          :key="idx"
+          type="button"
+          class="result-card"
+          :class="{ selected: selectedResultIdx === idx }"
+          @click="selectedResultIdx = idx; selectPlanResult(result)"
+        >
+          <span class="result-top">
+            <span class="live-badge" v-if="result.minutesUntil <= 15">
               {{ result.minutesUntil <= 0 ? t('now') : t('inMinutes', 'in {n} min', { n: result.minutesUntil }) }}
             </span>
-            <span>•</span>
-            <span v-if="result.type === 'transfer'">
-              {{ result.stationsBetween }} {{ t('stations') }} • {{ formatTransferCount(result.busSegments.length - 1) }}
+            <span v-else class="result-when">{{ t('inMinutes', 'in {n} min', { n: result.minutesUntil }) }}</span>
+            <span v-if="idx === 0" class="result-tag">{{ t('fastest') }}</span>
+          </span>
+
+          <span class="result-times">
+            <span class="time">{{ result.departureTime }}</span>
+            <ArrowRight :size="18" class="time-arrow" aria-hidden="true" />
+            <span class="time">{{ result.arrivalTime }}</span>
+            <span class="duration">{{ tripDuration(result) }}</span>
+          </span>
+
+          <span class="result-legs">
+            <template v-if="result.walkToStartMinutes">
+              <span class="leg-walk"><Footprints :size="15" aria-hidden="true" />{{ result.walkToStartMinutes }}</span>
+              <ChevronRight :size="14" class="leg-sep" aria-hidden="true" />
+            </template>
+            <template v-if="result.type === 'direct'">
+              <span class="line-pill" :style="{ background: result.route1Color }">{{ result.route1Number }}</span>
+            </template>
+            <template v-else>
+              <template v-for="(segment, segmentIndex) in result.busSegments" :key="`${segment.routeId}-${segmentIndex}`">
+                <span class="line-pill" :style="{ background: segment.color }">{{ segment.routeNumber }}</span>
+                <ChevronRight v-if="segmentIndex < result.busSegments.length - 1" :size="14" class="leg-sep" aria-hidden="true" />
+              </template>
+            </template>
+            <template v-if="result.walkToEndMinutes">
+              <ChevronRight :size="14" class="leg-sep" aria-hidden="true" />
+              <span class="leg-walk"><Footprints :size="15" aria-hidden="true" />{{ result.walkToEndMinutes }}</span>
+            </template>
+          </span>
+
+          <span class="result-meta">
+            <template v-if="result.type === 'transfer'">
+              {{ formatTransferCount(result.busSegments.length - 1) }} · {{ getTransferLabel(result) }}
+            </template>
+            <template v-else>{{ t('directRoute') }} · {{ result.stationsBetween }} {{ t('stations') }}</template>
+          </span>
+
+          <span v-if="selectedResultIdx === idx && (result.walkToStartMinutes || result.walkToEndMinutes)" class="result-steps">
+            <span v-if="result.walkToStartMinutes" class="step">
+              {{ t('walkToStation') }} <strong>{{ result.boardingStation.name }}</strong> ({{ result.walkToStartMinutes }} {{ t('minutes') }}).
             </span>
-            <span v-else>{{ result.stationsBetween }} {{ t('stations') }}</span>
-          </div>
-        </div>
-      </div>
+            <span v-if="result.walkToEndMinutes" class="step">
+              {{ t('afterAlightingAt') }} <strong>{{ result.alightingStation.name }}</strong>, {{ t('walkMore') }} {{ result.walkToEndMinutes }} {{ t('minutes') }} {{ t('toDestination') }}
+            </span>
+          </span>
+        </button>
+      </section>
 
       <div v-else-if="searchDone" class="center-state">
-        <span class="state-icon">🔎</span>
+        <SearchX :size="28" aria-hidden="true" />
         <p>{{ t('noTripsFound') }}</p>
         <p class="hint-text">{{ t('tryDifferentTime') }}</p>
       </div>
 
       <div v-else-if="!planOrigin && !planDest" class="empty-hero">
-        <div class="empty-hero-icon">🧭</div>
+        <Compass :size="36" class="empty-hero-icon" aria-hidden="true" />
         <h3>{{ t('tripPlanningTitle') }}</h3>
         <p>{{ t('tripPlanningHint') }}</p>
       </div>
@@ -325,6 +345,10 @@ import { useLanguage } from '@/composables/useLanguage'
 import { useStatistics } from '@/composables/useStatistics'
 import { useRecentSearches } from '@/composables/useRecentSearches'
 import { searchAddresses, getTypeIcon } from '@/services/geocodingService'
+import {
+  AlertTriangle, ArrowRight, ArrowUpDown, Bus, BusFront, Check, ChevronRight, Clock, Compass,
+  Footprints, Map as MapIcon, MapPin, Route as RouteIcon, Search, SearchX, X
+} from 'lucide-vue-next'
 
 // Props
 const props = defineProps<{
@@ -345,9 +369,9 @@ const emit = defineEmits<{
 type TabId = 'routes' | 'schedule' | 'plan'
 const activeTab = ref<TabId>('plan')
 const tabs = computed(() => [
-  { id: 'plan' as TabId, icon: '🧭', label: t('planning') },
-  { id: 'schedule' as TabId, icon: '🕐', label: t('schedule') },
-  { id: 'routes' as TabId, icon: '🗺️', label: t('routes') },
+  { id: 'plan' as TabId, icon: RouteIcon, label: t('planning') },
+  { id: 'schedule' as TabId, icon: Clock, label: t('schedule') },
+  { id: 'routes' as TabId, icon: MapIcon, label: t('routes') },
 ])
 
 watch(activeTab, (newTab) => {
@@ -371,15 +395,15 @@ const loadRoutes = async () => {
   loading.value = true
   error.value = null
   try {
-    const cachedList = localStorage.getItem('routesList')
-    const cachedTs   = localStorage.getItem('routesListTs')
+    const cachedList = localStorage.getItem('routesList.v2')
+    const cachedTs   = localStorage.getItem('routesList.v2.ts')
     if (cachedList && cachedTs && Date.now() - parseInt(cachedTs) < 30 * 60 * 1000) {
       routes.value = JSON.parse(cachedList)
       return
     }
     routes.value = await apiService.getRoutes()
-    localStorage.setItem('routesList', JSON.stringify(routes.value))
-    localStorage.setItem('routesListTs', Date.now().toString())
+    localStorage.setItem('routesList.v2', JSON.stringify(routes.value))
+    localStorage.setItem('routesList.v2.ts', Date.now().toString())
   } catch {
     error.value = 'Nu s-au putut încărca traseele. Verifică dacă API-ul rulează.'
   } finally {
@@ -683,6 +707,32 @@ const selectDest = (s: Suggestion) => {
 const clearOrigin  = () => { planOrigin.value = null; planOriginQuery.value = ''; originSuggestions.value = [] }
 const clearDest    = () => { planDest.value = null;   planDestQuery.value = '';   destSuggestions.value = [] }
 
+// Inversează plecarea cu destinația (și textele căutate)
+const swapEndpoints = () => {
+  const origin = planOrigin.value
+  const originQuery = planOriginQuery.value
+  planOrigin.value = planDest.value
+  planOriginQuery.value = planDestQuery.value
+  planDest.value = origin
+  planDestQuery.value = originQuery
+  originSuggestions.value = []
+  destSuggestions.value = []
+}
+
+// Varianta selectată din listă (evidențiată, cu pașii afișați)
+const selectedResultIdx = ref<number | null>(null)
+
+// Durata călătoriei din orele "HH:MM" (trece peste miezul nopții)
+const tripDuration = (result: PlanResult): string => {
+  const toMin = (hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number)
+    return (h ?? 0) * 60 + (m ?? 0)
+  }
+  let minutes = toMin(result.arrivalTime) - toMin(result.departureTime)
+  if (minutes < 0) minutes += 24 * 60
+  return `${minutes} min`
+}
+
 const resolveTextQueryToLocation = async (query: string): Promise<Suggestion | null> => {
   const q = normalizeAddressInput(query)
   if (!q) return null
@@ -760,7 +810,7 @@ const searchRoutes = async () => {
   if (!hasLocations) return
 
   const mySearchId = ++currentSearchId
-  isSearching.value = true; searchDone.value = false; planResults.value = []
+  isSearching.value = true; searchDone.value = false; planResults.value = []; selectedResultIdx.value = null
 
   try {
     const origin = planOrigin.value!, dest = planDest.value!
@@ -1050,763 +1100,805 @@ defineExpose({ openPlanTab, setPlanOrigin, setPlanDestination })
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: color-mix(in srgb, var(--bg-primary) 96%, transparent);
-  border-right: 1px solid var(--border-color);
-  box-shadow: var(--shadow-xl);
-  backdrop-filter: blur(18px);
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border-primary);
   overflow: hidden;
   font-family: var(--font-sans);
+  color: var(--text-primary);
   position: relative;
-}
-
-.sidebar::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.10), transparent 24%),
-    radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.08), transparent 22%);
-  opacity: 0.8;
 }
 
 /* ===== HEADER ===== */
 .sidebar-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 20px 16px 16px;
-  background: var(--gradient-primary);
-  color: white;
+  gap: 10px;
+  min-height: 76px;
+  /* loc pentru butonul de ascundere a panoului (fix, stânga sus) */
+  padding: 16px 16px 16px 72px;
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
-  position: relative;
-  overflow: hidden;
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.12);
 }
 
-.sidebar-header::after {
-  content: '';
-  position: absolute;
-  top: -30%;
-  right: -10%;
-  width: 140px;
-  height: 140px;
-  background: rgba(255,255,255,0.07);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.header-icon {
-  font-size: 0; /* hide emoji, replaced by SVG ideally */
-  width: 36px; height: 36px;
-  background: rgba(255,255,255,0.2);
-  border-radius: 10px;
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  font-size: 20px; /* fallback if no SVG */
 }
 
-.sidebar-header h1 {
-  font-size: 17px;
-  font-weight: 700;
-  margin: 0;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+.brand-name {
+  font-family: var(--font-display);
+  font-weight: var(--fw-heavy);
+  font-size: 20px;
+  letter-spacing: -0.02em;
 }
 
-.sidebar-header p {
-  font-size: 12px;
-  margin: 2px 0 0;
-  opacity: 0.8;
-  font-weight: 400;
+.sidebar-header .live-badge {
+  margin-left: auto;
 }
 
-/* ===== TAB BAR ===== */
+/* ===== TABS ===== */
 .tab-bar {
   display: flex;
-  border-bottom: 1px solid var(--border-color);
-  background: color-mix(in srgb, var(--bg-primary) 94%, transparent);
+  gap: 4px;
+  padding: 8px 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
-  padding: 0 8px;
-  gap: 2px;
-  position: relative;
-  z-index: 1;
 }
 
 .tab-btn {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 10px 4px 8px;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 8px;
   border: none;
-  background: transparent;
-  color: var(--text-tertiary);
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--fw-bold);
   cursor: pointer;
-  font-size: 11px;
-  font-weight: 500;
-  transition: color 0.2s ease;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  position: relative;
-  -webkit-tap-highlight-color: transparent;
+  transition: var(--transition-colors);
 }
 
-.tab-btn:hover { color: var(--text-primary); }
+.tab-btn:hover {
+  color: var(--text-primary);
+}
 
 .tab-btn.active {
-  color: var(--accent-primary);
-  border-bottom-color: var(--accent-primary);
-  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
 }
 
-.tab-icon { font-size: 15px; line-height: 1; }
-.tab-label { font-size: 10px; font-weight: inherit; letter-spacing: 0.02em; }
+.tab-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+  border-radius: 8px 8px 0 0;
+}
 
-/* ===== TAB CONTENT ===== */
+/* ===== CONTENT ===== */
 .tab-content {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  overscroll-behavior: contain;
+  padding: 20px 16px 24px;
   display: flex;
   flex-direction: column;
+  gap: 16px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.section-title .count {
+  font-variant-numeric: tabular-nums;
+}
+
+.section-hint,
+.hint-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* ===== FIELDS ===== */
+.field {
+  position: relative;
+  display: flex;
+  align-items: center;
   gap: 8px;
-  scroll-behavior: smooth;
+  min-height: 56px;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  transition: var(--transition-colors);
+  cursor: text;
 }
 
-/* ===== SHARED STATES ===== */
-.center-state {
+.field:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: var(--ring-focus);
+}
+
+.field--search {
+  min-height: 48px;
+  background: var(--bg-secondary);
+}
+
+.field--filled {
+  cursor: default;
+  background: var(--bg-secondary);
+}
+
+.field--compact {
+  flex: 1;
+  min-height: 52px;
+}
+
+.field-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.field-text {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 32px 16px;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.5;
+  gap: 1px;
 }
 
-.state-icon {
-  font-size: 32px;
-  opacity: 0.6;
-}
-
-.error-state { color: var(--color-danger); }
-
-.empty-hero {
-  padding: 36px 20px;
-  text-align: center;
+.field-label {
+  font-size: 12px;
+  font-weight: var(--fw-semibold);
   color: var(--text-secondary);
 }
 
-.empty-hero-icon {
-  font-size: 44px;
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-.empty-hero h3 {
+.field-value {
   font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 8px;
-  letter-spacing: -0.01em;
-}
-.empty-hero p { font-size: 13px; line-height: 1.6; margin: 0; }
-
-.spinner {
-  width: 24px; height: 24px;
-  border: 2.5px solid var(--border-primary);
-  border-top-color: var(--accent-primary);
-  border-radius: 50%;
-  animation: spin 0.75s linear infinite;
-  flex-shrink: 0;
-}
-.spinner-small {
-  display: inline-block;
-  width: 13px; height: 13px;
-  border: 2px solid var(--border-primary);
-  border-top-color: var(--accent-primary);
-  border-radius: 50%;
-  animation: spin 0.75s linear infinite;
-  vertical-align: middle;
-  margin-right: 5px;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.btn-retry {
-  padding: 7px 18px;
-  border: 1.5px solid var(--color-danger);
-  border-radius: var(--radius-md, 8px);
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-.btn-retry:hover { background: var(--color-danger); color: #fff; }
-
-.section-hint {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin: 0 0 6px;
-  padding: 0 2px;
-  letter-spacing: 0.01em;
-}
-
-/* ===== ROUTES LIST ===== */
-.routes-section { display: flex; flex-direction: column; gap: 5px; }
-
-.route-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1.5px solid var(--border-primary);
-  border-radius: var(--radius-md, 10px);
-  background: var(--bg-primary);
-  cursor: pointer;
-  text-align: left;
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
-  width: 100%;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.route-item:hover {
-  border-color: var(--accent-primary);
-  background: var(--accent-primary-soft);
-  box-shadow: var(--shadow-sm);
-}
-.route-item.active {
-  border-color: var(--accent-primary);
-  background: var(--accent-primary-soft);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.route-badge {
-  flex-shrink: 0;
-  min-width: 38px;
-  padding: 4px 7px;
-  border-radius: var(--radius-sm, 6px);
-  color: white;
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-  letter-spacing: 0.01em;
-}
-
-.route-name {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.route-check {
-  color: var(--accent-primary);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  background: var(--accent-primary-soft);
-  border-radius: 50%;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-/* ===== STATIONS ===== */
-.stations-section {
-  border: 1.5px solid var(--border-primary);
-  border-radius: var(--radius-md, 10px);
-  overflow: hidden;
-  background: var(--bg-primary);
-  margin-top: 4px;
-}
-
-.stations-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 14px;
-  background: var(--bg-secondary);
-  font-size: 12px;
-  font-weight: 600;
+.field-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
-  border-bottom: 1px solid var(--border-primary);
-  letter-spacing: 0.01em;
+  outline: none;
 }
 
-.stations-count {
-  background: var(--accent-primary);
-  color: white;
-  border-radius: var(--radius-full, 999px);
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 600;
+.field-input::placeholder {
+  color: var(--text-tertiary);
+  font-weight: var(--fw-normal);
 }
 
-.loading-small {
-  padding: 14px 12px;
-  font-size: 12px;
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.stations-list { max-height: 300px; overflow-y: auto; }
-
-.station-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--border-primary);
-  font-size: 13px;
-  transition: background 0.1s ease;
-}
-.station-row:last-child { border-bottom: none; }
-.station-row:hover { background: var(--bg-secondary); }
-
-.station-index {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--bg-tertiary);
-  color: var(--text-tertiary);
-  font-size: 10px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
   justify-content: center;
-}
-
-.station-dot {
-  flex-shrink: 0;
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--accent-primary);
-}
-
-.station-name {
-  color: var(--text-primary);
-  font-size: 13px;
-  line-height: 1.3;
-}
-
-/* ===== SEARCH BOX ===== */
-.search-box { position: relative; }
-
-.search-input-wrap {
-  display: flex;
-  align-items: center;
-  border: 1.5px solid var(--border-primary);
-  border-radius: var(--radius-md, 10px);
-  background: var(--bg-secondary);
-  overflow: hidden;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.search-input-wrap:focus-within {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  background: var(--bg-primary);
-}
-
-.search-icon {
-  padding: 0 10px;
-  font-size: 14px;
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-}
-
-.search-input {
-  flex: 1;
-  padding: 11px 8px 11px 0;
-  border: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-  min-height: 44px;
-}
-
-.search-input::placeholder { color: var(--text-tertiary); }
-
-.clear-btn {
-  padding: 8px 12px;
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary);
   cursor: pointer;
-  font-size: 14px;
-  transition: color 0.15s;
-  flex-shrink: 0;
-  line-height: 1;
 }
-.clear-btn:hover { color: var(--color-danger); }
+
+.icon-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
 
 /* ===== AUTOCOMPLETE ===== */
+.search-box {
+  position: relative;
+}
+
 .autocomplete {
-  border: 1.5px solid var(--border-primary);
-  border-radius: var(--radius-md, 10px);
-  background: var(--bg-elevated, var(--bg-primary));
+  margin-top: 6px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
-  margin-top: 4px;
-  z-index: var(--z-dropdown, 20);
 }
 
 .autocomplete-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   width: 100%;
-  text-align: left;
-  padding: 10px 14px;
-  border: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 13px;
-  cursor: pointer;
-  border-bottom: 1px solid var(--border-primary);
-  transition: background 0.1s ease;
   min-height: 44px;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--text-primary);
+  cursor: pointer;
 }
 
-.autocomplete-item:last-child { border-bottom: none; }
-.autocomplete-item:hover { background: var(--accent-primary-soft); color: var(--accent-primary); }
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
 
-.ac-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+.autocomplete-item:hover,
+.autocomplete-item:focus-visible {
+  background: var(--bg-secondary);
+  outline: none;
+}
+
+.ac-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
 
 .ac-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   min-width: 0;
-  flex: 1;
 }
 
 .ac-name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: var(--fw-semibold);
 }
 
 .ac-sub {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ===== SCHEDULE PANEL ===== */
-.schedule-panel { display: flex; flex-direction: column; gap: 8px; }
-
-.schedule-station-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--bg-secondary);
-  border: 1.5px solid var(--border-primary);
-  border-radius: var(--radius-md, 10px);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.stop-icon { font-size: 18px; opacity: 0.7; }
-
-/* ===== ETAs ===== */
-.etas-list { display: flex; flex-direction: column; gap: 6px; }
-
-.eta-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: var(--radius-md, 10px);
-  background: var(--bg-primary);
-  border: 1.5px solid var(--border-primary);
-  border-left: 4px solid var(--accent-primary);
-  transition: box-shadow 0.15s ease;
-}
-.eta-card:hover { box-shadow: var(--shadow-md); }
-
-.eta-badge {
-  flex-shrink: 0;
-  min-width: 36px;
-  padding: 4px 7px;
-  border-radius: var(--radius-sm, 6px);
-  color: white;
   font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-}
-
-.eta-info { flex: 1; min-width: 0; }
-.eta-route-name {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  letter-spacing: -0.01em;
-}
-.eta-direction {
-  display: block;
-  font-size: 11px;
   color: var(--text-secondary);
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.eta-time {
+/* ===== PLAN FORM ===== */
+.plan-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.plan-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: var(--fw-bold);
+}
+
+.endpoints {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.endpoints-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 24px 0;
+}
+
+.rail-start {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--text-primary);
+}
+
+.rail-line {
+  flex: 1;
+  width: 2px;
+  background: repeating-linear-gradient(var(--border-secondary) 0 4px, transparent 4px 8px);
+}
+
+.rail-end {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--text-primary);
+}
+
+.endpoints-fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.swap-btn {
+  align-self: center;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--accent-primary);
-  min-width: 52px;
-  text-align: right;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.swap-btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.segmented {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+}
+
+.segmented button {
+  flex: 1;
+  min-height: 40px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+}
+
+.segmented button.active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-xs), 0 1px 2px rgba(22, 24, 29, 0.08);
+}
+
+.datetime-row {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-search-routes {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
+  font: inherit;
+  font-size: 15px;
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+  transition: var(--transition-colors);
+}
+
+.btn-search-routes:hover:not(:disabled) {
+  background: var(--accent-primary-hover);
+}
+
+.btn-search-routes:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ===== RESULTS ===== */
+.plan-results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.results-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.results-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.result-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.result-card:hover {
+  border-color: var(--border-secondary);
+}
+
+.result-card.selected {
+  border: 2px solid var(--text-primary);
+  padding: 13px 15px;
+}
+
+.result-card:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.result-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.result-when {
+  font-size: 13px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+
+.result-tag {
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+  color: var(--color-success);
+}
+
+.result-times {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.result-times .time {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: var(--fw-bold);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
-.eta-time.urgent {
-  color: var(--color-danger);
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-/* ===== PLAN FORM ===== */
-.plan-form { display: flex; flex-direction: column; gap: 14px; }
-
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-
-.form-label {
-  font-size: 11px;
-  font-weight: 600;
+.time-arrow {
   color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  align-self: center;
 }
 
-.selected-station-chip {
+.duration {
+  margin-left: auto;
+  font-size: 15px;
+  font-weight: var(--fw-bold);
+}
+
+.result-legs {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: var(--accent-primary-soft);
-  border: 1.5px solid rgba(59, 130, 246, 0.3);
-  border-radius: var(--radius-md, 10px);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-.chip-close {
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  font-size: 16px;
-  padding: 0 2px;
-  line-height: 1;
-  transition: color 0.15s;
-}
-.chip-close:hover { color: var(--color-danger); }
-
-.time-input {
-  padding: 10px 14px;
-  border: 1.5px solid var(--border-primary);
-  border-radius: var(--radius-md, 10px);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 600;
-  outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  min-height: 44px;
-  width: 100%;
-}
-
-.time-input:focus {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.btn-search-routes {
-  padding: 13px;
-  border: none;
-  border-radius: var(--radius-md, 10px);
-  background: var(--gradient-primary);
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
-  letter-spacing: 0.01em;
-  min-height: 48px;
-}
-
-.btn-search-routes:hover:not(:disabled) {
-  opacity: 0.92;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
-}
-.btn-search-routes:active:not(:disabled) { transform: translateY(0); }
-.btn-search-routes:disabled { opacity: 0.45; cursor: not-allowed; }
-
-/* ===== PLAN RESULTS ===== */
-.plan-results { display: flex; flex-direction: column; gap: 8px; }
-
-.results-header {
-  padding: 6px 2px 8px;
-  border-bottom: 1px solid var(--border-primary);
-  margin-bottom: 2px;
-}
-
-.results-header strong {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  display: block;
-  letter-spacing: -0.01em;
-}
-.results-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
-
-.result-card {
-  padding: 14px;
-  border: 1.5px solid var(--border-primary);
-  border-radius: var(--radius-md, 10px);
-  background: var(--bg-primary);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.result-card:hover {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
-}
-.result-card.transfer { border-left: 4px solid var(--color-warning); }
-
-.result-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-
-.result-badge {
-  flex-shrink: 0;
-  min-width: 36px;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm, 6px);
-  color: white;
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-}
-
-.transfer-icon { font-size: 14px; color: var(--color-warning); flex-shrink: 0; }
-
-.result-route {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  letter-spacing: -0.01em;
-}
-.result-route.transfer-label { color: var(--text-secondary); font-weight: 500; }
-
-.result-times {
-  display: flex;
+.leg-walk {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-sm, 8px);
-  padding: 10px 14px;
-}
-
-.time-block { text-align: center; }
-.time-label {
-  display: block;
-  font-size: 10px;
-  color: var(--text-tertiary);
-  margin-bottom: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 500;
-}
-.time-value {
-  display: block;
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--text-primary);
-  line-height: 1;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-}
-.time-value.arrival { color: var(--color-success); }
-.time-arrow { font-size: 16px; color: var(--text-tertiary); flex: 1; text-align: center; }
-
-.walking-info {
-  font-size: 11px;
+  gap: 3px;
+  font-size: 13px;
+  font-weight: var(--fw-semibold);
   color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-sm, 6px);
 }
 
-.walk-instruction {
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--text-primary);
-  background: rgba(16, 185, 129, 0.10);
-  border: 1px solid rgba(16, 185, 129, 0.22);
-  border-radius: 6px;
-  padding: 6px 8px;
+.leg-sep {
+  color: var(--border-secondary);
 }
 
 .result-meta {
-  display: flex;
-  gap: 6px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-secondary);
-  align-items: center;
 }
 
-.result-countdown { font-weight: 700; color: var(--color-success); }
-.result-countdown.urgent { color: var(--color-danger); }
+.result-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 14px;
+  line-height: 1.45;
+}
 
-.hint-text { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; line-height: 1.5; }
+/* ===== ROUTES TAB ===== */
+.routes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 
-/* ===== TRANSITIONS ===== */
+.route-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.route-item:hover {
+  background: var(--bg-secondary);
+}
+
+.route-item.active {
+  border-color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.route-item .line-pill {
+  min-width: 40px;
+}
+
+.route-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: var(--fw-semibold);
+}
+
+.route-check {
+  color: var(--text-primary);
+}
+
+.stations-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.stations-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.station-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+  font-size: 14px;
+}
+
+.station-row::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border-primary);
+}
+
+.station-row:first-child::before { top: 50%; }
+.station-row:last-child::before { bottom: 50%; }
+
+.station-dot {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 3px solid var(--text-primary);
+  background: var(--bg-primary);
+}
+
+/* ===== SCHEDULE TAB ===== */
+.schedule-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.board-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: #16181d;
+  color: #fff;
+}
+
+.board-eyebrow {
+  font-size: 12px;
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #b9bcc4;
+}
+
+.board-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: var(--fw-heavy);
+  letter-spacing: -0.02em;
+}
+
+.departures {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.departure {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.departure-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.departure-dest {
+  font-weight: var(--fw-bold);
+  font-size: 15px;
+}
+
+.departure-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.departure-time {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: var(--fw-heavy);
+  font-variant-numeric: tabular-nums;
+}
+
+.departure-time.urgent {
+  color: var(--live-ink);
+}
+
+/* ===== STATES ===== */
+.center-state,
+.empty-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.center-state p,
+.empty-hero p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.empty-hero h3 {
+  margin: 4px 0 0;
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.empty-hero-icon {
+  color: var(--text-tertiary);
+}
+
+.error-state {
+  color: var(--color-danger);
+}
+
+.btn-secondary-sm {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+}
+
+.spinner,
+.spinner-small {
+  border-radius: 50%;
+  border: 3px solid var(--border-primary);
+  border-top-color: var(--text-primary);
+  animation: spin 0.8s linear infinite;
+}
+
+.spinner { width: 28px; height: 28px; }
+.spinner-small { width: 16px; height: 16px; border-width: 2px; display: inline-block; }
+.spinner-small--light { border-color: rgba(255, 255, 255, 0.35); border-top-color: #fff; }
+
+.loading-small {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .slide-down-enter-active,
-.slide-down-leave-active { transition: opacity 0.2s ease, transform 0.25s ease; }
+.slide-down-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
 .slide-down-enter-from,
-.slide-down-leave-to { opacity: 0; transform: translateY(-6px); }
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 </style>
