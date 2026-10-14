@@ -232,7 +232,7 @@ interface Props {
   isOpen: boolean
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 const emit = defineEmits(['close', 'settingsUpdated'])
 
 const {
@@ -338,7 +338,7 @@ const sendTestNotification = async () => {
     setTimeout(() => {
       try {
         testNotif.close()
-      } catch (e) {
+      } catch {
         // Ignore
       }
     }, 5000)

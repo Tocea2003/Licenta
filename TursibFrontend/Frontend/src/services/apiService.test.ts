@@ -143,7 +143,8 @@ describe('apiService', () => {
       const result = await apiService.getRouteSegment(1, 3, 7)
 
       expect(mockGet).toHaveBeenCalledWith(
-        '/shapes/route/1/segment?fromStationId=3&toStationId=7'
+        '/shapes/route/1/segment?fromStationId=3&toStationId=7',
+        expect.objectContaining({ validateStatus: expect.any(Function) })
       )
       expect(result).toEqual(mockShape)
     })

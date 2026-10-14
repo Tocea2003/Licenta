@@ -41,7 +41,7 @@ import { useLanguage } from '@/composables/useLanguage'
 
 const { t } = useLanguage()
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     title?: string
     description?: string

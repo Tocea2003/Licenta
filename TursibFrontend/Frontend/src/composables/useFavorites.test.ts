@@ -137,9 +137,9 @@ describe('useFavorites', () => {
       type: 'custom' as const, icon: '📍', lat: 45.7983, lon: 24.1256
     }
 
-    await addFavorite(location)
+    const added = await addFavorite(location)
 
-    await updateFavorite('1', { name: 'Updated Name', address: 'Updated Address', icon: '🏠' })
+    await updateFavorite(added!.id, { name: 'Updated Name', address: 'Updated Address', icon: '🏠' })
 
     expect(favorites.value[0]?.name).toBe('Updated Name')
     expect(favorites.value[0]?.address).toBe('Updated Address')
@@ -168,9 +168,9 @@ describe('useFavorites', () => {
       type: 'custom' as const, icon: '📍', lat: 45.7983, lon: 24.1256
     }
 
-    await addFavorite(location)
+    const added = await addFavorite(location)
 
-    const retrieved = getFavorite('test-id')
+    const retrieved = getFavorite(added!.id)
     expect(retrieved).toMatchObject(location)
   })
 

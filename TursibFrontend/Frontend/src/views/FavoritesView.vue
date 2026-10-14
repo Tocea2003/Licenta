@@ -433,7 +433,7 @@ const enableNotificationsForFavorite = async (favorite: FavoriteLocation) => {
       t('notifActivatedFor', '', { name: favorite.name, station: nearest.station.name, distance: String(distanceMeters) }),
       'success'
     )
-  } catch (error) {
+  } catch {
     setNotificationFeedback(t('notifGenericError'), 'error')
   } finally {
     notifyingFavoriteId.value = null
