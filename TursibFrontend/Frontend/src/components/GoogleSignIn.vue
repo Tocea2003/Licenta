@@ -18,8 +18,8 @@
 
     <div v-if="errorMessage" class="error-message">
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="9" stroke="#ef4444" stroke-width="2"/>
-        <path d="M10 6v4M10 14h.01" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="2"/>
+        <path d="M10 6v4M10 14h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
       <span>{{ errorMessage }}</span>
     </div>
@@ -108,17 +108,6 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-@media (prefers-color-scheme: dark) {
-  .google-signin-btn {
-    background: #2d2d2d;
-    border-color: #5f6368;
-    color: #e8eaed;
-  }
-  .google-signin-btn:hover:not(:disabled) {
-    background: #3c3c3c;
-  }
-}
-
 .google-icon { flex-shrink: 0; }
 .button-text { white-space: nowrap; }
 
@@ -129,19 +118,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  color: #991b1b;
+  padding: 12px 14px;
+  background: var(--color-danger-soft);
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
   font-size: 14px;
+  font-weight: var(--fw-semibold);
 }
 
-@media (prefers-color-scheme: dark) {
-  .error-message {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.3);
-    color: #fca5a5;
-  }
-}
 </style>

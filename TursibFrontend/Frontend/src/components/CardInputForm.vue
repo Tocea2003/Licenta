@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CreditCard } from 'lucide-vue-next'
 import { computed, reactive, watch } from 'vue'
 import FormField from './FormField.vue'
 
@@ -72,24 +73,24 @@ const brand = computed(() => detectBrand(form.cardNumber))
 const errors = computed(() => {
   const e: Record<string, string | undefined> = {}
   if (touched.cardholderName && form.cardholderName.trim().length < 2) {
-    e.cardholderName = 'Introdu numele detinatorului'
+    e.cardholderName = 'Introdu numele de pe card'
   }
   const digits = digitsOnly(form.cardNumber)
   if (touched.cardNumber) {
-    if (digits.length < 13) e.cardNumber = 'Numar card incomplet'
-    else if (!luhn(form.cardNumber)) e.cardNumber = 'Numar card invalid'
+    if (digits.length < 13) e.cardNumber = 'Număr de card incomplet'
+    else if (!luhn(form.cardNumber)) e.cardNumber = 'Număr de card invalid'
   }
   if (touched.expiry) {
     const m = parseInt(form.expiryMonth, 10)
     const y = parseInt(form.expiryYear, 10)
-    if (!m || m < 1 || m > 12) e.expiry = 'Luna invalida'
+    if (!m || m < 1 || m > 12) e.expiry = 'Lună invalidă'
     else if (!y || y < 2000 || y > 2099) e.expiry = 'An invalid'
     else {
       const last = new Date(y, m, 0, 23, 59, 59)
       if (last < new Date()) e.expiry = 'Card expirat'
     }
   }
-  if (touched.cvv && !/^\d{3,4}$/.test(form.cvv)) e.cvv = 'CVV invalid (3-4 cifre)'
+  if (touched.cvv && !/^\d{3,4}$/.test(form.cvv)) e.cvv = 'CVV invalid (3–4 cifre)'
   return e
 })
 
@@ -141,7 +142,7 @@ function fillTestCard() {
 
 <template>
   <div class="card-form">
-    <FormField label="Nume detinator card" :error="errors.cardholderName" required>
+    <FormField label="Numele de pe card" :error="errors.cardholderName" required>
       <input
         v-model="form.cardholderName"
         class="input"
@@ -153,7 +154,7 @@ function fillTestCard() {
       />
     </FormField>
 
-    <FormField label="Numar card" :error="errors.cardNumber" required>
+    <FormField label="Număr card" :error="errors.cardNumber" required>
       <div class="card-number-wrap">
         <input
           :value="form.cardNumber"
@@ -170,13 +171,13 @@ function fillTestCard() {
         <span class="card-brand" :class="`brand-${brand}`" aria-hidden="true">
           <span v-if="brand === 'visa'">VISA</span>
           <span v-else-if="brand === 'mastercard'">MC</span>
-          <span v-else>💳</span>
+          <CreditCard v-else :size="18" />
         </span>
       </div>
     </FormField>
 
     <div class="card-row">
-      <FormField label="Luna" :error="errors.expiry && touched.expiry ? '' : undefined" required>
+      <FormField label="Luna (LL)" :error="errors.expiry && touched.expiry ? '' : undefined" required>
         <input
           v-model="form.expiryMonth"
           class="input"
@@ -189,7 +190,7 @@ function fillTestCard() {
           @blur="touched.expiry = true"
         />
       </FormField>
-      <FormField label="An" :error="errors.expiry" required>
+      <FormField label="Anul" :error="errors.expiry" required>
         <input
           v-model="form.expiryYear"
           class="input"
@@ -219,10 +220,10 @@ function fillTestCard() {
 
     <div class="test-hint">
       <div class="alert alert-info" style="font-size: var(--text-xs)">
-        <span>💡 Poti folosi cardul de test <strong>4242 4242 4242 4242</strong> cu orice CVV si o data de expirare in viitor.</span>
+        <span>Plată simulată: poți folosi cardul de test <strong>4242 4242 4242 4242</strong> cu orice CVV și o dată de expirare în viitor.</span>
       </div>
       <button type="button" class="btn btn-ghost btn-test" @click="fillTestCard">
-        Completeaza automat
+        Completează automat
       </button>
     </div>
   </div>

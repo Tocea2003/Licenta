@@ -6,6 +6,7 @@ import { useStatistics } from '@/composables/useStatistics'
 import { useLanguage } from '@/composables/useLanguage'
 import OnboardingTutorial from '@/components/OnboardingTutorial.vue'
 import HomeView from '@/views/HomeView.vue'
+import { X } from 'lucide-vue-next'
 
 const { t } = useLanguage()
 
@@ -62,10 +63,8 @@ function goHome() {
       <div class="panel-sheet">
         <div class="panel-header">
           <div class="panel-handle"></div>
-          <button class="panel-close" @click="goHome" :aria-label="t('close')">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-            </svg>
+          <button type="button" class="panel-close" @click="goHome" :aria-label="t('close')">
+            <X :size="20" aria-hidden="true" />
           </button>
         </div>
         <RouterView />
@@ -83,7 +82,7 @@ function goHome() {
 
 html, body, #app {
   height: 100%;
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
 }
 
 /* ---- Map always in background ---- */
@@ -98,9 +97,7 @@ html, body, #app {
   position: fixed;
   inset: 0;
   z-index: 950;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: var(--bg-overlay);
   display: flex;
   align-items: flex-end;
 }
@@ -111,7 +108,7 @@ html, body, #app {
   width: 100%;
   max-height: calc(100dvh - var(--nav-height, 70px));
   background: var(--bg-secondary);
-  border-radius: 20px 20px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -130,7 +127,7 @@ html, body, #app {
   justify-content: center;
   padding: 10px 12px 8px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border-primary);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .panel-handle {
@@ -147,9 +144,9 @@ html, body, #app {
   transform: translateY(-50%);
   width: 44px;
   height: 44px;
-  border-radius: 50%;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
@@ -159,9 +156,8 @@ html, body, #app {
   flex-shrink: 0;
 }
 .panel-close:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
-  border-color: var(--border-secondary);
 }
 
 /* ---- Desktop: panel slides from right ---- */
@@ -173,8 +169,8 @@ html, body, #app {
   .panel-sheet {
     width: 500px;
     max-height: 100dvh;
-    border-radius: 20px 0 0 20px;
-    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.2);
+    border-radius: 0;
+    box-shadow: var(--shadow-xl);
   }
   .panel-handle {
     display: none;
