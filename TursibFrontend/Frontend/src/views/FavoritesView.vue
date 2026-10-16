@@ -1,202 +1,113 @@
 <template>
-  <div class="favorites-view">
-    <div class="header">
-      <h1>{{ t('favLocationsTitle') }}</h1>
-      <p class="subtitle">{{ t('favLocationsSubtitle') }}</p>
-      <p v-if="notificationMessage" class="notification-message" :class="notificationMessageType">
-        {{ notificationMessage }}
-      </p>
-    </div>
+  <div class="favorites-page">
+    <header>
+      <h1 class="page-title">{{ t('favLocationsTitle') }}</h1>
+      <p class="page-subtitle">{{ t('favLocationsSubtitle') }}</p>
+    </header>
 
-    <!-- Quick Add Buttons -->
+    <p v-if="notificationMessage" class="feedback" :class="notificationMessageType" role="status">
+      {{ notificationMessage }}
+    </p>
+
     <div class="quick-add">
-      <button 
-        v-if="!homeFavorite" 
-        @click="openAddDialog('home')"
-        class="quick-btn home"
-      >
-        <span class="icon">🏠</span>
-        <span class="text">{{ t('addHome') }}</span>
+      <button v-if="!homeFavorite" type="button" class="quick-btn" @click="openAddDialog('home')">
+        <Home :size="18" aria-hidden="true" />{{ t('addHome') }}
       </button>
-      <button 
-        v-if="!workFavorite" 
-        @click="openAddDialog('work')"
-        class="quick-btn work"
-      >
-        <span class="icon">💼</span>
-        <span class="text">{{ t('addWork') }}</span>
+      <button v-if="!workFavorite" type="button" class="quick-btn" @click="openAddDialog('work')">
+        <Briefcase :size="18" aria-hidden="true" />{{ t('addWork') }}
       </button>
-      <button 
-        @click="openAddDialog('custom')"
-        class="quick-btn custom"
-      >
-        <span class="icon">➕</span>
-        <span class="text">{{ t('addNewLocation') }}</span>
+      <button type="button" class="quick-btn quick-btn--primary" @click="openAddDialog('custom')">
+        <Plus :size="18" aria-hidden="true" />{{ t('addNewLocation') }}
       </button>
     </div>
 
-    <!-- Favorites List -->
-    <div class="favorites-list">
-      <!-- Home -->
-      <div v-if="homeFavorite" class="favorite-item home" @click="navigateToFavorite(homeFavorite)" style="cursor: pointer">
-        <div class="favorite-icon">🏠</div>
-        <div class="favorite-info">
-          <h3>{{ homeFavorite.name }}</h3>
-          <p>{{ homeFavorite.address }}</p>
+    <ul v-if="orderedFavorites.length > 0" class="favorites-list">
+      <li v-for="favorite in orderedFavorites" :key="favorite.id" class="favorite-item">
+        <button type="button" class="favorite-main" @click="navigateToFavorite(favorite)">
+          <span class="favorite-icon" :class="`is-${favorite.type}`">
+            <component :is="favoriteIconComponent(favorite.icon, favorite.type)" :size="20" aria-hidden="true" />
+          </span>
+          <span class="favorite-info">
+            <span class="favorite-name">{{ favorite.name }}</span>
+            <span class="favorite-address">{{ favorite.address }}</span>
+          </span>
+        </button>
+        <div class="favorite-actions">
+          <button
+            type="button"
+            class="icon-btn"
+            :disabled="notifyingFavoriteId === favorite.id"
+            :title="t('enableAlertsForStation')"
+            :aria-label="`${t('enableAlertsForStation')}: ${favorite.name}`"
+            @click="enableNotificationsForFavorite(favorite)"
+          >
+            <Bell :size="18" aria-hidden="true" />
+          </button>
+          <button type="button" class="icon-btn" :aria-label="`${t('editLocation')}: ${favorite.name}`" @click="editFavorite(favorite)">
+            <Pencil :size="18" aria-hidden="true" />
+          </button>
+          <button type="button" class="icon-btn icon-btn--danger" :aria-label="`${t('delete')}: ${favorite.name}`" @click="confirmDelete(favorite)">
+            <Trash2 :size="18" aria-hidden="true" />
+          </button>
         </div>
-        <div class="favorite-actions" @click.stop>
-          <button @click="enableNotificationsForFavorite(homeFavorite)" class="action-btn notify" :disabled="notifyingFavoriteId === homeFavorite.id" :title="t('enableAlertsForStation')">
-            🔔
-          </button>
-          <button @click="editFavorite(homeFavorite)" class="action-btn edit">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M18.5 2.50023C18.8978 2.1024 19.4374 1.87891 20 1.87891C20.5626 1.87891 21.1022 2.1024 21.5 2.50023C21.8978 2.89805 22.1213 3.43762 22.1213 4.00023C22.1213 4.56284 21.8978 5.1024 21.5 5.50023L12 15.0002L8 16.0002L9 12.0002L18.5 2.50023Z" 
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <button @click="confirmDelete(homeFavorite)" class="action-btn delete">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M3 6H5H21M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" 
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-        </div>
-      </div>
+      </li>
+    </ul>
 
-      <!-- Work -->
-      <div v-if="workFavorite" class="favorite-item work" @click="navigateToFavorite(workFavorite)" style="cursor: pointer">
-        <div class="favorite-icon">💼</div>
-        <div class="favorite-info">
-          <h3>{{ workFavorite.name }}</h3>
-          <p>{{ workFavorite.address }}</p>
-        </div>
-        <div class="favorite-actions" @click.stop>
-          <button @click="enableNotificationsForFavorite(workFavorite)" class="action-btn notify" :disabled="notifyingFavoriteId === workFavorite.id" :title="t('enableAlertsForStation')">
-            🔔
-          </button>
-          <button @click="editFavorite(workFavorite)" class="action-btn edit">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M18.5 2.50023C18.8978 2.1024 19.4374 1.87891 20 1.87891C20.5626 1.87891 21.1022 2.1024 21.5 2.50023C21.8978 2.89805 22.1213 3.43762 22.1213 4.00023C22.1213 4.56284 21.8978 5.1024 21.5 5.50023L12 15.0002L8 16.0002L9 12.0002L18.5 2.50023Z" 
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <button @click="confirmDelete(workFavorite)" class="action-btn delete">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M3 6H5H21M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" 
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Custom Favorites -->
-      <div
-        v-for="favorite in customFavorites"
-        :key="favorite.id"
-        class="favorite-item custom"
-        @click="navigateToFavorite(favorite)"
-        style="cursor: pointer"
-      >
-        <div class="favorite-icon">{{ favorite.icon }}</div>
-        <div class="favorite-info">
-          <h3>{{ favorite.name }}</h3>
-          <p>{{ favorite.address }}</p>
-        </div>
-        <div class="favorite-actions" @click.stop>
-          <button @click="enableNotificationsForFavorite(favorite)" class="action-btn notify" :disabled="notifyingFavoriteId === favorite.id" :title="t('enableAlertsForStation')">
-            🔔
-          </button>
-          <button @click="editFavorite(favorite)" class="action-btn edit">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" 
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M18.5 2.50023C18.8978 2.1024 19.4374 1.87891 20 1.87891C20.5626 1.87891 21.1022 2.1024 21.5 2.50023C21.8978 2.89805 22.1213 3.43762 22.1213 4.00023C22.1213 4.56284 21.8978 5.1024 21.5 5.50023L12 15.0002L8 16.0002L9 12.0002L18.5 2.50023Z" 
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <button @click="confirmDelete(favorite)" class="action-btn delete">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M3 6H5H21M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" 
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Empty State -->
-    <div v-if="favorites.length === 0" class="empty-state">
-      <div class="empty-icon">📍</div>
-      <h3>{{ t('noSavedLocations') }}</h3>
+    <div v-else class="empty-state">
+      <MapPin :size="36" class="empty-icon" aria-hidden="true" />
+      <h2>{{ t('noSavedLocations') }}</h2>
       <p>{{ t('addFrequentLocations') }}</p>
     </div>
 
-    <!-- Gradient FAB -->
-    <button class="fab-add" @click="openAddDialog('custom')" :aria-label="t('addLocation')">
-      <span class="fab-plus">+</span>
-    </button>
-
-    <!-- Add/Edit Dialog (bottom sheet) -->
+    <!-- Adaugă / editează -->
     <div v-if="showDialog" class="dialog-overlay" @click="closeDialog">
-      <div class="dialog" @click.stop>
-        <div class="dialog-handle"></div>
-        <h2>{{ editingFavorite ? t('editLocation') : t('addLocation') }}</h2>
-        
-        <div class="form-group">
-          <label>{{ t('locationName') }}</label>
-          <input 
-            v-model="form.name" 
-            type="text" 
-            :placeholder="`ex: ${t('homeName')}, ${t('workName')}, Gym`"
-            maxlength="50"
-          />
-        </div>
+      <div class="dialog" role="dialog" aria-modal="true" :aria-label="editingFavorite ? t('editLocation') : t('addLocation')" @click.stop>
+        <h2 class="dialog-title">{{ editingFavorite ? t('editLocation') : t('addLocation') }}</h2>
 
-        <div class="form-group">
-          <label>{{ t('locationAddress') }}</label>
-          <input 
-            v-model="form.address" 
-            type="text" 
-            :placeholder="`${t('geoSearchPlaceholder')}...`"
-            @input="searchAddress"
-          />
-          
-          <!-- Address suggestions -->
+        <label class="field">
+          <span class="field-label">{{ t('locationName') }}</span>
+          <input v-model="form.name" type="text" class="input" :placeholder="`${t('homeName')}, ${t('workName')}…`" maxlength="50" />
+        </label>
+
+        <div class="field">
+          <label class="field-label" for="fav-address">{{ t('locationAddress') }}</label>
+          <input id="fav-address" v-model="form.address" type="text" class="input" :placeholder="t('geoSearchPlaceholder')" @input="searchAddress" autocomplete="off" />
           <div v-if="addressSuggestions.length > 0" class="suggestions">
-            <div 
-              v-for="suggestion in addressSuggestions" 
+            <button
+              v-for="suggestion in addressSuggestions"
               :key="suggestion.place_id"
-              @click="selectAddress(suggestion)"
+              type="button"
               class="suggestion-item"
+              @click="selectAddress(suggestion)"
             >
-              <span class="suggestion-icon">📍</span>
-              <span class="suggestion-text">{{ suggestion.display_name }}</span>
-            </div>
+              <MapPin :size="16" aria-hidden="true" />
+              <span>{{ suggestion.display_name }}</span>
+            </button>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>{{ t('icon') }}</label>
-          <div class="icon-picker">
-            <button 
-              v-for="icon in availableIcons" 
-              :key="icon"
-              @click="form.icon = icon"
-              :class="{ selected: form.icon === icon }"
+        <div class="field">
+          <span class="field-label">{{ t('icon') }}</span>
+          <div class="icon-picker" role="radiogroup" :aria-label="t('icon')">
+            <button
+              v-for="option in FAVORITE_ICONS"
+              :key="option.key"
+              type="button"
+              role="radio"
+              :aria-checked="favoriteIconKey(form.icon) === option.key"
+              :aria-label="option.key"
               class="icon-option"
+              :class="{ selected: favoriteIconKey(form.icon) === option.key }"
+              @click="form.icon = option.key"
             >
-              {{ icon }}
+              <component :is="option.component" :size="20" aria-hidden="true" />
             </button>
           </div>
         </div>
 
         <div class="dialog-actions">
-          <button @click="closeDialog" class="btn-cancel">{{ t('cancel') }}</button>
-          <button @click="saveFavorite" class="btn-save" :disabled="!canSave">
+          <button type="button" class="btn btn-secondary" @click="closeDialog">{{ t('cancel') }}</button>
+          <button type="button" class="btn btn-primary" :disabled="!canSave" @click="saveFavorite">
             {{ editingFavorite ? t('save') : t('add') }}
           </button>
         </div>
@@ -212,6 +123,8 @@ import { useFavorites, type FavoriteLocation } from '@/composables/useFavorites'
 import { useLanguage } from '@/composables/useLanguage'
 import apiService from '@/services/apiService'
 import { enableNotifications } from '@/composables/useNotifications'
+import { Bell, Briefcase, Home, MapPin, Pencil, Plus, Trash2 } from 'lucide-vue-next'
+import { FAVORITE_ICONS, favoriteIconComponent, favoriteIconKey } from '@/utils/favoriteIcons'
 
 const router = useRouter()
 const { t } = useLanguage()
@@ -229,7 +142,6 @@ const navigateToFavorite = (favorite: FavoriteLocation) => {
 }
 
 const {
-  favorites,
   homeFavorite,
   workFavorite,
   customFavorites,
@@ -250,13 +162,18 @@ const form = ref({
   lat: 0,
   lon: 0,
   type: 'custom' as 'home' | 'work' | 'custom',
-  icon: '📍'
+  icon: 'pin'
 })
 
 const addressSuggestions = ref<any[]>([])
 let searchTimeout: number | null = null
 
-const availableIcons = ['🏠', '💼', '🏫', '🏥', '🛒', '🎭', '⛪', '🏋️', '🍽️', '☕', '📚', '🎵', '🌳', '🏖️', '⛰️', '📍']
+// Acasă, serviciu, apoi restul, în ordinea adăugării
+const orderedFavorites = computed(() => [
+  ...(homeFavorite.value ? [homeFavorite.value] : []),
+  ...(workFavorite.value ? [workFavorite.value] : []),
+  ...customFavorites.value
+])
 
 const canSave = computed(() => {
   return form.value.name.trim() !== '' && 
@@ -273,7 +190,7 @@ const openAddDialog = (type: 'home' | 'work' | 'custom') => {
     lat: 0,
     lon: 0,
     type,
-    icon: type === 'home' ? '🏠' : type === 'work' ? '💼' : '📍'
+    icon: type === 'home' ? 'home' : type === 'work' ? 'work' : 'pin'
   }
   showDialog.value = true
 }
@@ -442,496 +359,319 @@ const enableNotificationsForFavorite = async (favorite: FavoriteLocation) => {
 </script>
 
 <style scoped>
-.favorites-view {
-  padding: 32px 24px;
-  padding-bottom: 100px; /* Space for bottom nav */
-  min-height: 100vh;
-  background: var(--gradient-bg);
+.favorites-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 16px 32px;
 }
 
-.header {
-  margin-bottom: 32px;
+.page-subtitle {
+  margin-top: 4px;
 }
 
-.header h1 {
-  font-size: 2rem;
-  font-weight: 800;
-  margin: 0 0 8px 0;
-  color: var(--text-primary);
-}
-
-.subtitle {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
+.feedback {
   margin: 0;
-  font-weight: 500;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: var(--fw-semibold);
 }
 
-.notification-message {
-  margin: 12px auto 0;
-  max-width: 720px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.notification-message.success {
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  color: #10b981;
-}
-
-.notification-message.error {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-}
+.feedback.success { background: var(--color-success-soft); color: var(--color-success); }
+.feedback.error { background: var(--color-danger-soft); color: var(--color-danger); }
 
 .quick-add {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .quick-btn {
-  background: var(--bg-primary);
-  border: 1.5px dashed var(--border-secondary);
-  border-radius: var(--radius-lg, 14px);
-  padding: 20px 16px;
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-full);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--fw-bold);
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: var(--shadow-xs);
-  -webkit-tap-highlight-color: transparent;
 }
 
 .quick-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-style: solid;
+  background: var(--bg-tertiary);
 }
 
-.quick-btn.home:hover {
-  border-color: var(--color-danger);
-  background: var(--color-danger-soft);
-}
-
-.quick-btn.work:hover {
+.quick-btn--primary {
+  background: var(--accent-primary);
   border-color: var(--accent-primary);
-  background: var(--accent-primary-soft);
+  color: var(--text-on-accent);
 }
 
-.quick-btn.custom:hover {
-  border-color: var(--accent-secondary);
-  background: var(--accent-secondary-soft);
-}
-
-.quick-btn .icon {
-  font-size: 2rem;
-}
-
-.quick-btn .text {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-primary);
+.quick-btn--primary:hover {
+  background: var(--accent-primary-hover);
 }
 
 .favorites-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .favorite-item {
-  background: var(--bg-primary);
-  border-radius: 14px;
-  padding: 16px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  box-shadow: var(--shadow-sm);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid var(--border-color);
-  position: relative;
-  overflow: hidden;
+  gap: 4px;
+  padding: 6px 6px 6px 8px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
 }
 
-.favorite-item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: var(--border-secondary);
-  border-radius: 4px 0 0 4px;
+.favorite-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 4px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.favorite-item.home::before { background: var(--color-danger); }
-.favorite-item.work::before { background: var(--accent-primary); }
-.favorite-item.custom::before { background: var(--accent-secondary); }
+.favorite-main:hover .favorite-name {
+  text-decoration: underline;
+}
 
-.favorite-item:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+.favorite-main:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
 }
 
 .favorite-icon {
-  font-size: 2rem;
-  width: 56px;
-  height: 56px;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  flex-shrink: 0;
 }
 
-.favorite-item.home .favorite-icon { background: var(--color-danger-soft); }
-.favorite-item.work .favorite-icon { background: var(--accent-primary-soft); }
-.favorite-item.custom .favorite-icon { background: var(--accent-secondary-soft); }
+.favorite-icon.is-home,
+.favorite-icon.is-work {
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
+}
 
 .favorite-info {
-  flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.favorite-info h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 4px 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.favorite-name {
+  font-size: 15px;
+  font-weight: var(--fw-bold);
 }
 
-.favorite-info p {
+.favorite-address {
   font-size: 13px;
   color: var(--text-secondary);
-  margin: 0;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .favorite-actions {
   display: flex;
-  gap: 8px;
+  gap: 2px;
 }
 
-.action-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+.icon-btn {
+  width: 40px;
+  height: 40px;
   border: none;
-  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  background: transparent;
   color: var(--text-secondary);
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
+  cursor: pointer;
 }
 
-.action-btn:hover {
-  transform: scale(1.05);
+.icon-btn:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
-.action-btn.edit:hover {
-  background: var(--accent-primary-soft);
-  color: var(--accent-primary);
-}
-
-.action-btn.notify:hover {
-  background: var(--accent-primary-soft);
-  color: var(--accent-primary);
-}
-
-.action-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.action-btn.delete:hover {
+.icon-btn--danger:hover:not(:disabled) {
   background: var(--color-danger-soft);
   color: var(--color-danger);
 }
 
+.icon-btn:disabled {
+  opacity: 0.5;
+}
+
 .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 16px;
   text-align: center;
-  padding: 80px 80px 80px 24px; /* right pad clears the fixed FAB */
-  max-width: 500px;
-  margin: 0 auto;
+  color: var(--text-secondary);
 }
 
-.empty-icon {
-  font-size: 5rem;
-  margin-bottom: 24px;
-  opacity: 0.8;
-}
-
-.empty-state h3 {
-  font-size: 1.35rem;
-  font-weight: 700;
+.empty-state h2 {
+  margin: 0;
+  font-size: 18px;
   color: var(--text-primary);
-  margin: 0 0 12px 0;
 }
 
 .empty-state p {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
   margin: 0;
-  line-height: 1.5;
 }
 
-/* Gradient FAB */
-.fab-add {
-  position: fixed;
-  right: 16px;
-  bottom: 90px;
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  color: #fff;
-  border: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
-  z-index: 50;
-  transition: transform 0.2s var(--ease-out-back, cubic-bezier(0.34, 1.56, 0.64, 1)),
-              box-shadow 0.2s ease;
-  -webkit-tap-highlight-color: transparent;
+.empty-icon {
+  color: var(--text-tertiary);
 }
 
-.fab-add:hover {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 10px 28px rgba(59, 130, 246, 0.5);
-}
-
-.fab-plus {
-  font-size: 28px;
-  font-weight: 300;
-  line-height: 1;
-}
-
-/* Dialog — bottom sheet */
+/* Dialog */
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(4px);
+  z-index: 2000;
   display: flex;
   align-items: flex-end;
-  z-index: 2000;
-  animation: fadeIn 0.2s ease;
+  justify-content: center;
+  background: var(--bg-overlay);
 }
 
 .dialog {
-  background: var(--bg-primary);
-  border-radius: 20px 20px 0 0;
-  padding: 20px 20px 28px;
   width: 100%;
-  max-height: 90vh;
+  max-width: 480px;
+  max-height: 90dvh;
   overflow-y: auto;
-  box-shadow: 0 -8px 32px rgba(15, 23, 42, 0.12);
-  animation: slideUp 0.25s ease-out;
-}
-
-.dialog-handle {
-  width: 40px;
-  height: 4px;
-  background: var(--border-primary);
-  border-radius: 2px;
-  margin: 0 auto 16px;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
-}
-
-.dialog h2 {
-  font-size: 1.35rem;
-  font-weight: 700;
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin: 0 0 24px 0;
-  letter-spacing: -0.02em;
-}
-
-.form-group {
-  margin-bottom: 20px;
-  position: relative;
-}
-
-.form-group label {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 12px 14px;
-  border: 2px solid var(--border-color);
-  border-radius: 10px;
-  font-size: 0.95rem;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  font-family: inherit;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 16px 24px;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+@media (min-width: 768px) {
+  .dialog-overlay {
+    align-items: center;
+  }
+
+  .dialog {
+    border-radius: var(--radius-xl);
+  }
+}
+
+.dialog-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: var(--fw-bold);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 14px;
+  font-weight: var(--fw-bold);
 }
 
 .suggestions {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  margin-top: 4px;
-  max-height: 200px;
-  overflow-y: auto;
-  box-shadow: var(--shadow-md);
-  z-index: 10;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .suggestion-item {
-  padding: 12px;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
   cursor: pointer;
-  transition: background 0.2s;
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
 }
 
 .suggestion-item:hover {
-  background: var(--bg-tertiary);
-}
-
-.suggestion-icon {
-  font-size: 18px;
-}
-
-.suggestion-text {
-  font-size: 14px;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  background: var(--bg-secondary);
 }
 
 .icon-picker {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .icon-option {
-  width: 44px;
-  height: 44px;
-  border: 2px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-secondary);
-  font-size: 24px;
-  cursor: pointer;
-  transition: all 0.2s;
+  aspect-ratio: 1;
+  min-height: 40px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
 }
 
 .icon-option:hover {
-  border-color: #3b82f6;
-  background: #eff6ff;
+  background: var(--bg-tertiary);
 }
 
 .icon-option.selected {
-  border-color: #3b82f6;
-  background: #dbeafe;
-  transform: scale(1.1);
+  background: var(--bg-inverse);
+  border-color: var(--bg-inverse);
+  color: var(--text-inverse);
 }
 
 .dialog-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 24px;
+  gap: 8px;
 }
 
-.dialog-actions button {
+.dialog-actions .btn {
   flex: 1;
-  padding: 13px;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.btn-cancel {
-  background: var(--bg-secondary);
-  border: 2px solid var(--border-color);
-  color: var(--text-primary);
-}
-
-.btn-cancel:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--border-color);
-}
-
-.btn-save {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  border: none;
-  color: white;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
-}
-
-.btn-save:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
-}
-
-.btn-save:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-@media (max-width: 768px) {
-  .favorites-view {
-    padding: 16px;
-  }
-  
-  .icon-picker {
-    grid-template-columns: repeat(6, 1fr);
-  }
 }
 </style>
