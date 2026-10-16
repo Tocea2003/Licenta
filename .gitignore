@@ -12,6 +12,7 @@
 !.github/
 !.github/**
 !render.yaml
+!CLAUDE.md
 !docker-compose.yml
 !Lucrare_Licenta_Lavu_Cristian_Ioan_IMBUNATATITA.docx
 !Lucrare_Licenta_IMBUNATATITA.md
