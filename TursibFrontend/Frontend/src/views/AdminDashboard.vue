@@ -1,58 +1,33 @@
 <template>
   <div class="admin-dashboard">
-    <!-- Sidebar Navigation -->
     <aside class="admin-sidebar">
       <div class="sidebar-header">
-        <div class="logo">
-          <span class="logo-icon">🚌</span>
-          <span class="logo-text">Tursib Admin</span>
-        </div>
+        <span class="logo-mark" aria-hidden="true"><BusFront :size="18" /></span>
+        <span class="logo-text">Tursib</span>
+        <span class="logo-sub">/ Admin</span>
       </div>
-      
-      <nav class="sidebar-nav">
-        <router-link to="/admin/analytics" class="nav-item">
-          <span class="nav-icon">📊</span>
-          <span class="nav-text">{{ t('analytics') }}</span>
-        </router-link>
-        <router-link to="/admin/routes" class="nav-item">
-          <span class="nav-icon">🗺️</span>
-          <span class="nav-text">{{ t('routes') }}</span>
-        </router-link>
-        <router-link to="/admin/stations" class="nav-item">
-          <span class="nav-icon">📍</span>
-          <span class="nav-text">{{ t('stations') }}</span>
-        </router-link>
-        <router-link to="/admin/buses" class="nav-item">
-          <span class="nav-icon">🚌</span>
-          <span class="nav-text">{{ t('busFleet') }}</span>
-        </router-link>
-        <router-link to="/admin/users" class="nav-item">
-          <span class="nav-icon">👥</span>
-          <span class="nav-text">{{ t('users') }}</span>
-        </router-link>
-        <router-link to="/admin/tickets" class="nav-item">
-          <span class="nav-icon">🎫</span>
-          <span class="nav-text">{{ t('ticketsAndRevenue') }}</span>
+
+      <nav class="sidebar-nav" :aria-label="t('adminPanel')">
+        <router-link v-for="item in navItems" :key="item.to" :to="item.to" class="nav-item">
+          <component :is="item.icon" :size="18" aria-hidden="true" />
+          <span class="nav-text">{{ t(item.labelKey) }}</span>
         </router-link>
       </nav>
 
       <div class="sidebar-footer">
         <div class="user-profile">
-          <div class="user-avatar">
-            {{ user?.username?.charAt(0).toUpperCase() }}
-          </div>
-          <div class="user-details">
-            <div class="user-name">{{ user?.username }}</div>
-            <div class="user-role">{{ user?.role }}</div>
-          </div>
+          <span class="user-avatar" aria-hidden="true">{{ user?.username?.charAt(0).toUpperCase() }}</span>
+          <span class="user-details">
+            <span class="user-name">{{ user?.username }}</span>
+            <span class="user-role">{{ user?.role }}</span>
+          </span>
         </div>
-        <button @click="handleLogout" class="btn-logout">
-          <span>🚪</span> {{ t('logout') }}
+        <button type="button" @click="handleLogout" class="btn-logout">
+          <LogOut :size="16" aria-hidden="true" />{{ t('logout') }}
         </button>
       </div>
     </aside>
 
-    <!-- Main Content -->
     <div class="admin-main">
       <header class="admin-header">
         <h1 class="page-title">{{ t('adminPanel') }}</h1>
@@ -67,6 +42,16 @@
 </template>
 
 <script setup lang="ts">
+import { BarChart3, BusFront, LogOut, MapPin, Route, Ticket, Users } from 'lucide-vue-next'
+
+const navItems = [
+  { to: '/admin/analytics', icon: BarChart3, labelKey: 'analytics' },
+  { to: '/admin/routes', icon: Route, labelKey: 'routes' },
+  { to: '/admin/stations', icon: MapPin, labelKey: 'stationsSection' },
+  { to: '/admin/buses', icon: BusFront, labelKey: 'busFleet' },
+  { to: '/admin/users', icon: Users, labelKey: 'users' },
+  { to: '/admin/tickets', icon: Ticket, labelKey: 'ticketsAndRevenue' }
+]
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from '@/services/adminService'
@@ -85,261 +70,207 @@ const handleLogout = () => {
 <style scoped>
 .admin-dashboard {
   display: flex;
-  height: 100vh;
+  min-height: 100dvh;
+  height: 100dvh;
   background: var(--bg-secondary);
-  overflow: hidden;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
 }
 
-/* Sidebar */
 .admin-sidebar {
-  width: 280px;
-  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  width: 248px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
-  position: fixed;
-  height: 100vh;
-  left: 0;
-  top: 0;
-  z-index: 100;
+  background: #16181d;
+  color: #fff;
 }
 
 .sidebar-header {
-  padding: 32px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.logo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  min-height: 64px;
+  padding: 0 20px;
 }
 
-.logo-icon {
-  font-size: 32px;
-  filter: drop-shadow(0 2px 8px rgba(255, 255, 255, 0.2));
+.logo-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #fff;
+  color: #16181d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .logo-text {
+  font-family: var(--font-display);
+  font-weight: var(--fw-heavy);
   font-size: 20px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.02em;
+}
+
+.logo-sub {
+  font-size: 14px;
+  color: #b9bcc4;
 }
 
 .sidebar-nav {
   flex: 1;
-  padding: 24px 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
+  padding: 12px;
+  overflow-y: auto;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
-  color: #cbd5e1;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  color: #d5d7dc;
+  font-size: 14px;
+  font-weight: var(--fw-semibold);
   text-decoration: none;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 500;
-  transition: all 0.2s;
-  position: relative;
 }
 
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: #2b2e36;
   color: #fff;
-  transform: translateX(4px);
+  text-decoration: none;
 }
 
 .nav-item.router-link-active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  background: #fff;
+  color: #16181d;
 }
 
-.nav-icon {
-  font-size: 20px;
-}
-
-.nav-text {
-  font-weight: 600;
+.nav-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(138, 162, 245, 0.5);
 }
 
 .sidebar-footer {
-  padding: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-top: 1px solid #2b2e36;
 }
 
 .user-profile {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
 }
 
 .user-avatar {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #1e3fae;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: 18px;
-  font-weight: 700;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  font-weight: var(--fw-bold);
 }
 
 .user-details {
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .user-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-  margin-bottom: 2px;
+  font-weight: var(--fw-bold);
+  font-size: 14px;
 }
 
 .user-role {
   font-size: 12px;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: #b9bcc4;
 }
 
 .btn-logout {
-  width: 100%;
-  padding: 12px;
-  background: rgba(239, 68, 68, 0.15);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  min-height: 40px;
+  border: 1px solid #3a3e48;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
 }
 
 .btn-logout:hover {
-  background: rgba(239, 68, 68, 0.25);
-  border-color: rgba(239, 68, 68, 0.5);
-  color: #fff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  background: #2b2e36;
 }
 
-/* Main Content */
 .admin-main {
   flex: 1;
-  margin-left: 280px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
 }
 
 .admin-header {
-  background: var(--gradient-primary);
-  padding: 48px 48px 64px;
-  border-bottom: 3px solid #667eea;
-  box-shadow: var(--shadow-md);
-  position: relative;
-  overflow: hidden;
+  padding: 24px 32px 8px;
 }
 
-.admin-header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 6px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
-  background-size: 200% 100%;
-  animation: shimmer 3s linear infinite;
-}
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-.page-title {
-  font-size: 36px;
-  font-weight: 800;
-  color: var(--text-primary);
-  margin: 0 0 8px 0;
-  letter-spacing: -1px;
-  text-shadow: none;
-}
-
-.page-subtitle {
-  font-size: 16px;
-  color: var(--text-secondary);
-  margin: 0;
-  font-weight: 500;
-  text-shadow: none;
+.admin-header .page-subtitle {
+  margin-top: 4px;
 }
 
 .admin-content {
   flex: 1;
-  padding: 32px 48px;
-  margin-top: -32px;
+  padding: 16px 32px 32px;
 }
 
-/* Responsive */
-@media (max-width: 1024px) {
-  .admin-sidebar {
-    width: 240px;
+@media (max-width: 900px) {
+  .admin-dashboard {
+    flex-direction: column;
+    height: auto;
   }
-  
-  .admin-main {
-    margin-left: 240px;
-  }
-}
 
-@media (max-width: 768px) {
   .admin-sidebar {
-    width: 80px;
+    width: auto;
   }
-  
-  .sidebar-header,
-  .user-details,
-  .nav-text {
-    display: none;
+
+  .sidebar-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0 12px 12px;
   }
-  
-  .logo-icon {
-    font-size: 28px;
-  }
-  
+
   .nav-item {
-    justify-content: center;
+    flex-shrink: 0;
   }
-  
-  .user-profile {
-    justify-content: center;
+
+  .sidebar-footer {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
   }
-  
-  .btn-logout span:last-child {
-    display: none;
+
+  .admin-header {
+    padding: 20px 16px 4px;
   }
-  
-  .admin-main {
-    margin-left: 80px;
+
+  .admin-content {
+    padding: 12px 16px 24px;
   }
 }
 </style>
