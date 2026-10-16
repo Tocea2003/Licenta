@@ -39,7 +39,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Bell, BusFront, Map, Route, Ticket } from 'lucide-vue-next'
+import { Bell, BusFront, Map as MapIcon, Route, Ticket } from 'lucide-vue-next'
 import { useOnboarding } from '@/composables/useOnboarding'
 import { useLanguage } from '@/composables/useLanguage'
 
@@ -57,7 +57,7 @@ const currentStep = ref(0)
 
 const steps = [
   { icon: BusFront, titleKey: 'onboardWelcomeTitle', textKey: 'onboardWelcomeText' },
-  { icon: Map, titleKey: 'onboardMapTitle', textKey: 'onboardMapText' },
+  { icon: MapIcon, titleKey: 'onboardMapTitle', textKey: 'onboardMapText' },
   { icon: Route, titleKey: 'onboardPlanTitle', textKey: 'onboardPlanText' },
   { icon: Bell, titleKey: 'onboardAlertsTitle', textKey: 'onboardAlertsText' },
   { icon: Ticket, titleKey: 'onboardTicketsTitle', textKey: 'onboardTicketsText' }

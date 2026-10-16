@@ -2,7 +2,7 @@
   <div class="about-page">
     <!-- Header -->
     <div class="about-header">
-      <div class="header-icon">🚌</div>
+      <span class="header-icon" aria-hidden="true"><BusFront :size="28" /></span>
       <h1 class="header-title">Tursib Tracker</h1>
       <p class="header-tagline">{{ t('appTagline') }}</p>
       <span class="version-badge">v1.0.0</span>
@@ -22,32 +22,32 @@
         <h2 class="section-title">{{ t('features') }}</h2>
         <div class="features-grid">
           <div class="feature-card">
-            <span class="feature-icon">🗺️</span>
+            <span class="feature-icon" aria-hidden="true"><MapIcon :size="18" /></span>
             <strong>{{ t('featureInteractiveMap') }}</strong>
             <span>{{ t('featureInteractiveMapDesc') }}</span>
           </div>
           <div class="feature-card">
-            <span class="feature-icon">⏱️</span>
+            <span class="feature-icon" aria-hidden="true"><Clock :size="18" /></span>
             <strong>{{ t('featureRealtime') }}</strong>
             <span>{{ t('featureRealtimeDesc') }}</span>
           </div>
           <div class="feature-card">
-            <span class="feature-icon">📅</span>
+            <span class="feature-icon" aria-hidden="true"><Route :size="18" /></span>
             <strong>{{ t('planning') }}</strong>
             <span>{{ t('featurePlanningDesc') }}</span>
           </div>
           <div class="feature-card">
-            <span class="feature-icon">🎫</span>
+            <span class="feature-icon" aria-hidden="true"><Ticket :size="18" /></span>
             <strong>{{ t('featureDigitalTickets') }}</strong>
             <span>{{ t('featureDigitalTicketsDesc') }}</span>
           </div>
           <div class="feature-card">
-            <span class="feature-icon">⭐</span>
+            <span class="feature-icon" aria-hidden="true"><Star :size="18" /></span>
             <strong>{{ t('favorites') }}</strong>
             <span>{{ t('featureFavoritesDesc') }}</span>
           </div>
           <div class="feature-card">
-            <span class="feature-icon">📊</span>
+            <span class="feature-icon" aria-hidden="true"><BarChart3 :size="18" /></span>
             <strong>{{ t('statistics') }}</strong>
             <span>{{ t('featureStatisticsDesc') }}</span>
           </div>
@@ -86,17 +86,17 @@
         <h2 class="section-title">{{ t('resourcesSection') }}</h2>
         <div class="links-list">
           <a href="https://www.tursib.ro" target="_blank" rel="noopener" class="ext-link">
-            <span>🌐</span>
+            <Globe :size="18" aria-hidden="true" />
             <span>tursib.ro — {{ t('officialSite') }}</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </a>
           <a href="https://www.tursib.ro/page/tarife" target="_blank" rel="noopener" class="ext-link">
-            <span>🎫</span>
+            <Ticket :size="18" aria-hidden="true" />
             <span>{{ t('tursibFares') }}</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -106,7 +106,7 @@
 
       <!-- Footer -->
       <div class="about-footer">
-        <span>{{ t('madeWithLove') }} 🇷🇴</span>
+        <span>{{ t('madeWithLove') }}</span>
         <span class="footer-sep">·</span>
         <span>Tursib Tracker © 2025</span>
       </div>
@@ -116,189 +116,178 @@
 </template>
 
 <script setup lang="ts">
+import { BarChart3, BusFront, Clock, Globe, Map as MapIcon, Route, Star, Ticket } from 'lucide-vue-next'
 import { useLanguage } from '@/composables/useLanguage'
 const { t } = useLanguage()
 </script>
 
 <style scoped>
 .about-page {
-  min-height: 100%;
-  background: var(--bg-secondary);
-  padding-bottom: var(--space-8);
-}
-
-/* Header */
-.about-header {
-  background: var(--gradient-primary);
-  padding: var(--space-10) var(--space-6) var(--space-8);
-  text-align: center;
-  color: white;
-}
-.header-icon {
-  font-size: 56px;
-  margin-bottom: var(--space-3);
-  display: block;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
-}
-.header-title {
-  font-size: var(--text-3xl);
-  font-weight: 800;
-  color: white;
-  margin: 0 0 var(--space-2) 0;
-}
-.header-tagline {
-  font-size: var(--text-sm);
-  color: rgba(255,255,255,0.85);
-  margin: 0 0 var(--space-4) 0;
-  max-width: 340px;
-  margin-left: auto;
-  margin-right: auto;
-  line-height: var(--lh-relaxed);
-}
-.version-badge {
-  display: inline-block;
-  background: rgba(255,255,255,0.2);
-  color: white;
-  font-size: var(--text-xs);
-  font-weight: var(--fw-semibold);
-  padding: 3px 10px;
-  border-radius: var(--radius-full);
-  border: 1px solid rgba(255,255,255,0.3);
-}
-
-/* Content */
-.about-content {
-  padding: var(--space-6) var(--space-4);
-  max-width: 560px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: 24px;
+  padding: 20px 16px 32px;
 }
 
-/* Section */
-.about-section {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  box-shadow: var(--shadow-xs);
+.about-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 }
-.section-title {
-  font-size: var(--text-md);
-  font-weight: var(--fw-semibold);
-  color: var(--text-primary);
-  margin: 0 0 var(--space-3) 0;
+
+.header-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.section-text {
-  font-size: var(--text-sm);
+
+.header-title {
+  margin: 4px 0 0;
+  font-size: 30px;
+  font-weight: var(--fw-heavy);
+  letter-spacing: -0.02em;
+}
+
+.header-tagline {
+  margin: 0;
   color: var(--text-secondary);
-  line-height: var(--lh-relaxed);
-  margin-bottom: var(--space-2);
 }
-.section-text:last-child { margin-bottom: 0; }
 
-/* Features grid */
+.version-badge {
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  font-size: 12px;
+  font-weight: var(--fw-bold);
+}
+
+.about-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.about-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.section-text {
+  margin: 0;
+  line-height: 1.6;
+}
+
 .features-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
+
 .feature-card {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  border: 1px solid var(--border-primary);
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  font-size: 13px;
+  color: var(--text-secondary);
 }
-.feature-icon {
-  font-size: 22px;
-  margin-bottom: 2px;
-}
+
 .feature-card strong {
-  font-size: var(--text-sm);
-  font-weight: var(--fw-semibold);
-  color: var(--text-primary);
-}
-.feature-card span {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  line-height: 1.3;
-}
-
-/* Info list */
-.info-list {
-  display: flex;
-  flex-direction: column;
-}
-.info-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--bg-tertiary);
-  gap: var(--space-3);
-}
-.info-row:last-child { border-bottom: none; }
-.info-label {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-.info-value {
-  font-size: var(--text-sm);
-  font-weight: var(--fw-medium);
+  font-size: 15px;
   color: var(--text-primary);
 }
 
-/* External links */
-.links-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.ext-link {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+.feature-icon {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 6px;
   border-radius: var(--radius-md);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
-  color: var(--accent-primary);
-  font-size: var(--text-sm);
-  font-weight: var(--fw-medium);
-  text-decoration: none;
-  transition: var(--transition-base);
-}
-.ext-link:hover {
-  background: var(--accent-primary-soft);
-  border-color: var(--accent-primary);
-  text-decoration: none;
-}
-.ext-link span:nth-child(2) {
-  flex: 1;
-}
-.ext-link svg {
-  flex-shrink: 0;
-  color: var(--text-tertiary);
-}
-
-/* Footer */
-.about-footer {
-  text-align: center;
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-2) 0;
 }
-.footer-sep { color: var(--border-secondary); }
 
-@media (max-width: 360px) {
-  .features-grid { grid-template-columns: 1fr; }
+.info-list,
+.links-list {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 14px;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  color: var(--text-secondary);
+}
+
+.info-value {
+  font-weight: var(--fw-semibold);
+  text-align: right;
+}
+
+.ext-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+}
+
+.ext-link:last-child {
+  border-bottom: none;
+}
+
+.ext-link span {
+  flex: 1;
+}
+
+.ext-link:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.about-footer {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 </style>
