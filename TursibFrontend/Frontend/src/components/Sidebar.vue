@@ -5,7 +5,7 @@
     <header class="sidebar-header">
       <span class="brand-mark" aria-hidden="true"><BusFront :size="18" /></span>
       <span class="brand-name">Tursib</span>
-      <span class="live-badge">{{ t('live') }}</span>
+      <span class="live-badge" :title="liveSourceLabel">{{ t('live') }}</span>
     </header>
 
     <!-- Tab Bar -->
@@ -342,6 +342,7 @@
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import apiService, { type Route, type Station, type StationScheduleEntry } from '@/services/apiService'
 import { useLanguage } from '@/composables/useLanguage'
+import { useLiveBusesStore } from '@/stores/liveBuses'
 import { useStatistics } from '@/composables/useStatistics'
 import { useRecentSearches } from '@/composables/useRecentSearches'
 import { searchAddresses, getTypeIcon } from '@/services/geocodingService'
@@ -356,6 +357,13 @@ const props = defineProps<{
 }>()
 
 const { t } = useLanguage()
+
+// Sursa pozițiilor live (tooltip pe badge-ul LIVE): pipeline-ul MQTT → Kafka → SignalR sau Firebase
+const liveBusesStore = useLiveBusesStore()
+const liveSourceLabel = computed(() =>
+  liveBusesStore.source === 'signalr' ? t('liveSourceSignalr')
+    : liveBusesStore.source === 'firebase' ? t('liveSourceFirebase')
+      : t('live'))
 const { recordRouteUsage, incrementTrips } = useStatistics()
 const { addRecentSearch } = useRecentSearches()
 

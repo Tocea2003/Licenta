@@ -6,12 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TURSIB Tracker: real-time bus tracking and trip planning for Sibiu public transport, built on the real Tursib GTFS feed. Originally a bachelor thesis; now being extended as a master's "Advanced System Engineering" project (event-driven platform, digital twin, bus-bunching control). UI copy is Romanian first, with English and German translations.
 
-Three deployables plus tests:
+Deployables plus tests:
 
 - `TursibBackend/` – ASP.NET Core 9 REST API (EF Core, JWT auth, GTFS import, routing).
 - `TursibFrontend/Frontend/` – Vue 3 + TypeScript + Vite PWA (Leaflet map, Pinia, Capacitor for Android/iOS).
-- `BusSimulator/` – .NET console app that simulates buses along GTFS shapes and writes positions to Firebase.
-- `TursibBackend.Tests/` – xUnit tests for the backend.
+- `BusSimulator/` – .NET console app that simulates buses along GTFS shapes and publishes positions to Firebase and/or MQTT (`PUBLISH_TARGETS`).
+- `TursibIngestion/` – .NET worker: MQTT → validation → Kafka (Redpanda). Local only.
+- `Tursib.Contracts/` – shared `VehiclePosition` record, topic names and JSON options (simulator, ingestion, backend).
+- `TursibBackend.Tests/`, `TursibIngestion.Tests/` – xUnit tests.
+- `docs/` – ADRs (`docs/adr`) and architecture notes.
 
 The root `.gitignore` is a **whitelist** (`*` then `!folder/**`). A new top-level file or folder is ignored until it is added there.
 
@@ -22,6 +25,7 @@ The machine may only have the .NET 10 runtime while projects target net9.0; pref
 Backend:
 
 ```bash
+docker compose --profile events up -d mosquitto redpanda redpanda-init redpanda-console ingestion  # event pipeline (Console: http://localhost:8081)
 cd TursibBackend && dotnet run                     # API on http://localhost:5022
 cd TursibBackend.Tests && dotnet test              # all backend tests
 dotnet test TursibBackend.Tests --filter "FullyQualifiedName~RouteCalculatorServiceTests"
@@ -63,7 +67,12 @@ CI (`.github/workflows/ci.yml`) runs backend tests, the simulator build, fronten
 
 ## Live bus data flow
 
-`BusSimulator` loads routes/stations/shapes from the API, moves `BusesPerRoute` buses per route (dwell at stops, peak-hour speeds in Romania local time) and `PUT`s each position every ~0.5 s to Firebase Realtime Database at `bus_locations/route_{routeId}_bus_{index}`. The frontend reads that node directly; the backend is not in this path. Entries not starting with `route_` are legacy and ignored.
+Two paths, chosen per environment (see `docs/architecture/stage2-event-pipeline.md` and ADR-001/002):
+
+- **Event pipeline (local, `docker compose --profile events`)**: `BusSimulator` with `PUBLISH_TARGETS=mqtt` publishes each bus on `tursib/vehicles/{routeId}/{vehicleId}/position` to Mosquitto. `TursibIngestion` validates and writes to Kafka topic `vehicle-positions` (key = vehicle id; rejects go to `vehicle-positions-dlq`). The backend consumes it only when `Kafka__BootstrapServers` is set (local: `localhost:19092`). It keeps `LiveVehicleState`, pushes batches over SignalR `/hubs/vehicles` (`snapshot`/`positions`/`removed`), samples history into `VehiclePositionHistory` (1 row/vehicle/5 s, 3-day retention) and serves GTFS-RT at `/gtfs-rt/vehicle-positions` (`?format=json`).
+- **Firebase (production on Render/Vercel)**: the simulator `PUT`s every ~0.5 s to `bus_locations/route_{routeId}_bus_{index}`. Entries not starting with `route_` are legacy and ignored. Without Kafka config the hub is not mapped (404).
+
+The frontend store `stores/liveBuses.ts` starts on Firebase immediately and switches to SignalR as soon as the hub sends data (falls back if the hub closes). `VITE_LIVE_SOURCE=firebase` disables the SignalR attempt. The .NET Dockerfiles build from the **repo root** (they share `Tursib.Contracts`); Render's Docker context must be `.`.
 
 ## Frontend architecture
 
@@ -71,7 +80,7 @@ CI (`.github/workflows/ci.yml`) runs backend tests, the simulator build, fronten
 - `MapView.vue` is very large and is being split up incrementally. Pure logic already extracted, with tests:
   - `utils/geo.ts` (haversine, bearing, nearest station, trimming a GTFS shape between two stops)
   - `services/osrmService.ts` (public OSRM for walking routes and road fallback) and `services/tripGeometry.ts` (bus segment = GTFS shape trimmed between stops, OSRM fallback)
-  - `utils/liveBuses.ts` (parse Firebase data, choose visible buses, station ETAs) and `stores/liveBuses.ts` (one shared, ref-counted Firebase subscription, intended to become the SignalR source later). MapView, AdminBuses and AdminAnalytics all read from it; never call Firebase `off()` on `bus_locations`, it removes every listener including the map's.
+  - `utils/liveBuses.ts` (parse live data, choose visible buses, station ETAs) and `stores/liveBuses.ts` (one shared, ref-counted subscription: Firebase, upgraded to SignalR when available). MapView, AdminBuses and AdminAnalytics all read from it; never call Firebase `off()` on `bus_locations`, it removes every listener including the map's.
   - `services/valhallaService.ts` (walking directions: Valhalla pedestrian profile, localized instructions, straight-line fallback).
 - Live bus markers are **imperative Leaflet markers** in a layer group (not vue-leaflet components) so they can animate with a CSS transform transition; the icon is only rebuilt when its visual signature changes. Route casing (white outline) lives in a custom `casingPane` below the overlay pane, because vue-leaflet does not guarantee layer order.
 - Map tiles are OpenStreetMap muted with a CSS filter (`.map-tiles`, inverted in dark mode). CARTO basemaps now require an API key, so they are not used.
