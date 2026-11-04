@@ -267,4 +267,89 @@ public class RouteCalculatorServiceTests : IDisposable
         var hasWalk = result!.Segments.Any(s => s.Type == "walk");
         Assert.True(hasWalk, "Expected at least one walking segment");
     }
+
+    // ── schedule-based planner (real GTFS StopTimes) ──────────────────────────
+
+    /// <summary>
+    /// Route 1: A → B → C with two real trips (08:00 and 08:30) that run on weekdays only.
+    /// </summary>
+    private async Task SeedWeekdaySchedule()
+    {
+        var stations = new[]
+        {
+            MakeStation(100, "A", 45.76, 24.13),
+            MakeStation(101, "B", 45.77, 24.13),
+            MakeStation(102, "C", 45.78, 24.13)
+        };
+        await SeedLinearRoute(1, "1", stations);
+
+        _db.ServiceCalendars.Add(new ServiceCalendar
+        {
+            ServiceId = "WEEKDAY",
+            Monday = true, Tuesday = true, Wednesday = true, Thursday = true, Friday = true,
+            StartDate = "2026-01-01",
+            EndDate = "2026-12-31"
+        });
+
+        foreach (var (tripId, startHour, startMinute) in new[] { ("T0800", 8, 0), ("T0830", 8, 30) })
+        {
+            _db.Trips.Add(new Trip { TripId = tripId, RouteId = 1, ServiceId = "WEEKDAY", DirectionId = 0 });
+            for (int i = 0; i < stations.Length; i++)
+            {
+                var time = new TimeSpan(startHour, startMinute + i * 5, 0).ToString(@"hh\:mm\:ss");
+                _db.StopTimes.Add(new StopTime
+                {
+                    TripId = tripId,
+                    StopId = stations[i].Id,
+                    StopSequence = i + 1,
+                    ArrivalTime = time,
+                    DepartureTime = time
+                });
+            }
+        }
+        await _db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task ScheduleBasedRoute_UsesNextRealDeparture()
+    {
+        await SeedWeekdaySchedule();
+
+        // Monday 08:10 → the 08:00 trip has left, so the next one is 08:30, arriving at C at 08:40
+        var monday = new DateTime(2026, 4, 27, 8, 10, 0);
+        var routes = await _sut.CalculateAlternativeRoutes(100, 102, departureTime: monday);
+
+        Assert.NotEmpty(routes);
+        var first = routes[0];
+        var bus = Assert.Single(first.Segments, s => s.Type == "bus");
+        Assert.Equal(new DateTime(2026, 4, 27, 8, 30, 0), bus.StartTime);
+        Assert.Equal(new DateTime(2026, 4, 27, 8, 40, 0), first.ArrivalTime);
+    }
+
+    [Fact]
+    public async Task ScheduleBasedRoute_ArriveBy_PicksLatestTripThatArrivesInTime()
+    {
+        await SeedWeekdaySchedule();
+
+        // Must be at C by 08:35 → only the 08:00 trip (arrives 08:10) qualifies
+        var arriveBy = new DateTime(2026, 4, 27, 8, 35, 0);
+        var routes = await _sut.CalculateAlternativeRoutes(100, 102, arrivalTime: arriveBy);
+
+        Assert.NotEmpty(routes);
+        Assert.Equal(new DateTime(2026, 4, 27, 8, 10, 0), routes[0].ArrivalTime);
+    }
+
+    [Fact]
+    public async Task ScheduleBasedRoute_FallsBackToEstimate_WhenServiceDoesNotRunThatDay()
+    {
+        await SeedWeekdaySchedule();
+
+        // Sunday: the weekday calendar is inactive, so the estimated planner is used instead
+        // (it starts exactly at the requested time instead of at a real 08:00/08:30 departure)
+        var sunday = new DateTime(2026, 4, 26, 8, 10, 0);
+        var routes = await _sut.CalculateAlternativeRoutes(100, 102, departureTime: sunday);
+
+        Assert.NotEmpty(routes);
+        Assert.Equal(sunday, routes[0].DepartureTime);
+    }
 }
