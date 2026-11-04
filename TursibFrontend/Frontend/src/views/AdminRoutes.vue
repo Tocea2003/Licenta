@@ -36,14 +36,14 @@
             </td>
             <td>
               <div class="action-buttons">
-                <button @click="editRoute(route)" class="btn-edit" :title="t('edit')">
-                  ✏️
+                <button @click="editRoute(route)" class="btn-edit" :title="t('edit')" :aria-label="t('edit')">
+                  <Pencil :size="16" aria-hidden="true" />
                 </button>
-                <button @click="editColor(route)" class="btn-color" :title="t('changeColor')">
-                  🎨
+                <button @click="editColor(route)" class="btn-color" :title="t('changeColor')" :aria-label="t('changeColor')">
+                  <Palette :size="16" aria-hidden="true" />
                 </button>
-                <button @click="deleteRoute(route)" class="btn-delete" :title="t('delete')">
-                  🗑️
+                <button @click="deleteRoute(route)" class="btn-delete" :title="t('delete')" :aria-label="t('delete')">
+                  <Trash2 :size="16" aria-hidden="true" />
                 </button>
               </div>
             </td>
@@ -108,6 +108,8 @@
 import { ref, onMounted } from 'vue'
 import { adminRoutesService, type Route } from '@/services/adminService'
 import { useLanguage } from '@/composables/useLanguage'
+import '@/assets/admin-actions.css'
+import { Palette, Pencil, Trash2 } from 'lucide-vue-next'
 import { usePagination } from '@/composables/usePagination'
 
 const { t } = useLanguage()
@@ -131,12 +133,12 @@ const newColor = ref('#3b82f6')
 
 const loadRoutes = async () => {
   isLoading.value = true
-  console.log('📋 Loading routes...')
+  console.log('Loading routes...')
   try {
     routes.value = await adminRoutesService.getRoutes()
-    console.log('✅ Routes loaded successfully:', routes.value.length, 'routes')
+    console.log('Routes loaded successfully:', routes.value.length, 'routes')
   } catch (error: any) {
-    console.error('❌ Error loading routes:', error)
+    console.error('Error loading routes:', error)
     console.error('Error details:', error.response?.data)
     const errorMsg = error.response?.data?.message || error.message || t('routesLoadError')
     alert(t('routesLoadErrorWithMessage', 'Error loading routes: {message}', { message: errorMsg }))
@@ -290,44 +292,6 @@ onMounted(() => {
   height: 32px;
   border-radius: 6px;
   border: 2px solid var(--border-color);
-}
-
-.action-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.action-buttons button {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 16px;
-}
-
-.btn-edit {
-  background: #fbbf24;
-}
-
-.btn-edit:hover {
-  background: #f59e0b;
-}
-
-.btn-color {
-  background: #8b5cf6;
-}
-
-.btn-color:hover {
-  background: #7c3aed;
-}
-
-.btn-delete {
-  background: #ef4444;
-}
-
-.btn-delete:hover {
-  background: #dc2626;
 }
 
 .modal-overlay {

@@ -116,8 +116,8 @@
             </td>
             <td>
               <div class="action-buttons">
-                <button @click="openEdit(bus)" class="btn-icon btn-edit" :title="t('editBus')">✏️</button>
-                <button @click="deleteBus(bus)" class="btn-icon btn-delete" :title="t('delete')">🗑️</button>
+                <button @click="openEdit(bus)" class="btn-icon btn-edit" :title="t('editBus')" :aria-label="t('editBus')"><Pencil :size="16" aria-hidden="true" /></button>
+                <button @click="deleteBus(bus)" class="btn-icon btn-delete" :title="t('delete')" :aria-label="t('delete')"><Trash2 :size="16" aria-hidden="true" /></button>
               </div>
             </td>
           </tr>
@@ -168,14 +168,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { adminBusesService, adminRoutesService, type Bus, type Route } from '@/services/adminService'
 import { usePagination } from '@/composables/usePagination'
 import { useLanguage } from '@/composables/useLanguage'
+import '@/assets/admin-actions.css'
+import { Pencil, Trash2 } from 'lucide-vue-next'
 
 const { t } = useLanguage()
-import { database } from '@/main'
-import { ref as dbRef, onValue, off } from 'firebase/database'
+import { useLiveBusesStore } from '@/stores/liveBuses'
 
 interface LiveBus {
   id: string
@@ -245,7 +246,7 @@ const form = ref({
 })
 
 
-let busesRef: ReturnType<typeof dbRef> | null = null
+const liveBusesStore = useLiveBusesStore()
 
 const loadData = async () => {
   isLoading.value = true
@@ -263,41 +264,32 @@ const loadData = async () => {
   }
 }
 
-const setupFirebase = () => {
-  busesRef = dbRef(database, 'bus_locations')
-  onValue(busesRef, (snapshot) => {
-    const data = snapshot.val()
-    const parsed: LiveBus[] = []
-    if (data) {
-      for (const [id, busData] of Object.entries(data)) {
-        if (!id.startsWith('route_')) continue
-        const bd = busData as any
-        if (!bd?.latitude || !bd?.longitude) continue
-        const parts = id.replace('route_', '').split('_bus_')
-        parsed.push({
-          id,
-          shortId: parts.length === 2 ? `Bus #${parts[1]}` : id,
-          routeNumber: bd.routeNumber || String(bd.routeId) || 'N/A',
-          routeName: bd.routeName || '',
-          latitude: bd.latitude,
-          longitude: bd.longitude,
-          speed: bd.speed || 0,
-          heading: bd.heading || 0,
-          occupancy: bd.occupancy || 0,
-          nextStationName: bd.nextStationName || '',
-          status: bd.status || 'active'
-        })
-      }
+// Pozițiile live vin din store-ul partajat (aceeași subscripție ca harta).
+watch(() => liveBusesStore.buses, (buses) => {
+  const parsed: LiveBus[] = buses.map((bd) => {
+    const parts = bd.id.replace('route_', '').split('_bus_')
+    return {
+      id: bd.id,
+      shortId: parts.length === 2 ? `Bus #${parts[1]}` : bd.id,
+      routeNumber: bd.routeNumber || String(bd.routeId) || 'N/A',
+      routeName: bd.routeName || '',
+      latitude: bd.latitude,
+      longitude: bd.longitude,
+      speed: bd.speed || 0,
+      heading: bd.heading || 0,
+      occupancy: bd.occupancy || 0,
+      nextStationName: bd.nextStationName || '',
+      status: bd.status || 'active'
     }
-    parsed.sort((a, b) => {
-      const rA = parseInt(a.routeNumber) || 0
-      const rB = parseInt(b.routeNumber) || 0
-      if (rA !== rB) return rA - rB
-      return a.shortId.localeCompare(b.shortId)
-    })
-    liveBuses.value = parsed
   })
-}
+  parsed.sort((a, b) => {
+    const rA = parseInt(a.routeNumber) || 0
+    const rB = parseInt(b.routeNumber) || 0
+    if (rA !== rB) return rA - rB
+    return a.shortId.localeCompare(b.shortId)
+  })
+  liveBuses.value = parsed
+}, { immediate: true })
 
 const openCreate = () => {
   editingBus.value = null
@@ -342,11 +334,11 @@ const deleteBus = async (bus: Bus) => {
 
 onMounted(() => {
   loadData()
-  setupFirebase()
+  liveBusesStore.subscribe()
 })
 
 onUnmounted(() => {
-  if (busesRef) off(busesRef)
+  liveBusesStore.unsubscribe()
 })
 </script>
 
@@ -593,22 +585,6 @@ onUnmounted(() => {
   background: rgba(148, 163, 184, 0.15);
   color: #94a3b8;
 }
-
-.action-buttons { display: flex; gap: 8px; }
-
-.btn-icon {
-  padding: 6px 10px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 15px;
-  transition: all 0.2s;
-}
-
-.btn-edit { background: rgba(251, 191, 36, 0.15); }
-.btn-edit:hover { background: #fbbf24; }
-.btn-delete { background: rgba(239, 68, 68, 0.12); }
-.btn-delete:hover { background: #ef4444; }
 
 .empty-row { text-align: center; color: var(--text-secondary); padding: 40px; }
 

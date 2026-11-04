@@ -28,14 +28,14 @@
             <td>{{ station.longitude.toFixed(6) }}</td>
             <td>
               <div class="action-buttons">
-                <button @click="editStation(station)" class="btn-edit" :title="t('edit')">
-                  ✏️
+                <button @click="editStation(station)" class="btn-edit" :title="t('edit')" :aria-label="t('edit')">
+                  <Pencil :size="16" aria-hidden="true" />
                 </button>
-                <button @click="viewOnMap(station)" class="btn-map" :title="t('viewOnMap')">
-                  🗺️
+                <button @click="viewOnMap(station)" class="btn-map" :title="t('viewOnMap')" :aria-label="t('viewOnMap')">
+                  <MapPin :size="16" aria-hidden="true" />
                 </button>
-                <button @click="deleteStation(station)" class="btn-delete" :title="t('delete')">
-                  🗑️
+                <button @click="deleteStation(station)" class="btn-delete" :title="t('delete')" :aria-label="t('delete')">
+                  <Trash2 :size="16" aria-hidden="true" />
                 </button>
               </div>
             </td>
@@ -83,7 +83,7 @@
             </div>
           </div>
           <div class="form-help">
-            💡 {{ t('mapTip') }}
+            <Lightbulb :size="16" aria-hidden="true" /> {{ t('mapTip') }}
           </div>
           <div class="modal-actions">
             <button type="button" @click="closeModals" class="btn-secondary">{{ t('cancel') }}</button>
@@ -100,6 +100,8 @@ import { ref, onMounted } from 'vue'
 import { adminStationsService, type Station } from '@/services/adminService'
 import { usePagination } from '@/composables/usePagination'
 import { useLanguage } from '@/composables/useLanguage'
+import '@/assets/admin-actions.css'
+import { Lightbulb, MapPin, Pencil, Trash2 } from 'lucide-vue-next'
 
 const { t } = useLanguage()
 
@@ -118,12 +120,12 @@ const currentStation = ref<Partial<Station>>({
 
 const loadStations = async () => {
   isLoading.value = true
-  console.log('📍 Loading stations...')
+  console.log('Loading stations...')
   try {
     stations.value = await adminStationsService.getStations()
-    console.log('✅ Stations loaded successfully:', stations.value.length, 'stations')
+    console.log('Stations loaded successfully:', stations.value.length, 'stations')
   } catch (error: any) {
-    console.error('❌ Error loading stations:', error)
+    console.error('Error loading stations:', error)
     console.error('Error details:', error.response?.data)
     const errorMsg = error.response?.data?.message || error.message || t('loading')
     alert(t('stationsLoadErrorWithMessage', 'Error loading stations: {message}', { message: errorMsg }))
@@ -250,44 +252,6 @@ onMounted(() => {
   color: var(--text-primary);
 }
 
-.action-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.action-buttons button {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 16px;
-}
-
-.btn-edit {
-  background: #fbbf24;
-}
-
-.btn-edit:hover {
-  background: #f59e0b;
-}
-
-.btn-map {
-  background: #3b82f6;
-}
-
-.btn-map:hover {
-  background: #2563eb;
-}
-
-.btn-delete {
-  background: #ef4444;
-}
-
-.btn-delete:hover {
-  background: #dc2626;
-}
-
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -351,6 +315,9 @@ onMounted(() => {
 }
 
 .form-help {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   border-radius: 8px;

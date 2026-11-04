@@ -191,6 +191,32 @@ namespace TursibBackend.Migrations
                     b.ToTable("ServiceCalendars");
                 });
 
+            modelBuilder.Entity("TursibBackend.Models.ServiceCalendarDate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Date")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("ExceptionType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ServiceId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Date");
+
+                    b.ToTable("ServiceCalendarDates");
+                });
+
             modelBuilder.Entity("TursibBackend.Models.ShapePoint", b =>
                 {
                     b.Property<int>("Id")

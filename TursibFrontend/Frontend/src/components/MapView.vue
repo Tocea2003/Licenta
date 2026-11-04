@@ -15,7 +15,7 @@
     
     <!-- Enhanced Search pentru stații și adrese -->
     <EnhancedSearch
-      v-if="showSidebar || isMobile"
+      v-if="isMobile || (showSidebar && !(showDirections || showMultimodal || showTransfer))"
       :stations="allStations"
       :user-location="userLocation"
       :trip-mode="tripMode"
@@ -425,6 +425,17 @@
         :opacity="0.6"
       />
 
+      <!-- Indicații doar pe jos (WalkingDirections): linie punctată -->
+      <l-polyline
+        v-if="walkingPath.length > 0 && showDirections && !showMultimodal && !showTransfer"
+        :lat-lngs="walkingPath"
+        :color="walkLineColor"
+        :weight="5"
+        :opacity="0.9"
+        :dash-array="'1, 10'"
+        line-cap="round"
+      />
+
       <!-- Mers pe jos: origine → stație urcare (roșu) -->
       <l-polyline
         v-if="actualWalkingPath.length > 0 && (showMultimodal || showTransfer)"
@@ -644,8 +655,6 @@
 
 import { ref, computed, onMounted, onActivated, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useDatabaseObject } from 'vuefire'
-import { ref as dbRef, getDatabase } from 'firebase/database'
 
 import { LMap, LTileLayer, LMarker, LPopup, LPolyline, LIcon } from '@vue-leaflet/vue-leaflet'
 
@@ -672,7 +681,8 @@ import { useLanguage } from '@/composables/useLanguage'
 import { reverseGeocode } from '@/services/geocodingService'
 import { useFavorites } from '@/composables/useFavorites'
 import type { BusLocation, StationEta } from '@/types/bus'
-import { computeStationEtas } from '@/utils/liveBuses'
+import { computeStationEtas, selectVisibleBuses } from '@/utils/liveBuses'
+import { useLiveBusesStore } from '@/stores/liveBuses'
 import { haversineKm, findNearestStation, trimShapeToStations } from '@/utils/geo'
 import { fetchOsrmRoute } from '@/services/osrmService'
 import { buildBusSegmentPath, buildWalkingPath } from '@/services/tripGeometry'
@@ -1056,132 +1066,20 @@ const nearbyStations = computed(() => {
   return result
 })
 
-// Firebase - Ascultă autobuze live
-const database = getDatabase()
-const busLocationsRef = dbRef(database, 'bus_locations')
-const busLocationsData = useDatabaseObject(busLocationsRef)
+// Autobuze live: o singură subscripție partajată (stores/liveBuses).
+// Sursa e încă Firebase; când trece pe SignalR, MapView nu se schimbă.
+const liveBusesStore = useLiveBusesStore()
+onMounted(() => liveBusesStore.subscribe())
+onUnmounted(() => liveBusesStore.unsubscribe())
 
-// Debug: monitor Firebase connection
-import { onValue } from 'firebase/database'
-onValue(busLocationsRef, (snapshot) => {
-  const val = snapshot.val()
-  const count = val ? Object.keys(val).length : 0
-  console.log(`🔥 Firebase onValue: ${count} entries, exists=${snapshot.exists()}`)
-}, (error) => {
-  console.error('🔥 Firebase ERROR:', error)
-})
-
-watch(busLocationsData, (val) => {
-  console.log('🔥 busLocationsData changed:', val ? Object.keys(val).length + ' keys' : 'null/undefined', typeof val)
-}, { immediate: true })
-
-// Cache pentru distanțe calculate recent
-const distanceCache = new Map<string, { distance: number, timestamp: number }>()
-const DISTANCE_CACHE_TTL = 5000 // 5 secunde
-
-// Helper pentru calcularea distanței cu cache
-const getCachedDistance = (busId: string, busLat: number, busLon: number, userLat: number, userLon: number): number => {
-  const cacheKey = `${busId}-${userLat.toFixed(4)}-${userLon.toFixed(4)}`
-  const cached = distanceCache.get(cacheKey)
-  
-  if (cached && Date.now() - cached.timestamp < DISTANCE_CACHE_TTL) {
-    return cached.distance
-  }
-  
-  const distance = haversineKm(userLat, userLon, busLat, busLon)
-  distanceCache.set(cacheKey, { distance, timestamp: Date.now() })
-  
-  // Curăță cache-ul vechi
-  if (distanceCache.size > 200) {
-    const now = Date.now()
-    for (const [key, value] of distanceCache.entries()) {
-      if (now - value.timestamp > DISTANCE_CACHE_TTL) {
-        distanceCache.delete(key)
-      }
-    }
-  }
-  
-  return distance
-}
-
-// Computed pentru a transforma datele Firebase în array și filtra cele mai apropiate autobuze
-// Optimizat cu cache și limitare inteligentă
-const liveBuses = computed(() => {
-  if (!busLocationsData.value) {
-    return []
-  }
-  
-  const buses: BusLocation[] = []
-  const entries = Object.entries(busLocationsData.value)
-  
-  // Procesare — doar intrări active (format route_X_bus_Y de la noul simulator)
-  for (let i = 0; i < entries.length; i++) {
-    const [id, data] = entries[i] as [string, any]
-    if (!id.startsWith('route_')) continue
-    if (data?.latitude && data?.longitude) {
-      buses.push({
-        id,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        routeId: data.routeId,
-        routeNumber: data.routeNumber,
-        routeName: data.routeName,
-        timestamp: data.timestamp,
-        speed: data.speed,
-        heading: data.heading,
-        occupancy: data.occupancy,
-        status: data.status,
-        directionId: data.directionId,
-        nextStationId: data.nextStationId,
-        nextStationName: data.nextStationName,
-        nextStationEta: data.nextStationEta
-      })
-    }
-  }
-  
-  const activeRoute = props.selectedRouteId
-
-  // Dacă nu avem locația utilizatorului, returnăm primele N + toate autobuzele de pe ruta selectată
-  if (!userLocation.value?.lat || !userLocation.value?.lon) {
-    if (showAllBuses.value) return buses
-    if (activeRoute != null) {
-      const onRoute = buses.filter(b => b.routeId === activeRoute)
-      const others = buses.filter(b => b.routeId !== activeRoute).slice(0, 30)
-      return [...onRoute, ...others]
-    }
-    return buses.slice(0, 30)
-  }
-
-  const userLat = userLocation.value.lat
-  const userLon = userLocation.value.lon
-
-  // Folosim un radius pentru filtrare rapidă (30km)
-  const MAX_DISTANCE = 30
-  const busesNearby: (BusLocation & { distance: number })[] = []
-
-  for (let i = 0; i < buses.length; i++) {
-    const bus = buses[i]
-    if (!bus || typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') {
-      continue
-    }
-    const distance = getCachedDistance(bus.id, bus.latitude, bus.longitude, userLat, userLon)
-
-    if (distance <= MAX_DISTANCE) {
-      busesNearby.push({ ...bus, distance })
-    }
-  }
-
-  // Sortare după distanță
-  busesNearby.sort((a, b) => a.distance - b.distance)
-  if (showAllBuses.value) return busesNearby
-  // Asigură-te că autobuzele de pe ruta selectată sunt mereu incluse
-  if (activeRoute != null) {
-    const onRoute = busesNearby.filter(b => b.routeId === activeRoute)
-    const others = busesNearby.filter(b => b.routeId !== activeRoute).slice(0, 30)
-    return [...onRoute, ...others]
-  }
-  return busesNearby.slice(0, 30)
-})
+// Autobuzele afișate pe hartă: în raza utilizatorului, cele de pe ruta selectată mereu incluse.
+const liveBuses = computed(() =>
+  selectVisibleBuses(liveBusesStore.buses, {
+    userLocation: userLocation.value,
+    selectedRouteId: props.selectedRouteId ?? null,
+    showAll: showAllBuses.value,
+  })
+)
 
 // ========================
 // AUTOBUZE LIVE — markeri imperativi Leaflet

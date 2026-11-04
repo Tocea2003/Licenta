@@ -1,0 +1,51 @@
+/* Row action buttons in admin tables (Semnal): neutral icon buttons,
+   cobalt on hover, danger only for destructive actions. */
+.action-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.action-buttons button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  transition: var(--transition-colors);
+}
+
+.action-buttons button:hover {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-soft);
+  color: var(--accent-primary);
+}
+
+.action-buttons button:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.action-buttons button.btn-delete:hover {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* Bigger hit area on touch screens */
+@media (pointer: coarse) {
+  .action-buttons button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

@@ -352,4 +352,72 @@ public class RouteCalculatorServiceTests : IDisposable
         Assert.NotEmpty(routes);
         Assert.Equal(sunday, routes[0].DepartureTime);
     }
+
+    // ── calendar_dates.txt exceptions ─────────────────────────────────────────
+
+    [Fact]
+    public async Task ActiveServiceIds_ExcludeServiceRemovedOnHoliday()
+    {
+        await SeedWeekdaySchedule();
+        _db.ServiceCalendarDates.Add(new ServiceCalendarDate
+        {
+            ServiceId = "WEEKDAY", Date = "2026-12-01", ExceptionType = ServiceCalendarDate.ServiceRemoved
+        });
+        await _db.SaveChangesAsync();
+
+        // Tuesday 1 December (Romania's national day): the weekday service is cancelled
+        Assert.Empty(await _sut.GetActiveServiceIdsAsync(new DateTime(2026, 12, 1)));
+        // The day before is unaffected
+        Assert.Equal(["WEEKDAY"], await _sut.GetActiveServiceIdsAsync(new DateTime(2026, 11, 30)));
+    }
+
+    [Fact]
+    public async Task ActiveServiceIds_IncludeServiceAddedOnExtraDay()
+    {
+        await SeedWeekdaySchedule();
+        _db.ServiceCalendarDates.Add(new ServiceCalendarDate
+        {
+            ServiceId = "WEEKDAY", Date = "2026-04-26", ExceptionType = ServiceCalendarDate.ServiceAdded
+        });
+        await _db.SaveChangesAsync();
+
+        // Sunday 26 April normally has no weekday service, but the exception adds it
+        Assert.Equal(["WEEKDAY"], await _sut.GetActiveServiceIdsAsync(new DateTime(2026, 4, 26)));
+    }
+
+    [Fact]
+    public async Task ScheduleBasedRoute_FallsBackToEstimate_WhenServiceIsRemovedThatDay()
+    {
+        await SeedWeekdaySchedule();
+        _db.ServiceCalendarDates.Add(new ServiceCalendarDate
+        {
+            ServiceId = "WEEKDAY", Date = "2026-04-27", ExceptionType = ServiceCalendarDate.ServiceRemoved
+        });
+        await _db.SaveChangesAsync();
+
+        // Monday 27 April would use the 08:30 trip, but the service is cancelled that day
+        var monday = new DateTime(2026, 4, 27, 8, 10, 0);
+        var routes = await _sut.CalculateAlternativeRoutes(100, 102, departureTime: monday);
+
+        Assert.NotEmpty(routes);
+        Assert.Equal(monday, routes[0].DepartureTime);
+    }
+
+    [Fact]
+    public async Task ScheduleBasedRoute_UsesRealDeparture_WhenServiceIsAddedThatDay()
+    {
+        await SeedWeekdaySchedule();
+        _db.ServiceCalendarDates.Add(new ServiceCalendarDate
+        {
+            ServiceId = "WEEKDAY", Date = "2026-04-26", ExceptionType = ServiceCalendarDate.ServiceAdded
+        });
+        await _db.SaveChangesAsync();
+
+        // Sunday 26 April with the weekday service added: the real 08:30 trip is used
+        var sunday = new DateTime(2026, 4, 26, 8, 10, 0);
+        var routes = await _sut.CalculateAlternativeRoutes(100, 102, departureTime: sunday);
+
+        Assert.NotEmpty(routes);
+        Assert.Equal(new DateTime(2026, 4, 26, 8, 40, 0), routes[0].ArrivalTime);
+    }
 }

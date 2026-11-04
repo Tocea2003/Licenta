@@ -2,7 +2,7 @@
   <div class="analytics-dashboard">
     <div class="page-header">
       <div>
-        <h2>📊 {{ t('analyticsDashboard') }}</h2>
+        <h2>{{ t('analyticsDashboard') }}</h2>
         <p class="subtitle">{{ t('analyticsSubtitle') }}</p>
       </div>
       <div class="header-live" v-if="!isLoading">
@@ -94,7 +94,7 @@
       <!-- Detalii autobuze live -->
       <div class="live-buses-section">
         <div class="section-header">
-          <h3>🔴 {{ t('liveBuses') }}</h3>
+          <h3><span class="live-badge">LIVE</span> {{ t('liveBuses') }}</h3>
           <span class="bus-count">{{ displayBuses.length }} active</span>
         </div>
         <div class="live-buses-grid">
@@ -136,10 +136,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { Chart, registerables } from 'chart.js'
-import { database } from '@/main'
-import { ref as dbRef, onValue, off } from 'firebase/database'
+import { useLiveBusesStore } from '@/stores/liveBuses'
+import type { BusLocation } from '@/types/bus'
 import { useLanguage } from '@/composables/useLanguage'
 
 Chart.register(...registerables)
@@ -208,6 +208,38 @@ let apiRoutes: any[] = []
 const demoBusCount = 24
 const demoAvgOccupancy = 42
 
+const liveBusesStore = useLiveBusesStore()
+let chartsReady = false
+let lastLiveUpdate = 0
+
+// Pozițiile live vin din store-ul partajat; actualizăm statisticile cel mult o dată la 5 s.
+function applyLiveBuses(source: BusLocation[]) {
+  if (!chartsReady) return
+  const now = Date.now()
+  if (now - lastLiveUpdate < 5000) return
+  lastLiveUpdate = now
+
+  const buses: Bus[] = source.map((bus) => ({
+    id: bus.id,
+    route: bus.routeNumber || String(bus.routeId) || 'N/A',
+    routeNumber: bus.routeNumber || '',
+    latitude: bus.latitude,
+    longitude: bus.longitude,
+    speed: bus.speed || 0,
+    heading: bus.heading || 0,
+    occupancy: bus.occupancy || 0
+  }))
+  if (buses.length === 0) return
+
+  liveBuses.value = buses
+  stats.value.activeBuses = buses.length
+  const totalOccupancy = buses.reduce((sum, bus) => sum + bus.occupancy, 0)
+  stats.value.avgOccupancy = Math.round(totalOccupancy / buses.length)
+  updateChartsWithBuses(buses)
+}
+
+watch(() => liveBusesStore.buses, applyLiveBuses)
+
 const loadStatistics = async () => {
   try {
     const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5022/api'
@@ -230,42 +262,10 @@ const loadStatistics = async () => {
     await nextTick()
     initCharts()
 
-    const busesRef = dbRef(database, 'bus_locations')
-    let lastUpdate = 0
-    onValue(busesRef, (snapshot) => {
-      const now = Date.now()
-      if (now - lastUpdate < 5000) return
-      lastUpdate = now
-
-      const data = snapshot.val()
-      const buses: Bus[] = []
-      if (data) {
-        for (const [id, busData] of Object.entries(data) as [string, any][]) {
-          if (!id.startsWith('route_')) continue
-          if (!busData?.latitude || !busData?.longitude) continue
-          buses.push({
-            id,
-            route: busData.routeNumber || String(busData.routeId) || 'N/A',
-            routeNumber: busData.routeNumber || '',
-            latitude: busData.latitude,
-            longitude: busData.longitude,
-            speed: busData.speed || 0,
-            heading: busData.heading || 0,
-            occupancy: busData.occupancy || 0
-          })
-        }
-      }
-
-      if (buses.length > 0) {
-        liveBuses.value = buses
-        stats.value.activeBuses = buses.length
-        const totalOccupancy = buses.reduce((sum, bus) => sum + bus.occupancy, 0)
-        stats.value.avgOccupancy = Math.round(totalOccupancy / buses.length)
-        updateChartsWithBuses(buses)
-      }
-    })
+    chartsReady = true
+    applyLiveBuses(liveBusesStore.buses)
   } catch (error) {
-    console.error('❌ Error loading statistics:', error)
+    console.error('Error loading statistics:', error)
     isLoading.value = false
     await nextTick()
     initCharts()
@@ -428,13 +428,12 @@ const updateChartsWithBuses = (buses: Bus[]) => {
 }
 
 onMounted(() => {
+  liveBusesStore.subscribe()
   loadStatistics()
 })
 
 onUnmounted(() => {
-  // Cleanup Firebase listeners
-  const busesRef = dbRef(database, 'bus_locations')
-  off(busesRef)
+  liveBusesStore.unsubscribe()
 
   // Destroy charts
   if (occupancyChart) occupancyChart.destroy()

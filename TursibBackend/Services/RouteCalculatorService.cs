@@ -395,17 +395,16 @@ namespace TursibBackend.Services
         #region Calendar / Day-of-Week Filtering
 
         /// <summary>
-        /// Interogă tabelele ServiceCalendars + Trips pentru a determina ce rute
-        /// circulă într-o anumită zi. Folosește raw SQL deoarece Trips și
-        /// ServiceCalendars nu sunt (încă) în EF DbContext.
+        /// Interogă calendarul GTFS (cu excepții) + Trips pentru a determina ce rute
+        /// circulă într-o anumită zi.
         /// </summary>
         private async Task<HashSet<int>> GetActiveRouteIdsForDate(DateTime targetDate)
         {
             // Fără calendar importat nu filtrăm nimic (set gol = toate rutele)
-            if (!await _context.ServiceCalendars.AnyAsync())
+            if (!await _context.ServiceCalendars.AnyAsync() && !await _context.ServiceCalendarDates.AnyAsync())
                 return new HashSet<int>();
 
-            var activeServiceIds = ActiveCalendars(targetDate).Select(sc => sc.ServiceId);
+            var activeServiceIds = await GetActiveServiceIdsAsync(targetDate);
 
             // RouteId-urile care au cel puțin o cursă cu ServiceId activ în ziua selectată
             var routeIds = await _context.Trips
@@ -419,17 +418,18 @@ namespace TursibBackend.Services
         }
 
         /// <summary>
-        /// Calendarele GTFS valabile în data dată și care circulă în ziua săptămânii respective.
+        /// ServiceId-urile care circulă în data dată: calendarele săptămânale valabile în acea zi,
+        /// fără cele anulate în calendar_dates (exception_type 2), plus cele adăugate (exception_type 1).
         /// Datele sunt stocate ca "yyyy-MM-dd", deci comparația lexicografică e corectă.
         /// </summary>
-        private IQueryable<ServiceCalendar> ActiveCalendars(DateTime targetDate)
+        public async Task<List<string>> GetActiveServiceIdsAsync(DateTime targetDate)
         {
             var date = targetDate.ToString("yyyy-MM-dd");
             var inRange = _context.ServiceCalendars
                 .AsNoTracking()
                 .Where(sc => string.Compare(sc.StartDate, date) <= 0 && string.Compare(sc.EndDate, date) >= 0);
 
-            return targetDate.DayOfWeek switch
+            var weekly = targetDate.DayOfWeek switch
             {
                 DayOfWeek.Monday => inRange.Where(sc => sc.Monday),
                 DayOfWeek.Tuesday => inRange.Where(sc => sc.Tuesday),
@@ -439,6 +439,22 @@ namespace TursibBackend.Services
                 DayOfWeek.Saturday => inRange.Where(sc => sc.Saturday),
                 _ => inRange.Where(sc => sc.Sunday)
             };
+
+            var active = (await weekly.Select(sc => sc.ServiceId).ToListAsync()).ToHashSet();
+
+            var exceptions = await _context.ServiceCalendarDates
+                .AsNoTracking()
+                .Where(cd => cd.Date == date)
+                .ToListAsync();
+            foreach (var ex in exceptions)
+            {
+                if (ex.ExceptionType == ServiceCalendarDate.ServiceRemoved)
+                    active.Remove(ex.ServiceId);
+                else if (ex.ExceptionType == ServiceCalendarDate.ServiceAdded)
+                    active.Add(ex.ServiceId);
+            }
+
+            return active.ToList();
         }
 
         #endregion
@@ -793,10 +809,7 @@ namespace TursibBackend.Services
 
         private async Task<ScheduleIndex?> BuildScheduleIndexAsync(DateTime targetDate)
         {
-            var activeServiceIds = await ActiveCalendars(targetDate)
-                .Select(sc => sc.ServiceId)
-                .Distinct()
-                .ToListAsync();
+            var activeServiceIds = await GetActiveServiceIdsAsync(targetDate);
             if (activeServiceIds.Count == 0)
                 return null;
 
