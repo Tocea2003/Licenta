@@ -87,10 +87,10 @@ const handleLogin = async () => {
   errorMessage.value = ''
 
   try {
-    console.log('🔐 Attempting login with:', credentials.value.username)
+    console.log('Attempting login with:', credentials.value.username)
     const response = await authService.login(credentials.value)
     
-    console.log('✅ Login successful:', response)
+    console.log('Login successful:', response)
     
     // Salvează token și user info
     const adminUser = {
@@ -100,16 +100,16 @@ const handleLogin = async () => {
     localStorage.setItem('admin_token', response.token)
     localStorage.setItem('admin_user', JSON.stringify(adminUser))
 
-    console.log('💾 Token saved:', {
+    console.log('Token saved:', {
       token: response.token.substring(0, 20) + '...',
       user: adminUser
     })
     
     // Redirect la dashboard după ce token-ul e salvat
     await router.push('/admin/routes')
-    console.log('✅ Redirect complete')
+    console.log('Redirect complete')
   } catch (error: any) {
-    console.error('❌ Login error:', error)
+    console.error('Login error:', error)
     console.error('Error details:', error.response?.data)
     errorMessage.value = error.response?.data?.message || t('adminWrongCredentials')
   } finally {

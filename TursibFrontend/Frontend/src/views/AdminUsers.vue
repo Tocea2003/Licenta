@@ -56,14 +56,17 @@
                   :class="['btn-action', user.role === 'Admin' ? 'btn-demote' : 'btn-promote']"
                   :title="user.role === 'Admin' ? t('demoteToUser') : t('promoteToAdmin')"
                 >
-                  {{ user.role === 'Admin' ? '⬇ User' : '⬆ Admin' }}
+                  <ArrowDown v-if="user.role === 'Admin'" :size="14" aria-hidden="true" />
+                  <ArrowUp v-else :size="14" aria-hidden="true" />
+                  {{ user.role === 'Admin' ? 'User' : 'Admin' }}
                 </button>
                 <button
                   @click="deleteUser(user)"
                   class="btn-action btn-delete"
                   :title="t('deleteUserLabel')"
+                  :aria-label="t('deleteUserLabel')"
                 >
-                  🗑️
+                  <Trash2 :size="16" aria-hidden="true" />
                 </button>
               </div>
             </td>
@@ -89,6 +92,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { adminUsersService, type AdminUser } from '@/services/adminService'
 import { usePagination } from '@/composables/usePagination'
 import { useLanguage } from '@/composables/useLanguage'
+import '@/assets/admin-actions.css'
+import { ArrowDown, ArrowUp, Trash2 } from 'lucide-vue-next'
 
 const { t } = useLanguage()
 
@@ -310,51 +315,6 @@ onMounted(loadUsers)
 .role-badge.user {
   background: rgba(16, 185, 129, 0.12);
   color: #10b981;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-action {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.btn-promote {
-  background: rgba(102, 126, 234, 0.15);
-  color: #667eea;
-}
-
-.btn-promote:hover {
-  background: #667eea;
-  color: #fff;
-}
-
-.btn-demote {
-  background: rgba(251, 191, 36, 0.15);
-  color: #d97706;
-}
-
-.btn-demote:hover {
-  background: #fbbf24;
-  color: #fff;
-}
-
-.btn-delete {
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
-}
-
-.btn-delete:hover {
-  background: #ef4444;
-  color: #fff;
 }
 
 .empty-row {

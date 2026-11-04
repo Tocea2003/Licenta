@@ -7,28 +7,28 @@
     <!-- Revenue KPI cards -->
     <div class="kpi-cards" v-if="!isLoading">
       <div class="kpi-card">
-        <div class="kpi-icon">🎫</div>
+        <div class="kpi-icon"><Ticket :size="22" aria-hidden="true" /></div>
         <div class="kpi-body">
           <div class="kpi-value">{{ tickets.length }}</div>
           <div class="kpi-label">{{ t('totalTicketsSold') }}</div>
         </div>
       </div>
       <div class="kpi-card green">
-        <div class="kpi-icon">💰</div>
+        <div class="kpi-icon"><Wallet :size="22" aria-hidden="true" /></div>
         <div class="kpi-body">
           <div class="kpi-value">{{ totalRevenue.toFixed(2) }} RON</div>
           <div class="kpi-label">{{ t('totalRevenueLabel') }}</div>
         </div>
       </div>
       <div class="kpi-card blue">
-        <div class="kpi-icon">✅</div>
+        <div class="kpi-icon"><CircleCheck :size="22" aria-hidden="true" /></div>
         <div class="kpi-body">
           <div class="kpi-value">{{ activeCount }}</div>
           <div class="kpi-label">{{ t('activeTicketsLabel') }}</div>
         </div>
       </div>
       <div class="kpi-card amber">
-        <div class="kpi-icon">📅</div>
+        <div class="kpi-icon"><CalendarDays :size="22" aria-hidden="true" /></div>
         <div class="kpi-body">
           <div class="kpi-value">{{ todayCount }}</div>
           <div class="kpi-label">{{ t('soldToday') }}</div>
@@ -108,6 +108,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { adminTicketsService, type AdminTicket } from '@/services/adminService'
 import { usePagination } from '@/composables/usePagination'
 import { useLanguage } from '@/composables/useLanguage'
+import { CalendarDays, CircleCheck, Ticket, Wallet } from 'lucide-vue-next'
 
 const { t } = useLanguage()
 
@@ -211,7 +212,7 @@ onMounted(loadTickets)
 .kpi-card.blue  { border-left-color: #3b82f6; }
 .kpi-card.amber { border-left-color: #f59e0b; }
 
-.kpi-icon { font-size: 28px; }
+.kpi-icon { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--accent-primary-soft); color: var(--accent-primary); }
 
 .kpi-value {
   font-size: 22px;
