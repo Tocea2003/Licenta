@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.RateLimiting;
 using TursibBackend.Data;
 using TursibBackend.Services;
+using TursibBackend.Services.Events;
+using TursibBackend.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +44,11 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<RouteCalculatorService>();
 builder.Services.AddScoped<PaymentSimulatorService>();
+
+// Live positions: the state always exists (GTFS-RT returns an empty feed without data);
+// the Kafka consumer, SignalR hub and history writer only run when Kafka__BootstrapServers is set.
+builder.Services.AddSingleton<LiveVehicleState>();
+var eventPipelineEnabled = builder.Services.AddEventPipeline(builder.Configuration);
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -219,6 +226,12 @@ app.UseAuthorization();
 
 // Mapează controllerele
 app.MapControllers();
+
+if (eventPipelineEnabled)
+{
+    // The browser client connects without credentials, so the normal CORS policy applies
+    app.MapHub<VehiclesHub>(VehiclesHub.Path).RequireCors("AllowVueApp");
+}
 
 // Endpoint pentru import GTFS
 app.MapPost("/api/import-gtfs", async (ApplicationDbContext db, IConfiguration config, ILogger<Program> logger) =>

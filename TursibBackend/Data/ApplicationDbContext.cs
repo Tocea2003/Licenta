@@ -26,6 +26,9 @@ namespace TursibBackend.Data
         public DbSet<StopTime> StopTimes { get; set; }
         public DbSet<ShapePoint> ShapePoints { get; set; }
 
+        // Poziții live eșantionate (din Kafka), pentru replay
+        public DbSet<VehiclePositionRecord> VehiclePositionHistory { get; set; }
+
         // Aici configurăm relațiile (deși EF Core le-ar putea deduce singur,
         // e bine să fim expliciți pentru relația Many-to-Many)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -80,6 +83,14 @@ namespace TursibBackend.Data
             // Excepțiile se caută după dată
             modelBuilder.Entity<ServiceCalendarDate>()
                 .HasIndex(cd => cd.Date);
+
+            modelBuilder.Entity<VehiclePositionRecord>(e =>
+            {
+                e.ToTable("VehiclePositionHistory");
+                e.HasIndex(r => new { r.VehicleId, r.RecordedAt });
+                e.HasIndex(r => r.RecordedAt);
+                e.HasIndex(r => new { r.RouteId, r.RecordedAt });
+            });
 
             // ========== TABELE GTFS ==========
             modelBuilder.Entity<Trip>(e =>
