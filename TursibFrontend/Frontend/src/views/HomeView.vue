@@ -178,16 +178,13 @@ onMounted(() => {
   background: var(--bg-secondary);
 }
 
-/* Sidebar cu trasee - mai îngust și modern */
+/* Panoul planificatorului, lipit de marginea stângă (design Semnal) */
 .sidebar {
   flex-shrink: 0;
-  width: 320px;
-  height: calc(100vh - 24px);
-  margin: 12px 0 12px 12px;
-  border-radius: 20px;
+  width: 380px;
+  height: 100dvh;
   z-index: 100;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
 
@@ -226,9 +223,9 @@ onMounted(() => {
     left: 0;
     top: 0;
     margin: 0;
-    height: 100vh;
+    height: 100dvh;
     border-radius: 0;
-    width: 280px;
+    width: min(360px, 88vw);
     z-index: 1001;
     transform: translateX(-100%);
   }
@@ -247,7 +244,7 @@ onMounted(() => {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--bg-overlay);
     z-index: 1150;
     animation: fadeIn 0.3s ease;
   }

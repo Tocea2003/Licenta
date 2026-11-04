@@ -69,36 +69,36 @@
       <transition name="fade">
         <div v-if="showMoreMenu" class="more-menu" @click="showMoreMenu = false">
           <button @click="goToFavorites" class="more-menu-item">
-            <span class="more-menu-icon">&#x2764;</span>
+            <Heart class="more-menu-icon" :size="18" aria-hidden="true" />
             <span>{{ t('favorites') }}</span>
           </button>
           <button v-if="isAuthenticated" @click="goToTickets" class="more-menu-item">
-            <span class="more-menu-icon">&#x1F3AB;</span>
+            <Ticket class="more-menu-icon" :size="18" aria-hidden="true" />
             <span>{{ t('tickets') }}</span>
           </button>
           <button @click="goToStatistics" class="more-menu-item">
-            <span class="more-menu-icon">&#x1F4CA;</span>
+            <BarChart3 class="more-menu-icon" :size="18" aria-hidden="true" />
             <span>{{ t('statistics') }}</span>
           </button>
           <button @click="goToSettings" class="more-menu-item">
-            <span class="more-menu-icon">&#x2699;&#xFE0F;</span>
+            <Settings class="more-menu-icon" :size="18" aria-hidden="true" />
             <span>{{ t('settings') }}</span>
           </button>
           <button @click="showTripHistory = !showTripHistory" class="more-menu-item">
-            <span class="more-menu-icon">&#x1F553;</span>
+            <History class="more-menu-icon" :size="18" aria-hidden="true" />
             <span>{{ t('tripHistory') }}</span>
           </button>
           <div class="more-menu-divider"></div>
           <button v-if="isAdmin" @click="goToAdmin" class="more-menu-item">
-            <span class="more-menu-icon">&#x2699;</span>
+            <ShieldCheck class="more-menu-icon" :size="18" aria-hidden="true" />
             <span>{{ t('adminPanel') }}</span>
           </button>
           <button v-if="!isAuthenticated" @click="router.push('/login')" class="more-menu-item">
-            <span class="more-menu-icon">&#x1F511;</span>
+            <LogIn class="more-menu-icon" :size="18" aria-hidden="true" />
             <span>{{ t('loginButton') }}</span>
           </button>
           <button v-else @click="handleLogout" class="more-menu-item more-menu-item--danger">
-            <span class="more-menu-icon">&#x1F6AA;</span>
+            <LogOut class="more-menu-icon" :size="18" aria-hidden="true" />
             <span>{{ t('logout') }}</span>
           </button>
         </div>
@@ -262,11 +262,9 @@
       <!-- Layer-ul de tile-uri (harta de bază) -->
 
       <l-tile-layer
-
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-
+        :url="tileUrl"
         :attribution="attribution"
-
+        class-name="map-tiles"
       />
 
       <!-- Marker pentru locația utilizatorului -->
@@ -274,11 +272,9 @@
         v-if="userLocation"
         :lat-lng="[userLocation.lat, userLocation.lon]"
       >
-        <l-icon
-          :icon-size="[40, 40]"
-          :icon-anchor="[20, 40]"
-          icon-url="/location-pin.png"
-        />
+        <l-icon :icon-size="[22, 22]" :icon-anchor="[11, 11]" class-name="map-divicon">
+          <div class="user-dot"></div>
+        </l-icon>
         <l-popup>
           <strong>{{ t('youAreHere') }}</strong>
         </l-popup>
@@ -289,11 +285,9 @@
         v-if="selectedAddress"
         :lat-lng="[selectedAddress.lat, selectedAddress.lon]"
       >
-        <l-icon
-          :icon-size="[40, 40]"
-          :icon-anchor="[20, 40]"
-          icon-url="/placeholder.png"
-        />
+        <l-icon :icon-size="[26, 34]" :icon-anchor="[13, 34]" class-name="map-divicon">
+          <div class="drop-pin"><MapPin :size="14" aria-hidden="true" /></div>
+        </l-icon>
         <l-popup>
           <strong>{{ selectedAddress.name }}</strong>
         </l-popup>
@@ -304,30 +298,26 @@
         v-if="pinnedLocation"
         :lat-lng="[pinnedLocation.lat, pinnedLocation.lon]"
       >
-        <l-icon
-          :icon-size="[30, 45]"
-          :icon-anchor="[15, 45]"
-          :popup-anchor="[0, -40]"
-          icon-url="https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png"
-          shadow-url="https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png"
-        />
+        <l-icon :icon-size="[26, 34]" :icon-anchor="[13, 34]" :popup-anchor="[0, -32]" class-name="map-divicon">
+          <div class="drop-pin drop-pin--accent"><MapPin :size="14" aria-hidden="true" /></div>
+        </l-icon>
         <l-popup :options="{ minWidth: 200, maxWidth: 280 }">
           <div class="pin-popup">
             <div class="pin-popup-address">
               <strong>{{ pinnedLocation.name }}</strong>
             </div>
             <div class="pin-popup-actions">
-              <button class="pin-action-btn" @click="pinNavigateHere">
-                🧭 {{ t('navigateHere') }}
+              <button type="button" class="pin-action-btn pin-action-btn--primary" @click="pinNavigateHere">
+                <Navigation :size="16" aria-hidden="true" />{{ t('navigateHere') }}
               </button>
-              <button class="pin-action-btn" @click="pinSearchFrom">
-                📍 {{ t('departFromHere') }}
+              <button type="button" class="pin-action-btn" @click="pinSearchFrom">
+                <MapPin :size="16" aria-hidden="true" />{{ t('departFromHere') }}
               </button>
-              <button class="pin-action-btn" @click="pinAddFavorite">
-                ⭐ {{ t('addToFavoritesAction') }}
+              <button type="button" class="pin-action-btn" @click="pinAddFavorite">
+                <Star :size="16" aria-hidden="true" />{{ t('addToFavoritesAction') }}
               </button>
-              <button class="pin-action-btn pin-action-btn--close" @click="pinClose">
-                ✕ {{ t('closePin') }}
+              <button type="button" class="pin-action-btn pin-action-btn--close" @click="pinClose">
+                <X :size="16" aria-hidden="true" />{{ t('closePin') }}
               </button>
             </div>
           </div>
@@ -343,9 +333,7 @@
           :icon-size="[20, 20]"
           :icon-anchor="[10, 10]"
         >
-          <div class="snapped-marker start">
-            🟢
-          </div>
+          <div class="snapped-marker start"></div>
         </l-icon>
         <l-popup>
           <strong>{{ t('routeStart') }}</strong><br>
@@ -361,9 +349,7 @@
           :icon-size="[20, 20]"
           :icon-anchor="[10, 10]"
         >
-          <div class="snapped-marker end">
-            🔴
-          </div>
+          <div class="snapped-marker end"></div>
         </l-icon>
         <l-popup>
           <strong>{{ t('routeEnd') }}</strong><br>
@@ -389,20 +375,36 @@
       <!-- Linia traseului cu săgeți pentru sens (dacă există stații selectate) -->
       <l-polyline
         v-if="routePath.length > 0 && !showMultimodal"
+        :lat-lngs="routePath"
+        color="#ffffff"
+        :weight="9"
+        :opacity="0.95"
+        pane="casingPane"
+      />
+      <l-polyline
+        v-if="routePath.length > 0 && !showMultimodal"
         ref="routePolylineRef"
         :lat-lngs="routePath"
         :color="routeColor"
         :weight="5"
-        :opacity="0.7"
+        :opacity="1"
       />
       
       <!-- Linia pentru segmentul de autobuz în modul multimodal (doar între stațiile de urcare și coborâre) -->
       <l-polyline
         v-if="multimodalBusPath.length > 0 && showMultimodal"
         :lat-lngs="multimodalBusPath"
+        color="#ffffff"
+        :weight="10"
+        :opacity="0.95"
+        pane="casingPane"
+      />
+      <l-polyline
+        v-if="multimodalBusPath.length > 0 && showMultimodal"
+        :lat-lngs="multimodalBusPath"
         :color="multimodalData.busColor"
-        :weight="5"
-        :opacity="0.7"
+        :weight="6"
+        :opacity="1"
       />
       
       <!-- Linia VERDE - traseul complet al primului autobuz (doar dacă nu e mod plan) -->
@@ -427,47 +429,73 @@
       <l-polyline
         v-if="actualWalkingPath.length > 0 && (showMultimodal || showTransfer)"
         :lat-lngs="actualWalkingPath"
-        color="#ef4444"
+        :color="walkLineColor"
         :weight="4"
         :opacity="0.9"
-        :dash-array="'10, 6'"
+        :dash-array="'1, 9'"
+        line-cap="round"
       />
 
       <!-- Segment autobuz 1 (albastru) -->
       <l-polyline
         v-if="walkingPath.length > 0 && (showMultimodal || showTransfer)"
         :lat-lngs="walkingPath"
-        color="#3b82f6"
+        color="#ffffff"
+        :weight="10"
+        :opacity="0.95"
+        pane="casingPane"
+      />
+      <l-polyline
+        v-if="walkingPath.length > 0 && (showMultimodal || showTransfer)"
+        :lat-lngs="walkingPath"
+        :color="segment1Color"
         :weight="6"
-        :opacity="0.9"
+        :opacity="1"
       />
 
       <!-- Segment autobuz 2 (verde) -->
       <l-polyline
         v-if="secondWalkingPath.length > 0 && showTransfer"
         :lat-lngs="secondWalkingPath"
-        color="#10b981"
+        color="#ffffff"
+        :weight="10"
+        :opacity="0.95"
+        pane="casingPane"
+      />
+      <l-polyline
+        v-if="secondWalkingPath.length > 0 && showTransfer"
+        :lat-lngs="secondWalkingPath"
+        :color="transferData.route2Color"
         :weight="6"
-        :opacity="0.9"
+        :opacity="1"
       />
 
       <!-- Segment autobuz 3 (roșu) -->
       <l-polyline
         v-if="thirdBusPath.length > 0 && showTransfer"
         :lat-lngs="thirdBusPath"
-        color="#dc2626"
+        color="#ffffff"
+        :weight="10"
+        :opacity="0.95"
+        pane="casingPane"
+      />
+      <l-polyline
+        v-if="thirdBusPath.length > 0 && showTransfer"
+        :lat-lngs="thirdBusPath"
+        :color="transferData.route3Color"
         :weight="6"
-        :opacity="0.9"
+        :opacity="1"
       />
 
       <!-- Mers pe jos: stație coborâre → destinație (roșu) -->
       <l-polyline
         v-if="actualSecondWalkingPath.length > 0 && (showMultimodal || showTransfer)"
         :lat-lngs="actualSecondWalkingPath"
-        color="#ef4444"
+        :color="walkLineColor"
         :weight="4"
         :opacity="0.9"
-        :dash-array="'10, 6'"
+        :dash-array="'1, 9'"
+        line-cap="round"
       />
 
       <!-- Marker origine plan -->
@@ -622,6 +650,7 @@ import { ref as dbRef, getDatabase } from 'firebase/database'
 import { LMap, LTileLayer, LMarker, LPopup, LPolyline, LIcon } from '@vue-leaflet/vue-leaflet'
 
 import L from 'leaflet'
+import { Heart, Ticket, BarChart3, Settings, History, ShieldCheck, LogIn, LogOut, MapPin, Navigation, Star, X } from 'lucide-vue-next'
 
 import 'leaflet-polylinedecorator'
 
@@ -642,6 +671,11 @@ import { tripHistoryService, type TripHistoryItem } from '@/services/tripHistory
 import { useLanguage } from '@/composables/useLanguage'
 import { reverseGeocode } from '@/services/geocodingService'
 import { useFavorites } from '@/composables/useFavorites'
+import type { BusLocation, StationEta } from '@/types/bus'
+import { computeStationEtas } from '@/utils/liveBuses'
+import { haversineKm, findNearestStation, trimShapeToStations } from '@/utils/geo'
+import { fetchOsrmRoute } from '@/services/osrmService'
+import { buildBusSegmentPath, buildWalkingPath } from '@/services/tripGeometry'
 
 const router = useRouter()
 
@@ -760,24 +794,6 @@ watch(() => currentRoute.path, (newPath) => {
 
 // Am scos 'leaflet/dist/leaflet.css' de aici, deoarece este deja în main.ts
 
-// Interface pentru datele autobuzelor live
-interface BusLocation {
-  id: string
-  latitude: number
-  longitude: number
-  routeId: number
-  routeNumber?: string
-  routeName?: string
-  timestamp: number
-  speed: number
-  heading: number
-  occupancy?: number
-  status?: string
-  directionId?: number
-  nextStationId?: number
-  nextStationName?: string
-  nextStationEta?: number
-}
 
 // API Base URL
 
@@ -1025,7 +1041,7 @@ const nearbyStations = computed(() => {
     if (!station || typeof station.latitude !== 'number' || typeof station.longitude !== 'number') {
       continue
     }
-    const distance = calculateDistance(userLat, userLon, station.latitude, station.longitude)
+    const distance = haversineKm(userLat, userLon, station.latitude, station.longitude)
     stationsWithDistance.push({ ...station, distance })
   }
   
@@ -1072,7 +1088,7 @@ const getCachedDistance = (busId: string, busLat: number, busLon: number, userLa
     return cached.distance
   }
   
-  const distance = calculateDistance(userLat, userLon, busLat, busLon)
+  const distance = haversineKm(userLat, userLon, busLat, busLon)
   distanceCache.set(cacheKey, { distance, timestamp: Date.now() })
   
   // Curăță cache-ul vechi
@@ -1176,6 +1192,23 @@ const busLayerGroup = L.layerGroup()
 const busMarkerInstances = new Map<string, L.Marker>()
 let busLayerAdded = false
 
+// Semnătura vizuală a markerului: reconstruim iconița doar când se schimbă ceva vizibil,
+// altfel setIcon ar înlocui elementul DOM și ar întrerupe animația de deplasare.
+const busIconSignatures = new Map<string, string>()
+
+function busIcon(bus: BusLocation, state: 'normal' | 'highlighted' | 'dimmed', color: string): L.DivIcon {
+  const label = bus.routeNumber || String(bus.routeId)
+  const heading = typeof bus.heading === 'number' ? Math.round(bus.heading / 10) * 10 : null
+  const arrow = heading === null ? '' :
+    `<svg class="bus-pin__arrow" viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate(${heading}deg)"><path d="M12 3l7 18-7-4-7 4z"/></svg>`
+  return L.divIcon({
+    className: `bus-marker-animated bus-marker--${state}`,
+    html: `<div class="bus-pin" style="--line:${color}">${arrow}<span>${label}</span></div>`,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0]
+  })
+}
+
 function renderBusMarkers(buses: BusLocation[]) {
   if (!map.value?.leafletObject) return
   const leafletMap = map.value.leafletObject
@@ -1191,29 +1224,31 @@ function renderBusMarkers(buses: BusLocation[]) {
   for (const bus of buses) {
     currentIds.add(bus.id)
     const isOnSelectedRoute = activeRouteId != null && bus.routeId === activeRouteId
-    const busColor = routeColors.value[bus.routeId] || '#2563eb'
+    const state = isOnSelectedRoute ? 'highlighted' : activeRouteId != null ? 'dimmed' : 'normal'
+    const busColor = routeColors.value[bus.routeId] || '#5f6672'
+    const signature = `${state}|${busColor}|${bus.routeNumber}|${typeof bus.heading === 'number' ? Math.round(bus.heading / 10) : '-'}`
     const existing = busMarkerInstances.get(bus.id)
-
-    const icon = L.divIcon({
-      className: isOnSelectedRoute ? 'bus-marker-animated bus-marker-highlighted' : (activeRouteId != null ? 'bus-marker-animated bus-marker-dimmed' : 'bus-marker-animated'),
-      html: isOnSelectedRoute
-        ? `<div class="bus-highlight-ring" style="border-color:${busColor}"><img src="/front-of-bus.png" style="width:24px;height:24px;" /><span class="bus-route-label" style="background:${busColor}">${bus.routeNumber || bus.routeId}</span></div>`
-        : `<img src="/front-of-bus.png" style="width:20px;height:20px;" />`,
-      iconSize: isOnSelectedRoute ? [36, 36] : [20, 20],
-      iconAnchor: isOnSelectedRoute ? [18, 18] : [10, 10]
-    })
 
     if (existing) {
       existing.setLatLng([bus.latitude, bus.longitude])
-      existing.setIcon(icon)
-      existing.setZIndexOffset(isOnSelectedRoute ? 1000 : 0)
+      if (busIconSignatures.get(bus.id) !== signature) {
+        existing.setIcon(busIcon(bus, state, busColor))
+        existing.setZIndexOffset(isOnSelectedRoute ? 1000 : 0)
+        busIconSignatures.set(bus.id, signature)
+      }
       const popup = existing.getPopup()
       if (popup?.isOpen()) popup.setContent(buildBusPopupHTML(bus))
     } else {
-      const marker = L.marker([bus.latitude, bus.longitude], { icon, zIndexOffset: isOnSelectedRoute ? 1000 : 0 })
+      const marker = L.marker([bus.latitude, bus.longitude], {
+        icon: busIcon(bus, state, busColor),
+        zIndexOffset: isOnSelectedRoute ? 1000 : 0,
+        keyboard: true,
+        title: `${t('busLine')} ${bus.routeNumber || bus.routeId}`
+      })
       marker.bindPopup(buildBusPopupHTML(bus))
       marker.addTo(busLayerGroup)
       busMarkerInstances.set(bus.id, marker)
+      busIconSignatures.set(bus.id, signature)
     }
   }
 
@@ -1221,6 +1256,7 @@ function renderBusMarkers(buses: BusLocation[]) {
     if (!currentIds.has(id)) {
       marker.remove()
       busMarkerInstances.delete(id)
+      busIconSignatures.delete(id)
     }
   }
 }
@@ -1257,15 +1293,6 @@ const getStatusLabel = (status: string | undefined): string => {
   }
 }
 
-const getStatusColor = (status: string | undefined): string => {
-  switch (status) {
-    case 'at_station': return '#16a34a'
-    case 'approaching': return '#f59e0b'
-    case 'departing': return '#3b82f6'
-    default: return '#6b7280'
-  }
-}
-
 const formatEta = (seconds: number | undefined): string => {
   if (!seconds || seconds <= 0) return ''
   if (seconds < 60) return `< 1 min`
@@ -1273,37 +1300,32 @@ const formatEta = (seconds: number | undefined): string => {
   return `~${mins} min`
 }
 
-const buildBusPopupHTML = (bus: any): string => {
+const escapeHtml = (value: unknown): string =>
+  String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
+
+const buildBusPopupHTML = (bus: BusLocation): string => {
   const color = getBusColor(bus.routeId)
-  const occupancyLabel = getOccupancyLabel(bus.occupancy)
-  const occupancyClass = getOccupancyClass(bus.occupancy)
-  const occupancy = bus.occupancy ?? 0
-  const speed = bus.speed?.toFixed(1) ?? '0.0'
-  const routeLabel = bus.routeNumber ? `${t('busLine')} ${bus.routeNumber}` : `${t('busRoute')} ${bus.routeId}`
-  const routeNameStr = bus.routeName ? `<br><small style="color:#6b7280">${bus.routeName}</small>` : ''
-  const directionStr = bus.directionId === 1 ? t('returnDirection') : t('forwardDirection')
-  const statusLabel = getStatusLabel(bus.status)
-  const statusColor = getStatusColor(bus.status)
+  const occupancy = Math.round(bus.occupancy ?? 0)
+  const statusClass = bus.status === 'at_station' ? 'is-ok' : bus.status === 'approaching' ? 'is-live' : ''
   const etaStr = formatEta(bus.nextStationEta)
-  const nextStationStr = bus.nextStationName
-    ? `<div style="margin:4px 0;padding:4px 6px;background:#f0f9ff;border-radius:4px;font-size:12px">
-        <span style="color:#64748b">${t('nextStation')}:</span> <strong>${bus.nextStationName}</strong>
-        ${etaStr ? `<span style="color:#2563eb;margin-left:4px">${etaStr}</span>` : ''}
-      </div>`
+  const nextStation = bus.nextStationName
+    ? `<div class="bus-popup__next">${escapeHtml(t('nextStation'))}: <strong>${escapeHtml(bus.nextStationName)}</strong>${etaStr ? ` <span>${etaStr}</span>` : ''}</div>`
     : ''
 
   return `<div class="bus-popup">
-    <strong style="color: ${color}">${routeLabel}</strong>${routeNameStr}<br>
-    <span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:11px;color:white;background:${statusColor};margin:3px 0">${statusLabel}</span>
-    <span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:11px;color:#475569;background:#e2e8f0;margin:3px 0">${directionStr}</span><br>
-    <small>${t('speedLabel')}: ${speed} km/h</small><br>
-    ${nextStationStr}
-    <div class="occupancy-indicator ${occupancyClass}">
-      <span class="occupancy-icon">👥</span>
-      <span class="occupancy-text">${occupancyLabel}</span>
-      <div class="occupancy-bar">
-        <div class="occupancy-fill" style="width: ${occupancy}%"></div>
-      </div>
+    <div class="bus-popup__head">
+      <span class="line-pill" style="background:${color}">${escapeHtml(bus.routeNumber || bus.routeId)}</span>
+      <span class="bus-popup__name">${escapeHtml(bus.routeName || '')}</span>
+    </div>
+    <div class="bus-popup__tags">
+      <span class="bus-popup__tag ${statusClass}">${escapeHtml(getStatusLabel(bus.status))}</span>
+      <span class="bus-popup__tag">${escapeHtml(bus.directionId === 1 ? t('returnDirection') : t('forwardDirection'))}</span>
+      <span class="bus-popup__tag">${(bus.speed ?? 0).toFixed(0)} km/h</span>
+    </div>
+    ${nextStation}
+    <div class="bus-popup__occupancy ${getOccupancyClass(bus.occupancy)}">
+      <span>${escapeHtml(getOccupancyLabel(bus.occupancy))}</span>
+      <div class="bus-popup__bar"><div style="width:${occupancy}%"></div></div>
     </div>
   </div>`
 }
@@ -1315,25 +1337,17 @@ onUnmounted(() => {
   busLayerGroup.clearLayers()
 })
 
-// Funcție pentru calcularea distanței dintre două puncte GPS (Haversine formula)
-const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const R = 6371 // Raza Pământului în km
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLon = (lon2 - lon1) * Math.PI / 180
-  const a = 
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c // Distanța în km
-}
-
 // ========================
 // MAP READY + CLICK
 // ========================
 
 // Apelat când harta Leaflet e complet inițializată
 const onMapReady = (mapInstance: any) => {
+  // Conturul alb al traseelor stă într-un pane sub liniile colorate (overlayPane = 400)
+  if (!mapInstance.getPane('casingPane')) {
+    mapInstance.createPane('casingPane').style.zIndex = '390'
+  }
+
   if (pendingMapCenter.value) {
     mapInstance.setView(pendingMapCenter.value, pendingMapZoom.value, { animate: false })
     pendingMapCenter.value = null
@@ -1372,8 +1386,8 @@ onMounted(async () => {
   const loadRouteColors = async () => {
     try {
       // Încearcă să încărci din localStorage
-      const cachedColors = localStorage.getItem('routeColors')
-      const cachedTimestamp = localStorage.getItem('routeColorsTimestamp')
+      const cachedColors = localStorage.getItem('routeColors.v2')
+      const cachedTimestamp = localStorage.getItem('routeColors.v2.timestamp')
       
       // Cache valid 24 ore
       if (cachedColors && cachedTimestamp && Date.now() - parseInt(cachedTimestamp) < 86400000) {
@@ -1395,8 +1409,8 @@ onMounted(async () => {
       routeColors.value = colors
       
       // Salvează în cache
-      localStorage.setItem('routeColors', JSON.stringify(colors))
-      localStorage.setItem('routeColorsTimestamp', Date.now().toString())
+      localStorage.setItem('routeColors.v2', JSON.stringify(colors))
+      localStorage.setItem('routeColors.v2.timestamp', Date.now().toString())
       
     } catch {
     }
@@ -1474,6 +1488,14 @@ const mapOptions = {
 
 const attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 
+// Hartă de bază: tile-urile OpenStreetMap, estompate prin filtru CSS (vezi .map-tiles)
+// ca să nu concureze cu liniile și autobuzele. Pe dark, filtrul le inversează.
+const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+
+// Mersul pe jos e desenat punctat în culoarea textului; autobuzele în culoarea liniei
+const walkLineColor = computed(() => isDarkMode.value ? '#f1efea' : '#16181d')
+const segment1Color = computed(() => showTransfer.value ? transferData.value.route1Color : multimodalData.value.busColor)
+
 
 
 // Funcție pentru a calcula traseul pe străzi folosind GTFS shapes
@@ -1486,24 +1508,8 @@ const calculateStreetRoute = async (stations: Station[]) => {
   isLoadingRoute.value = true
   
   try {
-    // Fallback: OSRM API
-    const coordinates = stations
-      .map(s => `${s.longitude},${s.latitude}`)
-      .join(';')
-    
-    const url = `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`
-    
-    const response = await fetch(url)
-    const data = await response.json()
-    
-    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-      const geometry = data.routes[0].geometry.coordinates
-      routePath.value = geometry.map((coord: number[]) => [coord[1], coord[0]] as [number, number])
-    } else {
-      routePath.value = stations.map(s => [s.latitude, s.longitude] as [number, number])
-    }
-  } catch {
-    routePath.value = stations.map(s => [s.latitude, s.longitude] as [number, number])
+    const route = await fetchOsrmRoute('driving', stations.map(st => ({ lat: st.latitude, lon: st.longitude })))
+    routePath.value = route?.path ?? stations.map(st => [st.latitude, st.longitude] as [number, number])
   } finally {
     isLoadingRoute.value = false
   }
@@ -1757,26 +1763,6 @@ const handleSnappedCoordinates = (
   snappedEnd.value = end
 }
 
-// Găsește cea mai apropiată stație de un punct
-const findNearestStation = (lat: number, lon: number, stations: typeof props.allStations): typeof props.allStations[0] | null => {
-  if (!stations || stations.length === 0) return null
-
-  let nearest = stations[0]
-  if (!nearest) return null
-
-  let minDistance = calculateDistance(lat, lon, nearest.latitude, nearest.longitude)
-  
-  for (const station of stations) {
-    const distance = calculateDistance(lat, lon, station.latitude, station.longitude)
-    if (distance < minDistance) {
-      minDistance = distance
-      nearest = station
-    }
-  }
-  
-  return nearest
-}
-
 // Calculează ambele trasee de mers pe jos (la stația de urcare și de la stația de coborâre)
 const calculateBothWalkingRoutes = async (
   userLoc: { lat: number; lon: number },
@@ -1784,49 +1770,18 @@ const calculateBothWalkingRoutes = async (
   endStation: typeof props.allStations[0],
   destination: { lat: number; lon: number; name: string }
 ) => {
-  try {
-    // Primul traseu: de la user la stația de urcare
-    const route1Url = `https://router.project-osrm.org/route/v1/foot/${userLoc.lon},${userLoc.lat};${startStation.longitude},${startStation.latitude}?overview=full&geometries=geojson`
-    const response1 = await fetch(route1Url)
-    const data1 = await response1.json()
-    
-    let firstDistance = 0
-    let firstTime = 0
-    
-    if (data1.code === 'Ok' && data1.routes && data1.routes.length > 0) {
-      const geometry1 = data1.routes[0].geometry.coordinates.map((coord: number[]) => 
-        [coord[1], coord[0]] as [number, number]
-      )
-      walkingPath.value = geometry1
-      firstDistance = data1.routes[0].distance
-      firstTime = Math.ceil(data1.routes[0].duration / 60)
-    }
-    
-    // Al doilea traseu: de la stația de coborâre la destinație
-    const route2Url = `https://router.project-osrm.org/route/v1/foot/${endStation.longitude},${endStation.latitude};${destination.lon},${destination.lat}?overview=full&geometries=geojson`
-    const response2 = await fetch(route2Url)
-    const data2 = await response2.json()
-    
-    let secondDistance = 0
-    let secondTime = 0
-    
-    if (data2.code === 'Ok' && data2.routes && data2.routes.length > 0) {
-      const geometry2 = data2.routes[0].geometry.coordinates.map((coord: number[]) => 
-        [coord[1], coord[0]] as [number, number]
-      )
-      secondWalkingPath.value = geometry2
-      secondDistance = data2.routes[0].distance
-      secondTime = Math.ceil(data2.routes[0].duration / 60)
-    }
-    
-    return {
-      firstDistance,
-      firstTime,
-      secondDistance,
-      secondTime
-    }
-  } catch {
-    return null
+  const [first, second] = await Promise.all([
+    fetchOsrmRoute('foot', [userLoc, { lat: startStation.latitude, lon: startStation.longitude }]),
+    fetchOsrmRoute('foot', [{ lat: endStation.latitude, lon: endStation.longitude }, destination])
+  ])
+  if (first) walkingPath.value = first.path
+  if (second) secondWalkingPath.value = second.path
+
+  return {
+    firstDistance: first?.distance ?? 0,
+    firstTime: first ? Math.ceil(first.duration / 60) : 0,
+    secondDistance: second?.distance ?? 0,
+    secondTime: second ? Math.ceil(second.duration / 60) : 0
   }
 }
 
@@ -2066,27 +2021,6 @@ const fetchAlternativeRoutes = async (startStationId: number, endStationId: numb
 }
 
 // Handler pentru selectarea unei rute alternative
-// Trunchiază shape-ul rutei între două stații (backend returnează ruta completă)
-const trimShapeToStations = (
-  points: Array<{latitude: number, longitude: number}>,
-  from: {latitude: number, longitude: number},
-  to: {latitude: number, longitude: number}
-): [number, number][] => {
-  if (!points || points.length === 0) return []
-  let fromIdx = 0, fromDist = Infinity, toIdx = points.length - 1, toDist = Infinity
-  for (let i = 0; i < points.length; i++) {
-    const point = points[i]
-    if (!point) continue
-    const dFrom = Math.hypot(point.latitude - from.latitude, point.longitude - from.longitude)
-    const dTo   = Math.hypot(point.latitude - to.latitude,   point.longitude - to.longitude)
-    if (dFrom < fromDist) { fromDist = dFrom; fromIdx = i }
-    if (dTo   < toDist)   { toDist   = dTo;   toIdx   = i }
-  }
-  const start = Math.min(fromIdx, toIdx)
-  const end   = Math.max(fromIdx, toIdx)
-  return points.slice(start, end + 1).map(p => [p.latitude, p.longitude] as [number, number])
-}
-
 const handleAlternativeRouteSelected = async (route: any) => {
   selectedAlternative.value = route
   showAlternatives.value = false
@@ -2114,16 +2048,7 @@ const handleAlternativeRouteSelected = async (route: any) => {
   if (busSegments.length === 0) {
     // Walk-only route selected
     if (route.routeType === 'walk-only' && savedUserLocation.value && savedDestination.value) {
-      try {
-        const walkUrl = `https://router.project-osrm.org/route/v1/foot/${savedUserLocation.value.lon},${savedUserLocation.value.lat};${savedDestination.value.lon},${savedDestination.value.lat}?overview=full&geometries=geojson`
-        const resp = await fetch(walkUrl)
-        const data = await resp.json()
-        if (data.routes?.[0]?.geometry?.coordinates) {
-          actualWalkingPath.value = data.routes[0].geometry.coordinates.map(
-            (c: number[]) => [c[1], c[0]] as [number, number]
-          )
-        }
-      } catch {}
+      actualWalkingPath.value = await buildWalkingPath(savedUserLocation.value, savedDestination.value)
 
       const walkSeg = route.segments[0]
       multimodalData.value = {
@@ -2171,57 +2096,15 @@ const handleAlternativeRouteSelected = async (route: any) => {
         return
       }
       
-      // Încărcăm segmentul GTFS de autobuz (doar partea pe care o parcurg)
-      const gtfsSegment = await apiService.getRouteSegment(
-        foundRoute.id, 
-        segment.startStation.id, 
-        segment.endStation.id
-      )
-      
-      let busPart: [number, number][] = gtfsSegment?.points
-        ? trimShapeToStations(gtfsSegment.points, segment.startStation, segment.endStation)
-        : []
-      
-      
-      // Dacă GTFS nu returnează suficiente puncte, calculăm cu OSRM
-      if (busPart.length < 2) {
-        const coords = `${segment.startStation.longitude},${segment.startStation.latitude};${segment.endStation.longitude},${segment.endStation.latitude}`
-        const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
-        try {
-          const resp = await fetch(url)
-          const data = await resp.json()
-          if (data.code === 'Ok' && data.routes?.[0]) {
-            busPart = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          }
-        } catch {
-        }
-      }
-      
-      // Calculăm traseele de mers pe jos dacă avem locația salvată
+      // Segmentul de autobuz (doar partea parcursă), GTFS sau OSRM ca rezervă
+      const busPart = await buildBusSegmentPath(foundRoute.id, segment.startStation, segment.endStation)
+
+      // Traseele de mers pe jos, dacă avem locația salvată
       if (savedUserLocation.value && savedDestination.value) {
-        // 1. Traseu de la user la prima stație
-        try {
-          const url1 = `https://router.project-osrm.org/route/v1/foot/${savedUserLocation.value.lon},${savedUserLocation.value.lat};${segment.startStation.longitude},${segment.startStation.latitude}?overview=full&geometries=geojson`
-          const resp1 = await fetch(url1)
-          const data1 = await resp1.json()
-          if (data1.code === 'Ok' && data1.routes?.[0]) {
-            actualWalkingPath.value = data1.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          }
-        } catch {
-        }
-        
-        // 2. Traseu de la ultima stație la destinație
-        try {
-          const url2 = `https://router.project-osrm.org/route/v1/foot/${segment.endStation.longitude},${segment.endStation.latitude};${savedDestination.value.lon},${savedDestination.value.lat}?overview=full&geometries=geojson`
-          const resp2 = await fetch(url2)
-          const data2 = await resp2.json()
-          if (data2.code === 'Ok' && data2.routes?.[0]) {
-            actualSecondWalkingPath.value = data2.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          }
-        } catch {
-        }
+        actualWalkingPath.value = await buildWalkingPath(savedUserLocation.value, { lat: segment.startStation.latitude, lon: segment.startStation.longitude })
+        actualSecondWalkingPath.value = await buildWalkingPath({ lat: segment.endStation.latitude, lon: segment.endStation.longitude }, savedDestination.value)
       }
-      
+
       // Construiește traseul COMPLET (ROȘU): mers pe jos + autobuz + mers pe jos
       completeRoutePath.value = [
         ...actualWalkingPath.value,
@@ -2275,32 +2158,7 @@ const handleAlternativeRouteSelected = async (route: any) => {
       const routes = await apiService.getRoutes()
       const foundRoute = routes.find(r => r.routeNumber === busSegment.routeNumber)
       if (!foundRoute) return []
-
-      let busPart: [number, number][] = []
-      try {
-        const gtfsSegment = await apiService.getRouteSegment(
-          foundRoute.id,
-          busSegment.startStation.id,
-          busSegment.endStation.id
-        )
-        busPart = gtfsSegment?.points
-          ? trimShapeToStations(gtfsSegment.points, busSegment.startStation, busSegment.endStation)
-          : []
-      } catch {}
-
-      if (busPart.length < 2) {
-        const coords = `${busSegment.startStation.longitude},${busSegment.startStation.latitude};${busSegment.endStation.longitude},${busSegment.endStation.latitude}`
-        const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
-        try {
-          const resp = await fetch(url)
-          const data = await resp.json()
-          if (data.code === 'Ok' && data.routes?.[0]) {
-            busPart = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          }
-        } catch {}
-      }
-
-      return busPart
+      return buildBusSegmentPath(foundRoute.id, busSegment.startStation, busSegment.endStation)
     }
 
     try {
@@ -2310,24 +2168,9 @@ const handleAlternativeRouteSelected = async (route: any) => {
 
       // Calculăm traseele de mers pe jos
       if (savedUserLocation.value && savedDestination.value) {
-        try {
-          const url1 = `https://router.project-osrm.org/route/v1/foot/${savedUserLocation.value.lon},${savedUserLocation.value.lat};${segment1.startStation.longitude},${segment1.startStation.latitude}?overview=full&geometries=geojson`
-          const resp1 = await fetch(url1)
-          const data1 = await resp1.json()
-          if (data1.code === 'Ok' && data1.routes?.[0]) {
-            actualWalkingPath.value = data1.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          }
-        } catch {}
-
         const lastSegmentEnd = segment3 ? segment3.endStation : segment2.endStation
-        try {
-          const url2 = `https://router.project-osrm.org/route/v1/foot/${lastSegmentEnd.longitude},${lastSegmentEnd.latitude};${savedDestination.value.lon},${savedDestination.value.lat}?overview=full&geometries=geojson`
-          const resp2 = await fetch(url2)
-          const data2 = await resp2.json()
-          if (data2.code === 'Ok' && data2.routes?.[0]) {
-            actualSecondWalkingPath.value = data2.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          }
-        } catch {}
+        actualWalkingPath.value = await buildWalkingPath(savedUserLocation.value, { lat: segment1.startStation.latitude, lon: segment1.startStation.longitude })
+        actualSecondWalkingPath.value = await buildWalkingPath({ lat: lastSegmentEnd.latitude, lon: lastSegmentEnd.longitude }, savedDestination.value)
       }
 
       // Construiește traseul COMPLET
@@ -2420,7 +2263,7 @@ const handleMultimodalRouteRequested = async (
   const alternatives = await fetchAlternativeRoutes(startStation.id, endStation.id)
 
   // Calculate direct walking distance and time
-  const directWalkDistanceKm = calculateDistance(userLoc.lat, userLoc.lon, destination.lat, destination.lon)
+  const directWalkDistanceKm = haversineKm(userLoc.lat, userLoc.lon, destination.lat, destination.lon)
   const directWalkTimeMin = Math.round((directWalkDistanceKm / 5) * 60) // 5 km/h walking speed
 
   // Add walking-only option when distance is walkable (< 3km ~36min)
@@ -2694,7 +2537,7 @@ const handleTripSelected = async (trip: TripHistoryItem) => {
 
   // Add walking option for trip history too
   const dest = savedDestination.value!
-  const walkDist = calculateDistance(trip.startCoords.lat, trip.startCoords.lon, dest.lat, dest.lon)
+  const walkDist = haversineKm(trip.startCoords.lat, trip.startCoords.lon, dest.lat, dest.lon)
   const walkTime = Math.round((walkDist / 5) * 60)
   const bestBus = alternatives.length > 0 ? alternatives[0].totalDuration : Infinity
   if (walkDist < 3 || walkTime <= bestBus) {
@@ -2844,44 +2687,13 @@ watch(() => props.tripPlan, async (plan) => {
     ? resolveStationByName(secondBusSegment?.endStationName)
     : null
 
-  const buildBusSegmentPath = async (routeId: number, fromStation: Station, toStation: Station) => {
-    let segmentPath: [number, number][] = []
-    try {
-      const segment = await apiService.getRouteSegment(routeId, fromStation.id, toStation.id)
-      if (segment?.points?.length) {
-        segmentPath = trimShapeToStations(segment.points, fromStation, toStation)
-      }
-    } catch {}
-
-    if (segmentPath.length < 2) {
-      try {
-        const coords = `${fromStation.longitude},${fromStation.latitude};${toStation.longitude},${toStation.latitude}`
-        const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`)
-        const data = await response.json()
-        if (data.code === 'Ok' && data.routes?.[0]) {
-          segmentPath = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-        }
-      } catch {}
-    }
-
-    return segmentPath
-  }
-
   // Colectăm toate căile pentru a calcula bounds
   const allPoints: [number, number][] = []
 
   // 1. Mers pe jos: origin → stație urcare (dacă originea e adresă, nu stație)
   if (plan.walkToStartMinutes && plan.walkToStartMinutes > 0) {
-    try {
-      const resp = await fetch(
-        `https://router.project-osrm.org/route/v1/foot/${plan.originLon},${plan.originLat};${boarding.longitude},${boarding.latitude}?overview=full&geometries=geojson`
-      )
-      const data = await resp.json()
-      if (data.code === 'Ok' && data.routes?.[0]) {
-        actualWalkingPath.value = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-        allPoints.push(...actualWalkingPath.value)
-      }
-    } catch {}
+    actualWalkingPath.value = await buildWalkingPath({ lat: plan.originLat, lon: plan.originLon }, { lat: boarding.latitude, lon: boarding.longitude })
+    allPoints.push(...actualWalkingPath.value)
   } else {
     allPoints.push([plan.originLat, plan.originLon])
   }
@@ -2921,16 +2733,8 @@ watch(() => props.tripPlan, async (plan) => {
 
   // 4. Mers pe jos: stație coborâre → destinație
   if (plan.walkToEndMinutes && plan.walkToEndMinutes > 0) {
-    try {
-      const resp = await fetch(
-        `https://router.project-osrm.org/route/v1/foot/${alighting.longitude},${alighting.latitude};${plan.destLon},${plan.destLat}?overview=full&geometries=geojson`
-      )
-      const data = await resp.json()
-      if (data.code === 'Ok' && data.routes?.[0]) {
-        actualSecondWalkingPath.value = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-        allPoints.push(...actualSecondWalkingPath.value)
-      }
-    } catch {}
+    actualSecondWalkingPath.value = await buildWalkingPath({ lat: alighting.latitude, lon: alighting.longitude }, { lat: plan.destLat, lon: plan.destLon })
+    allPoints.push(...actualSecondWalkingPath.value)
   } else {
     allPoints.push([plan.destLat, plan.destLon])
   }
@@ -3112,95 +2916,32 @@ const handleNotificationToggle = async (payload: { stationId: number; routeId?: 
   }
 }
 
-// Calcul ETA pentru autobuze care vin către o stație
-// Optimizat cu memoization și cache persistent
-const stationETACache = new Map<string, Array<{ busId: string, routeId: number, routeNumber: string, eta: string, color: string }>>()
-const ETA_CACHE_DURATION = 5000 // 5 secunde
+// ETA pentru autobuzele care vin spre o stație (logica pură e în utils/liveBuses).
+// Rezultatul e memorat 5 s pe stație: panoul îl cere de mai multe ori la fiecare randare.
+const stationETACache = new Map<string, StationEta[]>()
+const ETA_CACHE_DURATION = 5000
 
-/** Compass bearing (0-360°) from point A to point B */
-const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const dLon = (lon2 - lon1) * Math.PI / 180
-  const lat1R = lat1 * Math.PI / 180
-  const lat2R = lat2 * Math.PI / 180
-  const y = Math.sin(dLon) * Math.cos(lat2R)
-  const x = Math.cos(lat1R) * Math.sin(lat2R) - Math.sin(lat1R) * Math.cos(lat2R) * Math.cos(dLon)
-  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
-}
-
-/** Smallest absolute angle between two headings (0–180°) */
-const angleDiff = (a: number, b: number): number =>
-  Math.abs(((a - b) + 540) % 360 - 180)
-
-const getStationETAs = (stationId: number) => {
-  // Cache per 5-second bucket
+const getStationETAs = (stationId: number): StationEta[] => {
   const now = Date.now()
   const cacheKey = `${stationId}-${now - (now % ETA_CACHE_DURATION)}`
-  if (stationETACache.has(cacheKey)) return stationETACache.get(cacheKey)!
+  const cached = stationETACache.get(cacheKey)
+  if (cached) return cached
 
-  const allStations = props.allStations
-  if (!allStations?.length) return []
-
-  const station = allStations.find(s => s.id === stationId)
+  const station = props.allStations?.find(s => s.id === stationId)
   if (!station) return []
 
-  const stationLat = station.latitude
-  const stationLon = station.longitude
   const buses = liveBuses.value
-
-  // Keep only the closest approaching bus per route
-  const routeBest = new Map<number, { busId: string; distKm: number; speed: number }>()
-
-  for (const bus of buses) {
-    if (typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') continue
-
-    const distKm = calculateDistance(bus.latitude, bus.longitude, stationLat, stationLon)
-
-    // Ignore buses more than 4 km away or already past/at the stop (<30 m)
-    if (distKm > 4 || distKm < 0.03) continue
-
-    // Direction check — skip buses heading away (>90° off course)
-    if (typeof bus.heading === 'number') {
-      const bearing = calculateBearing(bus.latitude, bus.longitude, stationLat, stationLon)
-      if (angleDiff(bus.heading, bearing) > 90) continue
-    }
-
-    const existing = routeBest.get(bus.routeId)
-    if (!existing || distKm < existing.distKm) {
-      routeBest.set(bus.routeId, { busId: bus.id, distKm, speed: bus.speed ?? 0 })
-    }
-  }
-
-  const etas: Array<{ busId: string; routeId: number; routeNumber: string; eta: string; color: string }> = []
-
-  for (const [routeId, { busId, distKm, speed }] of routeBest) {
-    // Use actual speed if meaningful, otherwise default to 25 km/h city average
-    const avgSpeed = speed > 5 ? Math.min(speed, 50) : 25
-    const etaMin = Math.round((distKm / avgSpeed) * 60)
-    if (etaMin > 30) continue
-
-    etas.push({
-      busId,
-      routeId,
-      routeNumber: `${t('busLine')} ${routeId}`,
-      eta: etaMin <= 1 ? '<1 min' : `${etaMin} min`,
-      color: routeColors.value[routeId] || '#2563eb'
-    })
-  }
-
-  // Sort by ETA ascending, cap at 8 entries
-  etas.sort((a, b) => {
-    const ta = a.eta === '<1 min' ? 0 : parseInt(a.eta)
-    const tb = b.eta === '<1 min' ? 0 : parseInt(b.eta)
-    return ta - tb
+  const routeNumbers = new Map(buses.map(b => [b.routeId, b.routeNumber]))
+  const result = computeStationEtas(station, buses, {
+    routeColors: routeColors.value,
+    routeLabel: routeId => routeNumbers.get(routeId) || String(routeId)
   })
-  const result = etas.slice(0, 8)
 
   stationETACache.set(cacheKey, result)
   if (stationETACache.size > 20) {
     const oldest = stationETACache.keys().next().value
     if (oldest) stationETACache.delete(oldest)
   }
-
   return result
 }
 </script>
@@ -3301,165 +3042,73 @@ const getStationETAs = (stationId: number) => {
 
 /* Asigură-te că Leaflet își încarcă corect iconițele */
 :deep(.leaflet-container) {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   height: 100% !important;
   width: 100% !important;
 }
 
-/* Tile layer mai clar */
-:deep(.leaflet-tile-pane) {
-  filter: brightness(1.05) contrast(0.95);
+/* Pe telefon zoom-ul se face cu degetele: ascundem butoanele */
+@media (max-width: 767px) {
+  :deep(.leaflet-control-zoom) {
+    display: none;
+  }
 }
 
-/* Control buttons mai clare */
+/* Controalele de zoom Leaflet în stilul butoanelor plutitoare */
+:deep(.leaflet-control-zoom) {
+  border: none !important;
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+  box-shadow: var(--shadow-md) !important;
+}
+
 :deep(.leaflet-control-zoom a) {
-  background: white !important;
-  color: #1f2937 !important;
-  border: 1px solid #e5e7eb !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-  transition: all 0.2s;
+  width: 44px !important;
+  height: 44px !important;
+  line-height: 44px !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border: none !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  font-size: 20px !important;
 }
 
 :deep(.leaflet-control-zoom a:hover) {
-  background: #f9fafb !important;
-  border-color: #3b82f6 !important;
+  background: var(--bg-tertiary) !important;
 }
 
-/* Stiluri pentru markerul de autobuz */
-.bus-marker {
-  font-size: 28px;
-  text-align: center;
-  line-height: 32px;
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
-  animation: pulse 2s infinite;
+:deep(.leaflet-container) {
+  background: var(--map-ground);
 }
 
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.15);
-  }
-}
-
-.bus-popup {
-  text-align: center;
-  min-width: 140px;
-  padding: 4px;
-}
-
-.bus-popup strong {
-  color: #2563eb;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.bus-popup small {
-  color: #6b7280;
-  font-size: 13px;
-}
-
-/* Stiluri pentru markerul utilizatorului */
-.user-marker {
-  font-size: 24px;
-  text-align: center;
-  line-height: 24px;
-  filter: drop-shadow(0 4px 8px rgba(59, 130, 246, 0.5));
-  animation: bounce 2s infinite;
-}
-
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
-}
-
-/* Stiluri pentru markerul adresei */
-.address-marker {
-  font-size: 32px;
-  text-align: center;
-  line-height: 32px;
-  filter: drop-shadow(0 4px 8px rgba(239, 68, 68, 0.4));
-}
-
-/* Stiluri pentru toate stațiile (când nu e selectat traseu) */
-.all-station-marker {
-  font-size: 18px;
-  text-align: center;
-  line-height: 20px;
-  opacity: 0.8;
-  transition: all 0.3s;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
-}
-
-.all-station-marker:hover {
-  opacity: 1;
-  transform: scale(1.2);
-}
-
-/* Stiluri pentru markerele snapped (puncte pe stradă) */
-.snapped-marker {
-  font-size: 20px;
-  text-align: center;
-  line-height: 20px;
-  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.3));
-  animation: pulse-snapped 2s infinite;
-}
-
-@keyframes pulse-snapped {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.3);
-    opacity: 0.7;
-  }
-}
-
-.snapped-marker.start {
-  filter: drop-shadow(0 3px 8px rgba(34, 197, 94, 0.7));
-}
-
-.snapped-marker.end {
-  filter: drop-shadow(0 3px 8px rgba(239, 68, 68, 0.7));
-}
-
-/* Stiluri pentru toggle-ul stațiilor */
-/* Stiluri pentru butonul de toggle sidebar */
+/* Butoane plutitoare peste hartă */
 .sidebar-toggle-btn {
   position: fixed;
   top: 16px;
   left: 16px;
   z-index: 1100;
   background: var(--bg-primary);
+  color: var(--text-primary);
   border: none;
-  border-radius: 8px;
-  width: 40px;
-  height: 40px;
+  border-radius: var(--radius-md);
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   box-shadow: var(--shadow-md);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: var(--transition-colors);
 }
 
 .sidebar-toggle-btn:hover {
-  background: var(--bg-secondary);
-  box-shadow: var(--shadow-lg);
-  transform: scale(1.05);
+  background: var(--bg-tertiary);
 }
 
 .sidebar-toggle-btn svg {
   color: var(--text-primary);
 }
 
-/* Grup de butoane din dreapta sus */
 .top-right-buttons {
   position: fixed;
   top: 16px;
@@ -3473,59 +3122,43 @@ const getStationETAs = (stationId: number) => {
 .action-btn {
   background: var(--bg-primary);
   border: none;
-  border-radius: 8px;
-  width: 40px;
-  height: 40px;
+  border-radius: var(--radius-md);
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   box-shadow: var(--shadow-md);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: var(--transition-colors);
   color: var(--text-primary);
 }
 
 .action-btn.language-btn {
-  font-size: 12px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: var(--fw-heavy);
   letter-spacing: 0.04em;
 }
 
 .action-btn:hover {
-  background: var(--bg-secondary);
-  box-shadow: var(--shadow-lg);
-  transform: scale(1.05);
+  background: var(--bg-tertiary);
 }
 
-.action-btn.active {
-  background: #667eea;
-  color: white;
-}
-
+.action-btn.active,
 .action-btn.active:hover {
-  background: #5568d3;
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
 }
 
 .action-btn svg {
   color: currentColor;
 }
 
-.action-btn.logout-btn {
-  color: #ef4444;
-}
-
-.action-btn.logout-btn:hover {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.action-btn.admin-btn {
-  color: #8b5cf6;
-}
-
-.action-btn.admin-btn:hover {
-  background: #f5f3ff;
-  color: #7c3aed;
+.action-btn:focus-visible,
+.sidebar-toggle-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus), var(--shadow-md);
 }
 
 /* More Menu Dropdown */
@@ -3548,32 +3181,34 @@ const getStationETAs = (stationId: number) => {
   align-items: center;
   gap: 10px;
   width: 100%;
+  min-height: 44px;
   padding: 10px 14px;
   border: none;
   background: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
   transition: background 0.15s;
 }
 
 .more-menu-item:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
 }
 
 .more-menu-item--danger {
-  color: var(--danger, #ef4444);
+  color: var(--color-danger);
 }
 
 .more-menu-item--danger:hover {
-  background: #fef2f2;
+  background: var(--color-danger-soft);
 }
 
 .more-menu-icon {
-  font-size: 16px;
-  width: 20px;
-  text-align: center;
+  flex-shrink: 0;
+  color: currentColor;
 }
 
 .more-menu-divider {
@@ -3596,29 +3231,20 @@ const getStationETAs = (stationId: number) => {
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 12px 24px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: var(--fw-semibold);
   z-index: 9999;
   box-shadow: var(--shadow-lg);
   pointer-events: none;
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
 }
 
-.toast--success {
-  background: #16a34a;
-  color: white;
-}
-
-.toast--error {
-  background: #ef4444;
-  color: white;
-}
-
-.toast--info {
-  background: #3b82f6;
-  color: white;
-}
+.toast--success { background: var(--color-success); color: #fff; }
+.toast--error { background: var(--color-danger); color: #fff; }
+.toast--info { background: var(--bg-inverse); color: var(--text-inverse); }
 
 .toast-enter-active, .toast-leave-active {
   transition: opacity 0.3s, transform 0.3s;
@@ -3631,72 +3257,54 @@ const getStationETAs = (stationId: number) => {
 /* Close route button */
 .close-route-btn {
   position: absolute;
-  top: 14px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 90;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
   border: none;
-  border-radius: 20px;
+  border-radius: var(--radius-full);
   box-shadow: var(--shadow-lg);
-  font-size: 13px;
-  font-weight: 600;
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--fw-bold);
   cursor: pointer;
-  transition: all 0.2s;
 }
 
 .close-route-btn:hover {
-  background: #ef4444;
-  color: white;
+  filter: brightness(1.15);
 }
 
 /* Responsive mobile */
-@media (max-width: 900px) {
+@media (max-width: 767px) {
   .sidebar-toggle-btn {
     top: 80px;
-    left: 10px;
-    width: 36px;
-    height: 36px;
+    left: 16px;
   }
 
   .top-right-buttons {
-    top: 10px;
-    right: 10px;
-    gap: 6px;
+    top: 16px;
+    right: 16px;
   }
 
   .top-right-buttons.top-right-buttons--docked {
     top: auto;
     bottom: 12px;
-    right: 10px;
-  }
-
-  .action-btn {
-    width: 44px;
-    height: 44px;
-  }
-
-  .action-btn.language-btn {
-    font-size: 11px;
-  }
-
-  .action-btn svg {
-    width: 20px;
-    height: 20px;
   }
 }
 
-/* Trip plan markers - modern pin style */
+/* Pinii unei călătorii: origine (cerc), urcare/coborâre (stație), transfer, destinație (pătrat) */
 .trip-pin {
   display: flex;
   flex-direction: column;
   align-items: center;
-  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.22));
+  filter: drop-shadow(0 2px 4px rgba(22, 24, 29, 0.25));
 }
 
 .pin-bubble {
@@ -3704,7 +3312,7 @@ const getStationETAs = (stationId: number) => {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.95);
+  border: 3px solid #fff;
 }
 
 .pin-tail {
@@ -3715,57 +3323,40 @@ const getStationETAs = (stationId: number) => {
   margin-top: -1px;
 }
 
-/* Origin – slate circle, no tail */
 .origin-pin .pin-bubble {
   width: 26px;
   height: 26px;
-  background: #475569;
-  box-shadow: 0 1px 5px rgba(71,85,105,0.35);
+  background: var(--accent-primary);
 }
 
-/* Boarding – blue teardrop pin */
-.boarding-pin .pin-bubble {
-  width: 24px;
-  height: 24px;
-  background: #3b82f6;
-  box-shadow: 0 1px 5px rgba(59,130,246,0.4);
-}
-.boarding-tail {
-  border-top: 9px solid #3b82f6;
-}
-
-/* Transfer – orange circle with ring, no tail */
-.transfer-pin .pin-bubble {
-  width: 30px;
-  height: 30px;
-  background: #f97316;
-  box-shadow: 0 0 0 4px rgba(249,115,22,0.18), 0 1px 5px rgba(249,115,22,0.4);
-}
-
-.secondary-transfer-pin .pin-bubble {
-  box-shadow: 0 0 0 4px rgba(249,115,22,0.25), 0 1px 7px rgba(249,115,22,0.5);
-}
-
-/* Alighting – green teardrop pin */
+.boarding-pin .pin-bubble,
 .alighting-pin .pin-bubble {
   width: 24px;
   height: 24px;
-  background: #10b981;
-  box-shadow: 0 1px 5px rgba(16,185,129,0.4);
+  background: #16181d;
 }
+.boarding-tail,
 .alighting-tail {
-  border-top: 9px solid #10b981;
+  border-top: 9px solid #16181d;
 }
 
-/* Destination – red teardrop pin */
+.transfer-pin .pin-bubble {
+  width: 30px;
+  height: 30px;
+  background: #e8a100;
+}
+.transfer-pin .pin-bubble svg {
+  stroke: #16181d;
+}
+
 .dest-pin .pin-bubble {
   width: 28px;
   height: 28px;
-  background: #ef4444;
-  box-shadow: 0 1px 6px rgba(239,68,68,0.45);
+  border-radius: 6px;
+  background: #16181d;
 }
 .dest-tail {
-  border-top: 11px solid #ef4444;
+  border-top: 11px solid #16181d;
 }
 
 /* Stiluri pentru gradul de ocupare */
@@ -3823,85 +3414,6 @@ const getStationETAs = (stationId: number) => {
 }
 
 /* Stiluri pentru ETA în stații */
-:deep(.station-popup) {
-  min-width: 200px;
-}
-
-:deep(.station-etas) {
-  margin-top: 12px;
-  padding-top: 8px;
-  border-top: 1px solid #e5e7eb;
-}
-
-:deep(.eta-title) {
-  font-size: 11px;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
-}
-
-:deep(.eta-item) {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 0;
-  font-size: 13px;
-}
-
-:deep(.eta-bus) {
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-:deep(.eta-time) {
-  font-weight: 700;
-  color: #059669;
-  background: rgba(5, 150, 105, 0.1);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-:deep(.notification-btn) {
-  width: 100%;
-  margin-top: 10px;
-  padding: 10px 14px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-  border: none !important;
-  border-radius: 8px;
-  color: white !important;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-:deep(.notification-btn:hover) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
-  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
-}
-
-:deep(.notification-btn.active) {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
-}
-
-:deep(.notification-btn.active:hover) {
-  background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.6);
-}
-
 .notification-feedback {
   position: fixed;
   top: 82px;
@@ -3937,107 +3449,211 @@ const getStationETAs = (stationId: number) => {
 
 <!-- CSS non-scoped pentru markeri Leaflet (generați în afara arborelui Vue) -->
 <style>
-/* Markeri autobuze live */
-.bus-marker-animated {
+/* Tile-uri OSM estompate (paleta Semnal: hârtie caldă, puțină culoare) */
+.map-tiles {
+  filter: saturate(0.35) sepia(0.12) brightness(1.03) contrast(0.9);
+}
+.dark .map-tiles {
+  filter: invert(1) hue-rotate(180deg) saturate(0.25) brightness(0.82) contrast(0.95);
+}
+
+/* Iconițe div fără fundalul implicit Leaflet */
+.map-divicon {
   background: transparent !important;
   border: none !important;
-  /* 0.5s ease-out pe transform (translate3d setat de Leaflet la setLatLng).
-     !important bate orice "transition: all" din stiluri globale. */
-  transition: transform 0.5s ease-out !important;
-  will-change: transform;
-}
-.bus-marker-animated img {
-  display: block;
-  transition: none !important;
 }
 
-.bus-marker-highlighted {
-  z-index: 1000 !important;
+/* Locația utilizatorului: punct albastru cu halo */
+.user-dot {
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: #1e3fae;
+  border: 4px solid #fff;
+  box-shadow: 0 0 0 7px rgba(30, 63, 174, 0.2), 0 2px 6px rgba(22, 24, 29, 0.3);
 }
 
-.bus-marker-dimmed {
-  opacity: 0.3;
-  filter: grayscale(0.8);
-}
-
-.bus-highlight-ring {
+/* Pin în formă de picătură (adresă selectată / pin plasat) */
+.drop-pin {
+  width: 26px;
+  height: 26px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: #16181d;
+  border: 3px solid #fff;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(22, 24, 29, 0.3);
+}
+.drop-pin svg { transform: rotate(45deg); }
+.drop-pin--accent { background: #1e3fae; }
+
+.snapped-marker {
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  border: 3px solid #3b82f6;
-  background: rgba(255,255,255,0.95);
-  box-shadow: 0 0 10px rgba(59,130,246,0.5), 0 2px 8px rgba(0,0,0,0.2);
-  position: relative;
-  animation: busPulse 2s ease-in-out infinite;
+  border: 3px solid #fff;
+  box-sizing: border-box;
+  box-shadow: 0 1px 4px rgba(22, 24, 29, 0.3);
+}
+.snapped-marker.start { background: #1e3fae; }
+.snapped-marker.end { background: #16181d; border-radius: 3px; }
+
+/* Markeri autobuze live: eticheta liniei + săgeata direcției */
+.bus-marker-animated {
+  background: transparent !important;
+  border: none !important;
+  /* 0.5s pe transform (translate3d setat de Leaflet la setLatLng) */
+  transition: transform 0.5s ease-out !important;
+  will-change: transform;
 }
 
-.bus-route-label {
+.bus-pin {
   position: absolute;
-  bottom: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 9px;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 7px 3px 4px;
+  border-radius: 8px;
+  background: var(--line, #5f6672);
+  color: #fff;
+  font-family: 'Archivo', 'Public Sans', sans-serif;
   font-weight: 800;
-  color: white;
-  padding: 1px 5px;
-  border-radius: 6px;
-  white-space: nowrap;
-  line-height: 1.3;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-}
-
-@keyframes busPulse {
-  0%, 100% { box-shadow: 0 0 10px rgba(59,130,246,0.5), 0 2px 8px rgba(0,0,0,0.2); }
-  50% { box-shadow: 0 0 20px rgba(59,130,246,0.7), 0 2px 12px rgba(0,0,0,0.3); }
-}
-
-/* Pin popup styles */
-.pin-popup {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.pin-popup-address {
-  margin-bottom: 8px;
   font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 0 0 2px #fff, 0 3px 8px rgba(22, 24, 29, 0.28);
+  cursor: pointer;
+}
+.bus-pin__arrow {
+  width: 12px;
+  height: 12px;
+  fill: #fff;
+  flex-shrink: 0;
+}
+
+.bus-marker--highlighted { z-index: 1000 !important; }
+.bus-marker--highlighted .bus-pin {
+  padding: 4px 8px 4px 5px;
+  font-size: 15px;
+  box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--line, #5f6672), 0 4px 12px rgba(22, 24, 29, 0.3);
+}
+.bus-marker--highlighted .bus-pin__arrow { width: 14px; height: 14px; }
+.bus-marker--dimmed .bus-pin { opacity: 0.45; }
+
+/* Popup autobuz */
+.leaflet-popup-content-wrapper {
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(22, 24, 29, 0.18);
+}
+.leaflet-popup-content {
+  margin: 14px 16px;
+  font-family: 'Public Sans', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: #16181d;
+}
+.bus-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 200px;
+}
+.bus-popup__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bus-popup__name {
+  font-weight: 700;
+  font-size: 14px;
   line-height: 1.3;
-  color: #1f2937;
+}
+.bus-popup__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.bus-popup__tag {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #ece9e3;
+  color: #16181d;
+  font-size: 12px;
+  font-weight: 600;
+}
+.bus-popup__tag.is-live { background: #fff4d6; color: #6b4a00; }
+.bus-popup__tag.is-ok { background: #e7f3ec; color: #1f7a4d; }
+.bus-popup__next {
+  font-size: 13px;
+  color: #5b606b;
+}
+.bus-popup__next strong { color: #16181d; }
+.bus-popup__next span { color: #1e3fae; font-weight: 700; }
+.bus-popup__occupancy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5b606b;
+}
+.bus-popup__bar {
+  height: 6px;
+  border-radius: 3px;
+  background: #ece9e3;
+  overflow: hidden;
+}
+.bus-popup__bar > div {
+  height: 100%;
+  border-radius: 3px;
+  background: #1f7a4d;
+}
+.occupancy-medium .bus-popup__bar > div { background: #e8a100; }
+.occupancy-high .bus-popup__bar > div { background: #b42318; }
+
+/* Popup pin pe hartă */
+.pin-popup {
+  font-family: 'Public Sans', system-ui, sans-serif;
+}
+.pin-popup-address {
+  margin-bottom: 10px;
+  font-size: 14px;
+  line-height: 1.35;
+  color: #16181d;
   word-break: break-word;
 }
-
 .pin-popup-actions {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-
 .pin-action-btn {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  padding: 7px 10px;
+  min-height: 40px;
+  padding: 0 12px;
   border: none;
-  border-radius: 6px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-size: 12px;
+  border-radius: 8px;
+  background: #f3f1ec;
+  color: #16181d;
+  font: inherit;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s;
 }
-
-.pin-action-btn:hover {
-  background: #dbeafe;
-}
-
-.pin-action-btn--close {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.pin-action-btn--close:hover {
-  background: #fee2e2;
-}
+.pin-action-btn:hover { background: #ece9e3; }
+.pin-action-btn--primary { background: #1e3fae; color: #fff; }
+.pin-action-btn--primary:hover { background: #152e80; }
+.pin-action-btn--close { background: transparent; color: #5b606b; }
+.pin-action-btn--close:hover { background: #f3f1ec; }
 </style>

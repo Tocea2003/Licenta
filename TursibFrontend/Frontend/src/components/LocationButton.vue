@@ -1,16 +1,19 @@
 <template>
-  <button 
-    class="location-button" 
+  <button
+    type="button"
+    class="location-button"
     @click="findMyLocation"
     :disabled="loading"
     :title="loading ? t('findingLocation') : t('myLocation')"
+    :aria-label="loading ? t('findingLocation') : t('myLocation')"
   >
-    <span v-if="loading" class="spinner">⌛</span>
-    <span v-else>📍</span>
+    <span v-if="loading" class="spinner" aria-hidden="true"></span>
+    <LocateFixed v-else :size="20" aria-hidden="true" />
   </button>
 </template>
 
 <script setup lang="ts">
+import { LocateFixed } from 'lucide-vue-next'
 import { ref } from 'vue'
 import { useLanguage } from '@/composables/useLanguage'
 
@@ -75,31 +78,38 @@ const findMyLocation = async () => {
 .location-button {
   width: 44px;
   height: 44px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--bg-primary);
+  color: var(--accent-primary);
   border: none;
   cursor: pointer;
-  font-size: 20px;
   box-shadow: var(--shadow-md);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: var(--transition-colors);
 }
 
 .location-button:hover:not(:disabled) {
-  background: var(--bg-secondary);
-  box-shadow: var(--shadow-lg);
-  transform: scale(1.05);
+  background: var(--bg-tertiary);
+}
+
+.location-button:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus), var(--shadow-md);
 }
 
 .location-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
+  cursor: progress;
 }
 
 .spinner {
-  animation: spin 1s linear infinite;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border-primary);
+  border-top-color: var(--accent-primary);
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {

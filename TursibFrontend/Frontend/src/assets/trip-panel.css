@@ -1,0 +1,274 @@
+/* Panoul cu detaliile unei călătorii (MultimodalDirections, TransferRoute).
+   Cronologie verticală: rezumat sus, pași cu o șină colorată ca linia. */
+
+.trip-panel {
+  position: absolute;
+  top: 16px;
+  left: 72px; /* lângă controalele de zoom */
+  z-index: 1000;
+  width: 360px;
+  max-width: calc(100% - 88px);
+  max-height: calc(100% - 32px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.trip-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.trip-panel__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: var(--fw-bold);
+}
+
+.trip-panel__close {
+  margin-left: auto;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.trip-panel__close:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.trip-panel__body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Rezumat: ore mari + durată + transferuri */
+.trip-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trip-summary__times {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.02em;
+}
+
+.trip-summary__arrow {
+  color: var(--text-tertiary);
+  align-self: center;
+}
+
+.trip-summary__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.trip-summary__meta strong {
+  color: var(--text-primary);
+}
+
+/* Cronologia */
+.trip-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.trip-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 12px;
+  padding-bottom: 16px;
+}
+
+.trip-step:last-child {
+  padding-bottom: 0;
+}
+
+/* Șina: punctată pentru mers pe jos, plină în culoarea liniei pentru autobuz */
+.trip-step__rail {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.trip-step__rail::after {
+  content: '';
+  position: absolute;
+  top: 30px;
+  bottom: -4px;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--step-color, var(--border-primary));
+}
+
+.trip-step:last-child .trip-step__rail::after {
+  display: none;
+}
+
+.trip-step--walk .trip-step__rail::after {
+  width: 3px;
+  background: repeating-linear-gradient(var(--text-tertiary) 0 3px, transparent 3px 8px);
+}
+
+.trip-step__icon {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trip-step--bus .trip-step__icon {
+  background: var(--step-color);
+  color: #fff;
+}
+
+.trip-step__content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.trip-step__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.trip-step__title {
+  font-weight: var(--fw-bold);
+  font-size: 15px;
+}
+
+.trip-step__duration {
+  margin-left: auto;
+  font-size: 14px;
+  font-weight: var(--fw-bold);
+}
+
+.trip-step__line {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.trip-step__line .label {
+  color: var(--text-secondary);
+}
+
+.trip-step__line .time {
+  margin-left: 6px;
+  font-weight: var(--fw-bold);
+}
+
+.trip-step__sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Schimbarea de autobuz: chip galben discret, pe șină */
+.trip-transfer {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 12px;
+  padding-bottom: 16px;
+}
+
+.trip-transfer__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: var(--live-soft);
+  color: var(--live-ink);
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+}
+
+.trip-transfer__dot {
+  justify-self: center;
+  align-self: center;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 0 3px var(--bg-primary);
+}
+
+.trip-panel__toggle {
+  align-self: flex-start;
+  min-height: 36px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+}
+
+.trip-panel__stations {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 767px) {
+  .trip-panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: var(--nav-height);
+    width: auto;
+    max-width: none;
+    max-height: 60dvh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+}

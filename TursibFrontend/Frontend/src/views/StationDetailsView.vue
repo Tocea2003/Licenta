@@ -1,119 +1,82 @@
 <template>
-  <div class="station-details-page">
-    <div class="header">
-      <button @click="goBack" class="back-btn">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-      <div class="station-info">
-        <h1>{{ station?.name || t('stationLoading') }}</h1>
-        <p v-if="station" class="coordinates">📍 {{ station.latitude.toFixed(6) }}, {{ station.longitude.toFixed(6) }}</p>
-      </div>
-    </div>
-
-    <div v-if="loading" class="loading-state">
-      <div class="skeleton-container">
-        <div class="skeleton-header">
-          <SkeletonLoader variant="circular" :width="60" :height="60" />
-          <div class="skeleton-text">
-            <SkeletonLoader variant="text" width="70%" :height="24" />
-            <SkeletonLoader variant="text" width="50%" :height="16" />
-          </div>
-        </div>
-        
-        <div class="skeleton-section">
-          <SkeletonLoader variant="text" width="40%" :height="20" />
-          <div class="skeleton-cards">
-            <div v-for="i in 3" :key="i" class="skeleton-eta-card">
-              <SkeletonLoader variant="rounded" :width="60" :height="60" />
-              <div class="skeleton-eta-info">
-                <SkeletonLoader variant="text" width="100%" :height="18" />
-                <SkeletonLoader variant="text" width="70%" :height="14" />
-              </div>
-              <SkeletonLoader variant="text" width="60px" :height="32" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div v-else-if="error" class="error-state">
-      <p>❌ {{ error }}</p>
-      <button @click="loadStationData" class="retry-btn">{{ t('retry') }}</button>
-    </div>
-
-    <div v-else class="content">
-      <!-- Live ETAs Section -->
-      <div class="etas-section">
-        <h2>🚌 {{ t('busesNearby') }}</h2>
-        <div v-if="liveETAs.length === 0" class="empty-state">
-          <p>{{ t('noBusesNextHour') }}</p>
-        </div>
-        <div v-else class="etas-list">
-          <div 
-            v-for="eta in liveETAs" 
-            :key="`${eta.routeNumber}-${eta.arrivalTime}`"
-            class="eta-card"
-            :style="{ borderLeftColor: eta.color }"
-          >
-            <div class="route-badge" :style="{ background: eta.color }">
-              {{ eta.routeNumber }}
-            </div>
-            <div class="eta-info">
-              <h3>{{ eta.routeName }}</h3>
-              <p class="direction">{{ eta.direction }}</p>
-            </div>
-            <div class="countdown">
-              <span class="time">{{ formatCountdown(eta.countdown) }}</span>
-              <span class="label">{{ eta.countdown < 60 ? t('seconds') : t('minutes') }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Routes Passing Through -->
-      <div class="routes-section">
-        <h2>🔄 {{ t('routesPassing') }}</h2>
-        <div v-if="routes.length === 0" class="empty-state">
-          <p>{{ t('noRoutesAvailable') }}</p>
-        </div>
-        <div v-else class="routes-grid">
-          <div 
-            v-for="route in routes" 
-            :key="route.id"
-            class="route-card"
-            @click="viewRoute()"
-          >
-            <div class="route-number" :style="{ background: route.color }">
-              {{ route.routeNumber }}
-            </div>
-            <div class="route-name">{{ route.name }}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quick Actions -->
-      <div class="actions-section">
-        <button @click="addToFavorites" class="action-btn favorite">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M20.84 4.61C20.3292 4.099 19.7228 3.69364 19.0554 3.41708C18.3879 3.14052 17.6725 2.99817 16.95 2.99817C16.2275 2.99817 15.5121 3.14052 14.8446 3.41708C14.1772 3.69364 13.5708 4.099 13.06 4.61L12 5.67L10.94 4.61C9.9083 3.57831 8.50903 2.99871 7.05 2.99871C5.59096 2.99871 4.19169 3.57831 3.16 4.61C2.1283 5.64169 1.54871 7.04097 1.54871 8.5C1.54871 9.95903 2.1283 11.3583 3.16 12.39L4.22 13.45L12 21.23L19.78 13.45L20.84 12.39C21.351 11.8792 21.7563 11.2728 22.0329 10.6053C22.3095 9.93789 22.4518 9.22248 22.4518 8.5C22.4518 7.77752 22.3095 7.06211 22.0329 6.39469C21.7563 5.72728 21.351 5.12084 20.84 4.61V4.61Z" 
-              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          {{ t('addToFavorites') }}
+  <div class="station-page">
+    <header class="board-header">
+      <div class="board-actions">
+        <button type="button" @click="goBack" class="board-btn" :aria-label="t('back')">
+          <ArrowLeft :size="20" aria-hidden="true" />
         </button>
-        <button @click="toggleNotifications" class="action-btn notify" :class="{ active: notificationsActive }">
-          {{ notificationsActive ? '🔕' : '🔔' }} {{ notificationsActive ? 'Dezactivează Notificări' : t('enableNotifications') }}
+        <span class="board-spacer"></span>
+        <button type="button" @click="addToFavorites" class="board-btn" :aria-label="t('addToFavorites')" :disabled="!station">
+          <Star :size="20" aria-hidden="true" :class="{ 'is-starred': favoriteAdded }" />
+        </button>
+        <button
+          type="button"
+          @click="toggleNotifications"
+          class="board-btn"
+          :class="{ active: notificationsActive }"
+          :aria-pressed="notificationsActive"
+          :aria-label="notificationsActive ? t('notifOff') : t('enableNotifications')"
+          :disabled="!station"
+        >
+          <BellRing v-if="notificationsActive" :size="20" aria-hidden="true" />
+          <Bell v-else :size="20" aria-hidden="true" />
         </button>
       </div>
 
-      <!-- Notification feedback -->
-      <Transition name="fade">
-        <div v-if="notificationMessage" class="notification-feedback" :class="notificationMessageType">
-          {{ notificationMessage }}
-        </div>
-      </Transition>
+      <span class="board-eyebrow">{{ t('stationLabel') }}</span>
+      <h1 class="board-title">{{ station?.name || t('stationLoading') }}</h1>
+      <span v-if="stationLines.length" class="board-sub">{{ t('linesCount', '', { n: stationLines.length }) }}</span>
+
+      <div v-if="stationLines.length > 1" class="line-filter" role="group" :aria-label="t('routesPassing')">
+        <button type="button" :class="{ active: selectedLine === null }" :aria-pressed="selectedLine === null" @click="selectedLine = null">{{ t('allLines') }}</button>
+        <button
+          v-for="line in stationLines"
+          :key="line"
+          type="button"
+          :class="{ active: selectedLine === line }"
+          :aria-pressed="selectedLine === line"
+          @click="selectedLine = selectedLine === line ? null : line"
+        >{{ line }}</button>
+      </div>
+    </header>
+
+    <Transition name="fade">
+      <div v-if="notificationMessage" class="notification-feedback" :class="notificationMessageType" role="status">
+        {{ notificationMessage }}
+      </div>
+    </Transition>
+
+    <div v-if="loading" class="loading-state" aria-busy="true">
+      <div v-for="i in 4" :key="i" class="skeleton" style="height: 60px"></div>
     </div>
+
+    <div v-else-if="error" class="error-state" role="alert">
+      <p>{{ error }}</p>
+      <button type="button" @click="loadStationData" class="btn btn-secondary">{{ t('retry') }}</button>
+    </div>
+
+    <section v-else class="departures-section" :aria-label="t('departuresTitle')">
+      <div class="departures-head">
+        <span>{{ t('lineDirection') }}</span>
+        <span>{{ t('departsColumn') }}</span>
+      </div>
+
+      <p v-if="visibleETAs.length === 0" class="empty-state">{{ t('noBusesNextHour') }}</p>
+
+      <ul v-else class="departures">
+        <li v-for="eta in visibleETAs" :key="`${eta.routeNumber}-${eta.arrivalTime}`" class="departure">
+          <span class="line-pill line-pill--lg" :style="{ background: eta.color }">{{ eta.routeNumber }}</span>
+          <span class="departure-info">
+            <span class="departure-dest">{{ eta.direction }}</span>
+            <span class="departure-sub">{{ eta.routeName }}</span>
+          </span>
+          <span class="departure-when">
+            <span class="departure-minutes">{{ formatCountdown(eta.countdown) }}</span>
+            <span class="departure-clock">{{ formatClock(eta.arrivalTime) }} · {{ t('fromSchedule') }}</span>
+          </span>
+        </li>
+      </ul>
+    </section>
   </div>
 </template>
 
@@ -123,7 +86,8 @@ import { useRoute, useRouter } from 'vue-router'
 import apiService, { type Station, type Route, type StationScheduleEntry } from '@/services/apiService'
 import { useFavorites } from '@/composables/useFavorites'
 import { enableNotifications as enableNotificationsComposable, disableNotifications } from '@/composables/useNotifications'
-import SkeletonLoader from '@/components/SkeletonLoader.vue'
+import { ArrowLeft, Bell, BellRing, Star } from 'lucide-vue-next'
+import { authService } from '@/services/adminService'
 import { useLanguage } from '@/composables/useLanguage'
 
 interface LiveETA {
@@ -145,10 +109,28 @@ const station = ref<Station | null>(null)
 const routes = ref<Route[]>([])
 const liveETAs = ref<LiveETA[]>([])
 const loading = ref(true)
+const selectedLine = ref<string | null>(null)
+const allScheduleLines = ref<string[]>([])
+const favoriteAdded = ref(false)
+
+// Liniile care opresc aici: din orarul real (StopTimes) plus rutele asociate stației.
+// RouteStations vine dintr-o singură cursă reprezentativă, deci poate omite linii.
+const stationLines = computed(() => {
+  const lines = new Set<string>([...routes.value.map(r => r.routeNumber), ...allScheduleLines.value])
+  return [...lines].sort((a, b) => a.localeCompare(b, 'ro', { numeric: true }))
+})
+
+const visibleETAs = computed(() =>
+  selectedLine.value ? liveETAs.value.filter(eta => eta.routeNumber === selectedLine.value) : liveETAs.value
+)
 const error = ref<string | null>(null)
 
 let countdownInterval: number | null = null
 let scheduleRefreshInterval: number | null = null
+
+const notificationsActive = ref(false)
+const notificationMessage = ref('')
+const notificationMessageType = ref<'success' | 'error' | 'info'>('info')
 
 const loadStationData = async () => {
   loading.value = true
@@ -178,6 +160,7 @@ const loadStationData = async () => {
 }
 
 const buildETAsFromSchedule = (schedule: StationScheduleEntry[]) => {
+  allScheduleLines.value = [...new Set(schedule.map(entry => entry.routeNumber))]
   const now = new Date()
   const currentMinutes = now.getHours() * 60 + now.getMinutes()
   const etas: LiveETA[] = []
@@ -220,40 +203,44 @@ const updateCountdowns = () => {
 }
 
 const formatCountdown = (seconds: number): string => {
-  if (seconds < 60) {
-    return seconds.toString()
-  }
-  const minutes = Math.floor(seconds / 60)
-  return minutes.toString()
+  if (seconds < 60) return '<1 min'
+  return `${Math.floor(seconds / 60)} min`
 }
+
+const formatClock = (timestamp: number): string =>
+  new Date(timestamp).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' })
 
 const goBack = () => {
   router.back()
 }
 
-const viewRoute = () => {
-  router.push('/')
-  // TODO: trigger route selection in main map
+const showMessage = (message: string, type: 'success' | 'error' | 'info') => {
+  notificationMessage.value = message
+  notificationMessageType.value = type
+  setTimeout(() => { notificationMessage.value = '' }, 5000)
 }
 
-const addToFavorites = () => {
+const addToFavorites = async () => {
   if (!station.value) return
-  
-  addFavorite({
+  if (!authService.isAuthenticated()) {
+    showMessage(t('loginRequired'), 'error')
+    return
+  }
+
+  const added = await addFavorite({
     name: station.value.name,
-    address: `Stație autobuz ${station.value.name}`,
+    address: station.value.name,
     lat: station.value.latitude,
     lon: station.value.longitude,
     type: 'custom',
     icon: '🚏'
   })
-  
-  alert(`✅ ${t('stationAddedFavorite')}`)
+  if (added) {
+    favoriteAdded.value = true
+    showMessage(t('stationAddedFavorite'), 'success')
+  }
 }
 
-const notificationsActive = ref(false)
-const notificationMessage = ref('')
-const notificationMessageType = ref<'success' | 'error' | 'info'>('info')
 
 const toggleNotifications = async () => {
   if (!station.value) return
@@ -261,29 +248,22 @@ const toggleNotifications = async () => {
   if (notificationsActive.value) {
     disableNotifications()
     notificationsActive.value = false
-    notificationMessage.value = 'Notificările au fost dezactivate.'
-    notificationMessageType.value = 'info'
-  } else {
-    if (!('Notification' in window)) {
-      notificationMessage.value = 'Browserul nu suportă notificări. Încearcă Chrome, Firefox sau Edge.'
-      notificationMessageType.value = 'error'
-      return
-    }
-
-    const success = await enableNotificationsComposable(stationId.value)
-    if (success) {
-      notificationsActive.value = true
-      notificationMessage.value = `Notificări active pentru stația ${station.value.name}.`
-      notificationMessageType.value = 'success'
-    } else {
-      notificationMessage.value = 'Nu s-au putut activa notificările. Permite notificările în browser.'
-      notificationMessageType.value = 'error'
-    }
+    showMessage(t('notifDisabledMsg'), 'info')
+    return
   }
 
-  setTimeout(() => {
-    notificationMessage.value = ''
-  }, 5000)
+  if (!('Notification' in window)) {
+    showMessage(t('notifUnsupported'), 'error')
+    return
+  }
+
+  const success = await enableNotificationsComposable(stationId.value)
+  if (success) {
+    notificationsActive.value = true
+    showMessage(t('notifEnabledForStation', '', { station: station.value.name }), 'success')
+  } else {
+    showMessage(t('notifPermissionNeeded'), 'error')
+  }
 }
 
 onMounted(() => {
@@ -310,347 +290,223 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.station-details-page {
-  min-height: 100vh;
-  background: var(--bg-secondary);
-  padding-bottom: 100px;
-}
-
-.header {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  padding: 20px 24px;
-  color: white;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.back-btn {
-  background: rgba(255, 255, 255, 0.15);
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
-  border-radius: 10px;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.back-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: scale(1.05);
-}
-
-.back-btn svg { color: white; }
-
-.station-info h1 {
-  margin: 0;
-  font-size: 1.35rem;
-  font-weight: 700;
-}
-
-.coordinates {
-  margin: 4px 0 0 0;
-  font-size: 0.8rem;
-  opacity: 0.85;
-}
-
-.loading-state,
-.error-state {
-  text-align: center;
-  padding: 80px 24px;
-  color: var(--text-secondary);
-}
-
-.skeleton-container { padding: 24px; }
-
-.skeleton-header {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  margin-bottom: 32px;
-}
-
-.skeleton-text {
-  flex: 1;
+.station-page {
   display: flex;
   flex-direction: column;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px 20px;
+  background: #16181d;
+  color: #fff;
+}
+
+.board-actions {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  margin-bottom: 8px;
 }
 
-.skeleton-section { margin-bottom: 24px; }
-
-.skeleton-cards {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.skeleton-eta-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  background: var(--bg-primary);
-  border-radius: 12px;
-  border: 1.5px solid var(--border-primary);
-}
-
-.skeleton-eta-info {
+.board-spacer {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
-.retry-btn {
-  margin-top: 16px;
-  padding: 12px 24px;
-  background: var(--accent-primary);
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.content {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.etas-section h2,
-.routes-section h2 {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 12px 0;
-}
-
-.etas-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.eta-card {
-  background: var(--bg-primary);
-  border-radius: 10px;
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border: 1.5px solid var(--border-primary);
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.eta-card:hover {
-  border-color: var(--accent-primary);
-  background: var(--accent-primary-soft);
-}
-
-.route-badge {
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 700;
-  font-size: 0.95rem;
-  flex-shrink: 0;
-}
-
-.eta-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.eta-info h3 {
-  margin: 0 0 2px 0;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.direction {
-  margin: 0;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.countdown {
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.countdown .time {
-  display: block;
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--accent-primary);
-  line-height: 1;
-}
-
-.countdown .label {
-  display: block;
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-
-.routes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 10px;
-}
-
-@media (max-width: 360px) {
-  .routes-grid {
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-    gap: 8px;
-  }
-}
-
-.route-card {
-  background: var(--bg-primary);
-  border: 1.5px solid var(--border-primary);
-  border-radius: 10px;
-  padding: 14px 10px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.route-card:hover {
-  border-color: var(--accent-primary);
-  background: var(--accent-primary-soft);
-}
-
-.route-number {
+.board-btn {
   width: 44px;
   height: 44px;
-  border-radius: 8px;
+  border: 1px solid #3a3e48;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-weight: 700;
-  font-size: 1rem;
-  margin: 0 auto 8px;
-}
-
-.route-name {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-  line-height: 1.3;
-}
-
-.actions-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.action-btn {
-  padding: 13px 20px;
-  border-radius: 10px;
-  border: 1.5px solid transparent;
-  font-weight: 600;
-  font-size: 0.9rem;
   cursor: pointer;
+}
+
+.board-btn:first-child {
+  border-color: transparent;
+}
+
+.board-btn:hover:not(:disabled) {
+  background: #2b2e36;
+}
+
+.board-btn.active {
+  background: #fff;
+  color: #16181d;
+}
+
+.board-btn:disabled {
+  opacity: 0.5;
+}
+
+.is-starred {
+  fill: #e8a100;
+  stroke: #e8a100;
+}
+
+.board-eyebrow {
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #b9bcc4;
+}
+
+.board-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: var(--fw-heavy);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.board-sub {
+  font-size: 14px;
+  color: #d5d7dc;
+}
+
+.line-filter {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-wrap: wrap;
   gap: 8px;
-  transition: all 0.2s;
+  margin-top: 10px;
 }
 
-.action-btn.favorite {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
+.line-filter button {
+  min-width: 44px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 18px;
+  border: 1px solid #3a3e48;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: var(--fw-heavy);
+  cursor: pointer;
 }
 
-.action-btn.favorite:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-}
-
-.action-btn.notify {
-  background: var(--bg-primary);
-  border-color: var(--border-primary);
-  color: var(--text-primary);
-}
-
-.action-btn.notify:hover {
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-}
-
-.action-btn.notify.active {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border-color: #3b82f6;
-  color: white;
-}
-
-.action-btn.notify.active:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  color: white;
+.line-filter button.active {
+  background: #fff;
+  border-color: #fff;
+  color: #16181d;
 }
 
 .notification-feedback {
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  text-align: center;
-  margin-top: 4px;
+  margin: 12px 16px 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: var(--fw-semibold);
 }
 
-.notification-feedback.success {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.2);
+.notification-feedback.success { background: var(--color-success-soft); color: var(--color-success); }
+.notification-feedback.error { background: var(--color-danger-soft); color: var(--color-danger); }
+.notification-feedback.info { background: var(--bg-tertiary); color: var(--text-primary); }
+
+.loading-state,
+.error-state {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
 }
 
-.notification-feedback.error {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+.error-state {
+  align-items: flex-start;
+  color: var(--color-danger);
 }
 
-.notification-feedback.info {
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--accent-primary);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+.departures-section {
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px 24px;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+.departures-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 8px 8px;
+  font-size: 12px;
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
 }
 
 .empty-state {
-  text-align: center;
-  padding: 40px 20px;
+  margin: 0;
+  padding: 24px 8px;
   color: var(--text-secondary);
-  font-size: 0.9rem;
 }
+
+.departures {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.departure {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+}
+
+.departure-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.departure-dest {
+  font-size: 16px;
+  font-weight: var(--fw-bold);
+}
+
+.departure-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.departure-when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.departure-minutes {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: var(--fw-heavy);
+  white-space: nowrap;
+}
+
+.departure-clock {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.fade-enter-active,
+.fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from,
+.fade-leave-to { opacity: 0; }
 </style>

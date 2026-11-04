@@ -1,71 +1,83 @@
 @import './base.css';
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap');
 
 /* ============================================
-   SEMANTIC DESIGN TOKENS — LIGHT MODE
+   DESIGN SYSTEM „SEMNAL” — LIGHT MODE
+   Fundal cald (hârtie), cerneală, un singur accent (cobalt),
+   galben doar pentru ce e live. Vezi canvas-ul de design.
    ============================================ */
 :root {
   /* Backgrounds */
-  --bg-primary:    #ffffff;
-  --bg-secondary:  #f8fafc;
-  --bg-tertiary:   #f1f5f9;
+  --bg-primary:    #ffffff;   /* suprafață: carduri, panouri */
+  --bg-secondary:  #f3f1ec;   /* fundalul aplicației (hârtie) */
+  --bg-tertiary:   #ece9e3;   /* zone discrete, segmented control */
   --bg-elevated:   #ffffff;
-  --bg-overlay:    rgba(15, 23, 42, 0.5);
+  --bg-overlay:    rgba(22, 24, 29, 0.5);
+  --bg-inverse:    #16181d;   /* benzi închise (header stație, butoane primare închise) */
 
   /* Text */
-  --text-primary:   #0f172a;
-  --text-secondary: #475569;
-  --text-tertiary:  #94a3b8;
+  --text-primary:   #16181d;
+  --text-secondary: #5b606b;
+  --text-tertiary:  #8a8e97;
   --text-inverse:   #ffffff;
   --text-on-accent: #ffffff;
 
   /* Borders */
-  --border-primary:   #e2e8f0;
-  --border-secondary: #cbd5e1;
-  --border-color:     #e2e8f0;
-  --border-focus:     #3b82f6;
+  --border-primary:   #dad6ce;
+  --border-secondary: #b9b4aa;
+  --border-color:     #dad6ce;
+  --border-subtle:    #ece9e3;
+  --border-focus:     #1e3fae;
 
   /* Accent */
-  --accent-primary:       #3b82f6;
-  --accent-primary-hover: #2563eb;
-  --accent-primary-soft:  #eff6ff;
-  --accent-secondary:     #8b5cf6;
-  --accent-secondary-soft:#f5f3ff;
+  --accent-primary:       #1e3fae;
+  --accent-primary-hover: #152e80;
+  --accent-primary-soft:  #eef1fb;
+  --accent-secondary:     #16181d;
+  --accent-secondary-soft:#ece9e3;
+
+  /* Live (doar fundal pentru text închis sau ca punct) */
+  --live:      #e8a100;
+  --live-soft: #fff4d6;
+  --live-ink:  #6b4a00;
 
   /* Semantic status */
-  --color-success:      #22c55e;
-  --color-success-soft: #f0fdf4;
-  --color-warning:      #f59e0b;
-  --color-warning-soft: #fffbeb;
-  --color-danger:       #ef4444;
-  --color-danger-soft:  #fef2f2;
-  --color-info:         #3b82f6;
-  --color-info-soft:    #eff6ff;
+  --color-success:      #1f7a4d;
+  --color-success-soft: #e7f3ec;
+  --color-warning:      #b26b00;
+  --color-warning-soft: #fff4d6;
+  --color-danger:       #b42318;
+  --color-danger-soft:  #fce9e7;
+  --color-info:         #1e3fae;
+  --color-info-soft:    #eef1fb;
 
-  /* Route colors — refined from raw primaries */
-  --route-red:    #ef4444;
-  --route-blue:   #3b82f6;
-  --route-green:  #22c55e;
-  --route-orange: #f97316;
-  --route-purple: #8b5cf6;
-  --route-teal:   #14b8a6;
-  --route-pink:   #ec4899;
-  --route-yellow: #eab308;
+  /* Route colors (aceeași luminozitate, text alb lizibil) */
+  --route-red:    #d2283e;
+  --route-blue:   #2547c9;
+  --route-green:  #2e8b57;
+  --route-orange: #b8560f;
+  --route-purple: #8e4fb0;
+  --route-teal:   #17806a;
+  --route-pink:   #c2489e;
+  --route-yellow: #9a7000;
 
-  /* Elevation shadows */
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-md: 0 4px 6px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
-  --shadow-lg: 0 10px 15px rgba(15, 23, 42, 0.08), 0 4px 6px rgba(15, 23, 42, 0.04);
-  --shadow-xl: 0 20px 25px rgba(15, 23, 42, 0.10), 0 8px 10px rgba(15, 23, 42, 0.04);
-  --shadow-inner: inset 0 2px 4px rgba(15, 23, 42, 0.06);
+  /* Hartă */
+  --map-ground: #e8e4dc;
 
-  /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  --gradient-primary-soft: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
-  --gradient-bg: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
-  --gradient-success: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  /* Elevation shadows: doar pentru elemente care plutesc */
+  --shadow-xs: 0 1px 2px rgba(22, 24, 29, 0.06);
+  --shadow-sm: 0 1px 3px rgba(22, 24, 29, 0.10);
+  --shadow-md: 0 2px 8px rgba(22, 24, 29, 0.12);
+  --shadow-lg: 0 4px 16px rgba(22, 24, 29, 0.14);
+  --shadow-xl: 0 8px 28px rgba(22, 24, 29, 0.18);
+  --shadow-inner: inset 0 1px 2px rgba(22, 24, 29, 0.06);
+
+  /* „Gradients”: Semnal nu folosește gradiente — tokenii vechi devin culori plate */
+  --gradient-primary: var(--accent-primary);
+  --gradient-primary-soft: var(--accent-primary-soft);
+  --gradient-bg: var(--bg-secondary);
+  --gradient-success: var(--color-success);
+  --gradient-danger: var(--color-danger);
 
   /* Spacing scale (4pt base) */
   --space-1:  4px;
@@ -87,7 +99,7 @@
   --radius-full: 9999px;
 
   /* Typography scale */
-  --text-xs:   11px;
+  --text-xs:   12px;
   --text-sm:   13px;
   --text-base: 15px;
   --text-md:   16px;
@@ -102,28 +114,31 @@
   --fw-medium:   500;
   --fw-semibold: 600;
   --fw-bold:     700;
+  --fw-heavy:    800;
 
   /* Line heights */
-  --lh-tight:  1.25;
-  --lh-snug:   1.375;
+  --lh-tight:  1.2;
+  --lh-snug:   1.35;
   --lh-normal: 1.5;
-  --lh-relaxed:1.625;
+  --lh-relaxed:1.55;
 
-  /* Font family */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  /* Font family: Public Sans pentru text, Archivo pentru titluri, ore și numere de linie */
+  --font-sans: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Archivo', 'Public Sans', system-ui, sans-serif;
 
   /* Semantic typography shorthands */
-  --font-h1:          800 36px/1.15 var(--font-sans);
-  --font-h2:          700 30px/1.2  var(--font-sans);
-  --font-h3:          700 20px/1.3  var(--font-sans);
-  --font-h4:          600 16px/1.4  var(--font-sans);
-  --font-eyebrow:     600 11px/1    var(--font-sans);
+  --font-h1:          800 32px/1.1  var(--font-display);
+  --font-h2:          700 24px/1.2  var(--font-display);
+  --font-h3:          700 20px/1.25 var(--font-display);
+  --font-h4:          700 16px/1.35 var(--font-sans);
+  --font-eyebrow:     700 12px/1    var(--font-sans);
   --font-body:        400 15px/1.5  var(--font-sans);
   --font-body-strong: 600 15px/1.5  var(--font-sans);
   --font-small:       400 13px/1.45 var(--font-sans);
-  --font-caption:     500 11px/1.2  var(--font-sans);
-  --font-button:      500 13px/1    var(--font-sans);
-  --font-badge:       600 11px/1    var(--font-sans);
+  --font-caption:     600 12px/1.2  var(--font-sans);
+  --font-button:      700 15px/1    var(--font-sans);
+  --font-badge:       700 12px/1    var(--font-sans);
+  --font-time:        700 22px/1    var(--font-display);
 
   /* Transitions */
   --transition-fast:   all 0.15s ease;
@@ -145,65 +160,74 @@
   --z-toast:   300;
 
   /* Focus rings (unified) */
-  --ring-focus:    0 0 0 3px rgba(59, 130, 246, 0.25);
-  --ring-danger:   0 0 0 3px rgba(239, 68, 68, 0.25);
-  --ring-success:  0 0 0 3px rgba(34, 197, 94, 0.25);
+  --ring-focus:    0 0 0 3px rgba(30, 63, 174, 0.28);
+  --ring-danger:   0 0 0 3px rgba(180, 35, 24, 0.25);
+  --ring-success:  0 0 0 3px rgba(31, 122, 77, 0.25);
 
   /* Layout helpers */
-  --nav-height:    70px;
+  --nav-height:    76px;
   --safe-bottom:   env(safe-area-inset-bottom, 0px);
 }
 
 /* ============================================
-   SEMANTIC DESIGN TOKENS — DARK MODE
+   DESIGN SYSTEM „SEMNAL” — DARK MODE
    ============================================ */
 .dark {
   /* Backgrounds */
-  --bg-primary:   #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary:  #334155;
-  --bg-elevated:  #1e293b;
+  --bg-primary:   #1b1e24;
+  --bg-secondary: #121418;
+  --bg-tertiary:  #262a32;
+  --bg-elevated:  #1f2329;
   --bg-overlay:   rgba(0, 0, 0, 0.6);
+  --bg-inverse:   #f1efea;
 
   /* Text */
-  --text-primary:   #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-tertiary:  #64748b;
-  --text-inverse:   #0f172a;
+  --text-primary:   #f1efea;
+  --text-secondary: #a9adb6;
+  --text-tertiary:  #7c818b;
+  --text-inverse:   #16181d;
 
   /* Borders */
-  --border-primary:   #334155;
-  --border-secondary: #475569;
-  --border-color:     #334155;
-  --border-focus:     #60a5fa;
+  --border-primary:   #31353e;
+  --border-secondary: #474c57;
+  --border-color:     #31353e;
+  --border-subtle:    #262a32;
+  --border-focus:     #8aa2f5;
 
-  /* Accent (slightly lighter for dark bg) */
-  --accent-primary:       #60a5fa;
-  --accent-primary-hover: #3b82f6;
-  --accent-primary-soft:  rgba(96, 165, 250, 0.12);
-  --accent-secondary:     #a78bfa;
-  --accent-secondary-soft:rgba(167, 139, 250, 0.12);
+  /* Accent (mai deschis pe fundal închis) */
+  --accent-primary:       #8aa2f5;
+  --accent-primary-hover: #a8bbf8;
+  --accent-primary-soft:  rgba(138, 162, 245, 0.14);
+  --accent-secondary:     #f1efea;
+  --accent-secondary-soft:#262a32;
+  --text-on-accent:       #121418;
+
+  /* Live */
+  --live:      #f2b51f;
+  --live-soft: rgba(242, 181, 31, 0.16);
+  --live-ink:  #f6cf6b;
 
   /* Semantic status */
-  --color-success:      #4ade80;
-  --color-success-soft: rgba(74, 222, 128, 0.12);
-  --color-warning:      #fbbf24;
-  --color-warning-soft: rgba(251, 191, 36, 0.12);
-  --color-danger:       #f87171;
-  --color-danger-soft:  rgba(248, 113, 113, 0.12);
-  --color-info:         #60a5fa;
-  --color-info-soft:    rgba(96, 165, 250, 0.12);
+  --color-success:      #4cc38a;
+  --color-success-soft: rgba(76, 195, 138, 0.14);
+  --color-warning:      #f2b51f;
+  --color-warning-soft: rgba(242, 181, 31, 0.14);
+  --color-danger:       #f2786d;
+  --color-danger-soft:  rgba(242, 120, 109, 0.14);
+  --color-info:         #8aa2f5;
+  --color-info-soft:    rgba(138, 162, 245, 0.14);
+
+  /* Hartă */
+  --map-ground: #1b1e24;
 
   /* Shadows for dark mode */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5), 0 4px 6px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6), 0 8px 10px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 8px 28px rgba(0, 0, 0, 0.55);
 
-  /* Gradients */
-  --gradient-bg: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-  --gradient-primary-soft: linear-gradient(135deg, rgba(96,165,250,0.12) 0%, rgba(167,139,250,0.12) 100%);
+  --ring-focus: 0 0 0 3px rgba(138, 162, 245, 0.35);
 }
 
 /* ============================================
@@ -217,8 +241,8 @@ html {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    Oxygen, Ubuntu, sans-serif;
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
   font-size: var(--text-base);
   font-weight: var(--fw-normal);
   line-height: var(--lh-relaxed);
@@ -249,12 +273,10 @@ body {
   background: var(--bg-elevated);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
   padding: var(--space-4);
   transition: var(--transition-base);
 }
 .card:hover {
-  box-shadow: var(--shadow-md);
   border-color: var(--border-secondary);
 }
 
@@ -265,8 +287,8 @@ body {
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  font-size: var(--text-sm);
-  font-weight: var(--fw-medium);
+  font-size: var(--text-base);
+  font-weight: var(--fw-bold);
   line-height: 1;
   border-radius: var(--radius-md);
   border: 1px solid transparent;
@@ -290,8 +312,6 @@ body {
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-primary-hover);
   border-color: var(--accent-primary-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
 }
 .btn-primary:active:not(:disabled) {
   transform: translateY(0);
@@ -324,9 +344,7 @@ body {
   border-color: var(--color-danger);
 }
 .btn-danger:hover:not(:disabled) {
-  background: #dc2626;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+  filter: brightness(0.92);
 }
 
 /* Badges */
@@ -362,7 +380,7 @@ body {
 }
 .input:focus {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  box-shadow: var(--ring-focus);
 }
 
 /* Divider */
@@ -423,10 +441,7 @@ a:hover { color: var(--accent-primary-hover); text-decoration: underline; }
   border-color: var(--color-success);
 }
 .btn-success:hover:not(:disabled) {
-  background: #16a34a;
-  border-color: #16a34a;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+  filter: brightness(0.92);
 }
 
 .btn-outline {
@@ -553,13 +568,11 @@ a:hover { color: var(--accent-primary-hover); text-decoration: underline; }
 }
 .chip:hover {
   border-color: var(--border-secondary);
-  transform: translateY(-1px);
 }
 .chip.selected {
-  background: var(--accent-primary-soft);
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-  box-shadow: var(--shadow-sm);
+  background: var(--bg-inverse);
+  border-color: var(--bg-inverse);
+  color: var(--text-inverse);
 }
 
 /* Alert (inline message) */
@@ -609,8 +622,10 @@ a:hover { color: var(--accent-primary-hover); text-decoration: underline; }
   gap: var(--space-3);
 }
 .page-title {
-  font-size: var(--text-2xl);
-  font-weight: var(--fw-bold);
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--fw-heavy);
+  letter-spacing: -0.02em;
   color: var(--text-primary);
   margin: 0;
 }
@@ -618,6 +633,55 @@ a:hover { color: var(--accent-primary-hover); text-decoration: underline; }
   color: var(--text-secondary);
   font-size: var(--text-sm);
   margin: var(--space-1) 0 0 0;
+}
+
+/* Headings: Archivo */
+h1, h2, h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+/* Eticheta de linie: numărul liniei pe culoarea ei */
+.line-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: var(--fw-heavy);
+  font-size: 14px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.line-pill--lg {
+  min-width: 40px;
+  height: 34px;
+  border-radius: 8px;
+  font-size: 18px;
+}
+
+/* Insignă live */
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  background: var(--live-soft);
+  color: var(--live-ink);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+}
+.live-badge::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--live);
 }
 
 /* Reduced motion */

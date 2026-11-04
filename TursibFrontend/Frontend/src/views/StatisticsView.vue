@@ -1,13 +1,11 @@
 <template>
   <div class="statistics-page">
     <div class="header">
-      <button @click="goBack" class="back-btn">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+      <button type="button" @click="goBack" class="back-btn" :aria-label="t('back')">
+        <ArrowLeft :size="20" aria-hidden="true" />
       </button>
       <div class="header-info">
-        <h1>📊 {{ t('statsMyTitle') }}</h1>
+        <h1 class="page-title">{{ t('statsMyTitle') }}</h1>
         <p>{{ t('appUsage') }}</p>
       </div>
     </div>
@@ -16,25 +14,25 @@
       <!-- Overview Cards -->
       <div class="stats-grid">
         <div class="stat-card primary">
-          <div class="stat-icon">🔍</div>
+          <span class="stat-icon" aria-hidden="true"><Search :size="18" /></span>
           <div class="stat-value">{{ statistics.totalSearches }}</div>
           <div class="stat-label">{{ t('totalSearches') }}</div>
         </div>
         
         <div class="stat-card success">
-          <div class="stat-icon">🚌</div>
+          <span class="stat-icon" aria-hidden="true"><BusFront :size="18" /></span>
           <div class="stat-value">{{ statistics.totalTrips }}</div>
           <div class="stat-label">{{ t('totalTrips') }}</div>
         </div>
         
         <div class="stat-card warning">
-          <div class="stat-icon">⏱️</div>
+          <span class="stat-icon" aria-hidden="true"><Clock :size="18" /></span>
           <div class="stat-value">{{ formatTime(statistics.totalTimeUsed) }}</div>
           <div class="stat-label">{{ t('timeUsed') }}</div>
         </div>
         
         <div class="stat-card info">
-          <div class="stat-icon">📈</div>
+          <span class="stat-icon" aria-hidden="true"><TrendingUp :size="18" /></span>
           <div class="stat-value">{{ averageSearchesPerDay }}</div>
           <div class="stat-label">{{ t('avgPerDay') }}</div>
         </div>
@@ -42,12 +40,13 @@
 
       <!-- Search Activity Chart -->
       <div class="section">
-        <h2>📅 {{ t('last7Days') }}</h2>
+        <h2>{{ t('last7Days') }}</h2>
         <div class="activity-chart">
           <div 
             v-for="(entry, index) in last7Days" 
             :key="entry.date || index"
             class="chart-bar"
+            :class="{ empty: entry.count === 0 }"
             :style="{ height: getBarHeight(entry.count) + 'px' }"
             :title="`${entry.count} ${t('searches')}`"
           >
@@ -59,7 +58,7 @@
 
       <!-- Top Routes -->
       <div class="section">
-        <h2>🚌 {{ t('topRoutes') }}</h2>
+        <h2>{{ t('topRoutes') }}</h2>
         <div v-if="statistics.favoriteRoutes.length === 0" class="empty-state">
           <p>{{ t('noRouteUsed') }}</p>
         </div>
@@ -70,6 +69,7 @@
             class="list-item"
           >
             <div class="rank">{{ index + 1 }}</div>
+            <span class="line-pill" :style="{ background: lineColor(route.routeId) }">{{ route.routeId }}</span>
             <div class="item-info">
               <h3>{{ t('lineLabel') }} {{ route.routeId }}</h3>
               <p>{{ route.count }} {{ t('usages') }}</p>
@@ -86,7 +86,7 @@
 
       <!-- Top Stations -->
       <div class="section">
-        <h2>🚏 {{ t('topStations') }}</h2>
+        <h2>{{ t('topStations') }}</h2>
         <div v-if="statistics.favoriteStations.length === 0" class="empty-state">
           <p>{{ t('noStationSearched') }}</p>
         </div>
@@ -113,8 +113,8 @@
 
       <!-- Reset Button -->
       <div class="section">
-        <button @click="confirmReset" class="reset-btn">
-          🗑️ {{ t('resetStatistics') }}
+        <button type="button" @click="confirmReset" class="reset-btn">
+          <Trash2 :size="18" aria-hidden="true" />{{ t('resetStatistics') }}
         </button>
       </div>
     </div>
@@ -122,6 +122,7 @@
 </template>
 
 <script setup lang="ts">
+import { ArrowLeft, BusFront, Clock, Search, TrendingUp, Trash2 } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStatistics } from '@/composables/useStatistics'
@@ -192,58 +193,60 @@ const confirmReset = () => {
     alert(`✅ ${t('statsResetDone')}`)
   }
 }
+
+// Culorile liniilor din lista de rute salvată de planificator (dacă există)
+const cachedRouteColors: Record<number, string> = (() => {
+  try {
+    const list = JSON.parse(localStorage.getItem('routesList.v2') || '[]') as Array<{ id: number; color?: string }>
+    return Object.fromEntries(list.filter(r => r.color).map(r => [r.id, r.color as string]))
+  } catch {
+    return {}
+  }
+})()
+
+const lineColor = (routeId: number) => cachedRouteColors[routeId] ?? '#5f6672'
 </script>
 
 <style scoped>
 .statistics-page {
-  min-height: 100vh;
-  background: var(--gradient-bg);
-  padding-bottom: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px 16px 32px;
+  font-variant-numeric: tabular-nums;
 }
 
 .header {
-  background: var(--gradient-primary);
-  padding: 24px;
-  color: white;
   display: flex;
-  align-items: center;
-  gap: 16px;
-  box-shadow: var(--shadow-md);
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .back-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  border-radius: 10px;
   width: 44px;
   height: 44px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
-  flex-shrink: 0;
 }
 
 .back-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.05);
-}
-
-.header-info h1 {
-  margin: 0 0 4px 0;
-  font-size: 1.5rem;
-  font-weight: 800;
+  background: var(--bg-tertiary);
 }
 
 .header-info p {
-  margin: 0;
-  font-size: 0.85rem;
-  opacity: 0.9;
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
 }
 
 .content {
-  padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -251,139 +254,131 @@ const confirmReset = () => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
   background: var(--bg-primary);
-  border-radius: 16px;
-  padding: 20px;
-  text-align: center;
-  box-shadow: var(--shadow-sm);
-  transition: all 0.2s;
-}
-
-.stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-}
-
-.stat-card.primary {
-  border-top: 4px solid #3b82f6;
-}
-
-.stat-card.success {
-  border-top: 4px solid #10b981;
-}
-
-.stat-card.warning {
-  border-top: 4px solid #f59e0b;
-}
-
-.stat-card.info {
-  border-top: 4px solid #8b5cf6;
 }
 
 .stat-icon {
-  font-size: 2rem;
-  margin-bottom: 8px;
-}
-
-.stat-value {
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: var(--text-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 4px;
 }
 
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: var(--fw-heavy);
+  letter-spacing: -0.02em;
+}
+
 .stat-label {
-  font-size: 0.8rem;
+  font-size: 13px;
   color: var(--text-secondary);
-  font-weight: 500;
 }
 
 .section {
-  background: var(--bg-primary);
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .section h2 {
-  margin: 0 0 16px 0;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
 }
 
 .activity-chart {
   display: flex;
-  justify-content: space-between;
   align-items: flex-end;
   gap: 8px;
-  height: 160px;
-  padding-top: 20px;
+  height: 170px;
+  padding: 28px 12px 34px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
 }
 
 .chart-bar {
-  flex: 1;
-  background: linear-gradient(180deg, #3b82f6 0%, #8b5cf6 100%);
-  border-radius: 8px 8px 0 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: center;
-  padding: 4px;
   position: relative;
-  transition: all 0.3s;
-  cursor: pointer;
+  flex: 1;
+  min-height: 4px;
+  border-radius: 6px 6px 2px 2px;
+  background: var(--accent-primary);
 }
 
-.chart-bar:hover {
-  opacity: 0.8;
-  transform: scaleY(1.05);
+.chart-bar.empty {
+  background: var(--bg-tertiary);
 }
 
 .bar-value {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: white;
-  margin-bottom: 4px;
+  position: absolute;
+  top: -22px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 12px;
+  font-weight: var(--fw-bold);
 }
 
 .bar-label {
   position: absolute;
-  bottom: -24px;
-  font-size: 0.7rem;
+  bottom: -26px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 12px;
   color: var(--text-secondary);
-  font-weight: 600;
+}
+
+.empty-state {
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.empty-state p {
+  margin: 0;
 }
 
 .list-items {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
 }
 
 .list-item {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
 }
 
 .rank {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 0.9rem;
-  flex-shrink: 0;
+  width: 20px;
+  font-weight: var(--fw-bold);
+  color: var(--text-secondary);
 }
 
 .item-info {
@@ -392,63 +387,48 @@ const confirmReset = () => {
 }
 
 .item-info h3 {
-  margin: 0 0 2px 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text-primary);
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: var(--fw-semibold);
 }
 
 .item-info p {
-  margin: 0;
-  font-size: 0.8rem;
+  margin: 2px 0 0;
+  font-size: 13px;
   color: var(--text-secondary);
 }
 
 .progress-bar {
-  width: 100px;
-  height: 8px;
+  width: 80px;
+  height: 6px;
+  border-radius: 3px;
   background: var(--bg-tertiary);
-  border-radius: 4px;
   overflow: hidden;
-  flex-shrink: 0;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
-  border-radius: 4px;
-  transition: width 0.5s;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--text-tertiary);
-  font-size: 0.9rem;
+  border-radius: 3px;
+  background: var(--text-primary);
 }
 
 .reset-btn {
-  width: 100%;
-  padding: 14px;
-  background: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--color-danger);
+  font: inherit;
+  font-weight: var(--fw-bold);
   cursor: pointer;
-  transition: all 0.2s;
 }
 
 .reset-btn:hover {
-  background: #dc2626;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-}
-
-@media (max-width: 640px) {
-  .stats-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+  background: var(--color-danger-soft);
 }
 </style>

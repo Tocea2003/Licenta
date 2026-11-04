@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { normalizeLineColorsDeep } from '@/utils/lineColors'
 
 // URL-ul backend-ului .NET (portul pe care rulează API-ul)
 // Folosește VITE_API_URL din .env sau localhost ca fallback
@@ -10,6 +11,12 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json'
   }
+})
+
+// Culorile de linie din GTFS sunt aduse la paleta Semnal (lizibile cu text alb)
+apiClient.interceptors.response.use(response => {
+  normalizeLineColorsDeep(response.data)
+  return response
 })
 
 // Interfețe TypeScript pentru datele din API
