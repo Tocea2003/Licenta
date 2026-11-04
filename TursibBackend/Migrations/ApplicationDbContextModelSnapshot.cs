@@ -423,6 +423,50 @@ namespace TursibBackend.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("TursibBackend.Models.VehiclePositionRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<double>("Heading")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<int?>("Occupancy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RouteId")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("Speed")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("VehicleId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecordedAt");
+
+                    b.HasIndex("RouteId", "RecordedAt");
+
+                    b.HasIndex("VehicleId", "RecordedAt");
+
+                    b.ToTable("VehiclePositionHistory", (string)null);
+                });
+
             modelBuilder.Entity("TursibBackend.Models.Bus", b =>
                 {
                     b.HasOne("TursibBackend.Models.Route", "CurrentRoute")
