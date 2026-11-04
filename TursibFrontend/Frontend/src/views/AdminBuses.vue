@@ -244,7 +244,6 @@ const form = ref({
   currentRouteId: null as number | null
 })
 
-const assignedCount = computed(() => buses.value.filter(b => b.currentRouteId !== null).length)
 
 let busesRef: ReturnType<typeof dbRef> | null = null
 

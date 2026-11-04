@@ -99,9 +99,9 @@ public class AuthControllerTests : IClassFixture<AuthWebAppFactory>
     }
 
     [Fact]
-    public async Task Register_FirstUser_ReceivesAdminRole()
+    public async Task Register_NeverGrantsAdminRole()
     {
-        // The factory creates a fresh DB, so the very first registration should get Admin
+        // Public registration must never create an Admin, even on an empty database
         var response = await _client.PostAsJsonAsync("/api/auth/register", new
         {
             username = "firstadmin",
@@ -110,7 +110,7 @@ public class AuthControllerTests : IClassFixture<AuthWebAppFactory>
         response.EnsureSuccessStatusCode();
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("Admin", body.GetProperty("role").GetString());
+        Assert.Equal("User", body.GetProperty("role").GetString());
     }
 
     [Fact]

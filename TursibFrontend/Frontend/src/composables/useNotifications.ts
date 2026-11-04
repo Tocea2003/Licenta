@@ -1,4 +1,4 @@
-import { ref, watch, readonly } from 'vue'
+import { ref, readonly } from 'vue'
 
 interface BusLocation {
   id: string
@@ -329,7 +329,7 @@ const sendArrivalNotification = (
     setTimeout(() => {
       try {
         notification.close()
-      } catch (e) {
+      } catch {
         // Ignore errors on close
       }
     }, 10000)
@@ -375,7 +375,7 @@ const sendDelayNotification = (
     setTimeout(() => {
       try {
         notification.close()
-      } catch (e) {
+      } catch {
         // Ignore
       }
     }, 10000)
@@ -424,7 +424,7 @@ const sendCrowdingNotification = (
     setTimeout(() => {
       try {
         notification.close()
-      } catch (e) {
+      } catch {
         // Ignore
       }
     }, 8000)
@@ -480,7 +480,7 @@ export const enableNotifications = async (
     setTimeout(() => {
       try {
         testNotification.close()
-      } catch (e) {
+      } catch {
         // Ignore errors on close
       }
     }, 5000)

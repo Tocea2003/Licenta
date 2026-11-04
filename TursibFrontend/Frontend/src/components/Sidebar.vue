@@ -331,7 +331,7 @@ const props = defineProps<{
   allStations?: Station[]
 }>()
 
-const { currentLanguage, t } = useLanguage()
+const { t } = useLanguage()
 const { recordRouteUsage, incrementTrips } = useStatistics()
 const { addRecentSearch } = useRecentSearches()
 
@@ -614,35 +614,6 @@ const looksLikeAddress = (value: string) => {
   return hasRoadWord || hasHouseNumber
 }
 
-const extractHouseNumber = (value: string) => {
-  const match = normalizeText(value).match(/\b\d+[a-z]?\b/)
-  return match ? match[0] : null
-}
-
-const rankAddressSuggestion = (query: string, candidateName: string) => {
-  const qNorm = normalizeText(query)
-  const cNorm = normalizeText(candidateName)
-  const tokens = qNorm.split(/[^a-z0-9]+/).filter(token => token.length >= 3)
-  const houseNumber = extractHouseNumber(query)
-
-  let score = 0
-
-  if (houseNumber && cNorm.includes(houseNumber)) score += 60
-
-  for (const token of tokens) {
-    if (cNorm.includes(token)) score += token.length >= 5 ? 12 : 8
-  }
-
-  if (cNorm.includes('strada') || cNorm.includes('street') || /\b\d+[a-z]?\b/.test(cNorm)) {
-    score += 15
-  }
-
-  return score
-}
-
-const sortByAddressRelevance = (query: string, suggestions: Suggestion[]) =>
-  [...suggestions].sort((a, b) => rankAddressSuggestion(query, b.name) - rankAddressSuggestion(query, a.name))
-
 // Geocoding via shared service (Nominatim, exact address support)
 const geocode = async (query: string): Promise<Suggestion[]> => {
   const results = await searchAddresses(query)
@@ -668,7 +639,7 @@ const getSuggestions = async (query: string): Promise<Suggestion[]> => {
     .map(s => ({ type: 'station', name: s.name, lat: s.latitude, lon: s.longitude, stationId: s.id }))
 
   if (looksLikeAddress(cleanedQuery)) {
-    return [...geocoded.slice(0, 6)]
+    return geocoded.slice(0, 6)
   }
 
   return [...stationMatches, ...geocoded.slice(0, Math.max(0, 6 - stationMatches.length))]

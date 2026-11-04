@@ -1,26 +1,4 @@
 import { ref, computed } from 'vue'
-import type { Ref } from 'vue'
-
-interface Route {
-  id: number
-  routeNumber: string
-  name: string
-  color?: string
-}
-
-interface Station {
-  id: number
-  name: string
-  latitude: number
-  longitude: number
-}
-
-interface CachedData {
-  routes: Route[]
-  stations: Station[]
-  shapes: any[]
-  lastUpdate: number
-}
 
 const DB_NAME = 'tursib-offline'
 const DB_VERSION = 1

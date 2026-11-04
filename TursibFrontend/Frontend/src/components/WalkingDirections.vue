@@ -282,45 +282,6 @@ const createDirectRoute = (startLat: number, startLon: number, endLat: number, e
   console.log('✅ Traseu direct creat:', (distanceKm * 1000).toFixed(0), 'm')
 }
 
-// Snap coordonatele la cel mai apropiat punct pe stradă
-const snapToNearestRoad = async (lon: number, lat: number): Promise<{lon: number, lat: number} | null> => {
-  try {
-    // OSRM Nearest API - găsește punctul cel mai apropiat pe rețeaua de drumuri
-    // Folosim radiusul de 50m pentru a evita snap-uri greșite
-    const url = `https://router.project-osrm.org/nearest/v1/foot/${lon},${lat}?number=1`
-    
-    const response = await fetch(url)
-    const data = await response.json()
-    
-    if (data.code === 'Ok' && data.waypoints && data.waypoints.length > 0) {
-      const waypoint = data.waypoints[0]
-      const snappedLon = waypoint.location[0]
-      const snappedLat = waypoint.location[1]
-      
-      // Calculează distanța de snap
-      const distance = calculateDistance(lat, lon, snappedLat, snappedLon)
-      
-      // Dacă distanța de snap este mai mare de 30m, nu accepta - e prea departe
-      if (distance > 0.03) {
-        console.warn('⚠️ Distanță prea mare la snap:', (distance * 1000).toFixed(0), 'm - folosesc coordonate originale')
-        return null
-      }
-      
-      console.log('✅ Snap la drum:', (distance * 1000).toFixed(0), 'm')
-      
-      return {
-        lon: snappedLon,
-        lat: snappedLat
-      }
-    }
-    
-    return null
-  } catch (err) {
-    console.error('❌ Eroare la snap to road:', err)
-    return null
-  }
-}
-
 // Calculează distanța între două puncte (Haversine)
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
   const R = 6371 // km
@@ -338,7 +299,7 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 const decodePolyline = (encoded: string, precision = 6): number[][] => {
   const inv = 1.0 / Math.pow(10, precision)
   const decoded: number[][] = []
-  let previous = [0, 0]
+  const previous = [0, 0]
   let i = 0
   
   while (i < encoded.length) {

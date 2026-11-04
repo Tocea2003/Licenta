@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Restore
+        run: dotnet restore TursibBackend.Tests/TursibBackend.Tests.csproj
+      - name: Build
+        run: dotnet build TursibBackend.Tests/TursibBackend.Tests.csproj --no-restore -c Release
+      - name: Test
+        run: >
+          dotnet test TursibBackend.Tests/TursibBackend.Tests.csproj --no-build -c Release
+          --logger "trx;LogFileName=results.trx" --results-directory test-results
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: test-results
+
+  simulator:
+    name: Bus simulator (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Build
+        run: dotnet build BusSimulator/BusSimulator.csproj -c Release
+
+  frontend:
+    name: Frontend (Vue)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: TursibFrontend/Frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: TursibFrontend/Frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Lint (oxlint)
+        run: npx oxlint . -D correctness --ignore-path .gitignore
+      - name: Lint (eslint)
+        run: npx eslint .
+      - name: Type-check
+        run: npx vue-tsc --build
+      - name: Unit tests
+        run: npx vitest run
+      - name: Build
+        run: npx vite build
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    needs: [backend, simulator, frontend]
+    strategy:
+      matrix:
+        include:
+          - name: backend
+            context: TursibBackend
+          - name: bus-simulator
+            context: BusSimulator
+          - name: frontend
+            context: TursibFrontend/Frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

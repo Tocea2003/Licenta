@@ -61,7 +61,7 @@
 import { ref, defineComponent, h, computed } from 'vue'
 import { useOnboarding } from '@/composables/useOnboarding'
 
-const props = defineProps<{
+defineProps<{
   show: boolean
 }>()
 

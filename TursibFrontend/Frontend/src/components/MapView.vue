@@ -780,7 +780,6 @@ interface BusLocation {
 }
 
 // API Base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5022/api'
 
 // Props
 
@@ -861,7 +860,6 @@ const snappedStart = ref<{lat: number, lon: number} | null>(null)
 const snappedEnd = ref<{lat: number, lon: number} | null>(null)
 
 // State pentru al doilea traseu de mers pe jos (de la stația de coborâre la destinație)
-const showSecondWalking = ref(false)
 const secondWalkingStart = ref<{lat: number, lon: number, name: string} | null>(null)
 const secondWalkingEnd = ref<{lat: number, lon: number, name: string} | null>(null)
 const secondWalkingPath = ref<[number, number][]>([])
@@ -1400,7 +1398,7 @@ onMounted(async () => {
       localStorage.setItem('routeColors', JSON.stringify(colors))
       localStorage.setItem('routeColorsTimestamp', Date.now().toString())
       
-    } catch (error) {
+    } catch {
     }
   }
   
@@ -1488,9 +1486,6 @@ const calculateStreetRoute = async (stations: Station[]) => {
   isLoadingRoute.value = true
   
   try {
-    // Obține primul station pentru a determina route ID-ul
-    const firstStation = stations[0]
-    
     // Fallback: OSRM API
     const coordinates = stations
       .map(s => `${s.longitude},${s.latitude}`)
@@ -1507,7 +1502,7 @@ const calculateStreetRoute = async (stations: Station[]) => {
     } else {
       routePath.value = stations.map(s => [s.latitude, s.longitude] as [number, number])
     }
-  } catch (error) {
+  } catch {
     routePath.value = stations.map(s => [s.latitude, s.longitude] as [number, number])
   } finally {
     isLoadingRoute.value = false
@@ -1830,7 +1825,7 @@ const calculateBothWalkingRoutes = async (
       secondDistance,
       secondTime
     }
-  } catch (error) {
+  } catch {
     return null
   }
 }
@@ -1901,7 +1896,7 @@ const findConnectingRoute = async (startStation: typeof props.allStations[0], en
     }
     
     return null
-  } catch (error) {
+  } catch {
     return null
   }
 }
@@ -1928,7 +1923,7 @@ const fetchAlternativeRoutes = async (startStationId: number, endStationId: numb
             )
           }))
       }
-    } catch (error) {
+    } catch {
       // Fallback local dacă endpoint-ul nu este disponibil.
     }
 
@@ -2065,7 +2060,7 @@ const fetchAlternativeRoutes = async (startStationId: number, endStationId: numb
     })
     
     return alternatives.slice(0, 3) // Max 3 rute
-  } catch (error) {
+  } catch {
     return []
   }
 }
@@ -2198,7 +2193,7 @@ const handleAlternativeRouteSelected = async (route: any) => {
           if (data.code === 'Ok' && data.routes?.[0]) {
             busPart = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
           }
-        } catch (e) {
+        } catch {
         }
       }
       
@@ -2212,7 +2207,7 @@ const handleAlternativeRouteSelected = async (route: any) => {
           if (data1.code === 'Ok' && data1.routes?.[0]) {
             actualWalkingPath.value = data1.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
           }
-        } catch (e) {
+        } catch {
         }
         
         // 2. Traseu de la ultima stație la destinație
@@ -2223,7 +2218,7 @@ const handleAlternativeRouteSelected = async (route: any) => {
           if (data2.code === 'Ok' && data2.routes?.[0]) {
             actualSecondWalkingPath.value = data2.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
           }
-        } catch (e) {
+        } catch {
         }
       }
       
@@ -2266,7 +2261,7 @@ const handleAlternativeRouteSelected = async (route: any) => {
         map.value?.leafletObject?.fitBounds(bounds, { padding: [50, 50] })
       }
       
-    } catch (error) {
+    } catch {
     }
     
   } else if (busSegments.length >= 2) {
@@ -2393,7 +2388,7 @@ const handleAlternativeRouteSelected = async (route: any) => {
         const bounds = L.latLngBounds(completeRoutePath.value)
         map.value?.leafletObject?.fitBounds(bounds, { padding: [50, 50] })
       }
-    } catch (error) {
+    } catch {
     }
   }
 }
@@ -2493,7 +2488,7 @@ const handleMultimodalRouteRequested = async (
             await calculateStreetRoute(relevantStations)
             multimodalBusPath.value = routePath.value
           }
-        } catch (error) {
+        } catch {
           await calculateStreetRoute(relevantStations)
           multimodalBusPath.value = routePath.value
         }
@@ -2561,7 +2556,7 @@ const handleMultimodalRouteRequested = async (
           if (segment2 && segment2.points && segment2.points.length > 0) {
             secondWalkingPath.value = trimShapeToStations(segment2.points, transferStation, endStation)
           }
-        } catch (error) {
+        } catch {
         }
         
         // Populăm datele pentru panoul de transfer
@@ -3112,7 +3107,7 @@ const handleNotificationToggle = async (payload: { stationId: number; routeId?: 
         showNotificationFeedback(t('notifPermissionError'), 'error')
       }
     }
-  } catch (error) {
+  } catch {
     showNotificationFeedback(t('notifGenericError'), 'error')
   }
 }
@@ -3120,7 +3115,6 @@ const handleNotificationToggle = async (payload: { stationId: number; routeId?: 
 // Calcul ETA pentru autobuze care vin către o stație
 // Optimizat cu memoization și cache persistent
 const stationETACache = new Map<string, Array<{ busId: string, routeId: number, routeNumber: string, eta: string, color: string }>>()
-let etaCacheTimeout: number | null = null
 const ETA_CACHE_DURATION = 5000 // 5 secunde
 
 /** Compass bearing (0-360°) from point A to point B */

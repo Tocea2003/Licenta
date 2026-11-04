@@ -125,12 +125,10 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { authService } from '@/services/adminService'
 import GoogleSignIn from '@/components/GoogleSignIn.vue'
 import { useLanguage } from '@/composables/useLanguage'
 
-const router = useRouter()
 const { t } = useLanguage()
 
 const credentials = ref({

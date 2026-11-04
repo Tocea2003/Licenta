@@ -21,4 +21,14 @@ export default defineConfigWithVueTs(
   vueTsConfigs.recommended,
   ...pluginOxlint.configs['flat/recommended'],
   skipFormatting,
+
+  {
+    name: 'app/rule-overrides',
+    rules: {
+      // Existing single-word component names kept to avoid churn in imports
+      'vue/multi-word-component-names': ['error', { ignores: ['Sidebar', 'Login'] }],
+      // TODO: make this an error again once MapView.vue is split into typed modules
+      '@typescript-eslint/no-explicit-any': 'warn',
+    },
+  },
 )

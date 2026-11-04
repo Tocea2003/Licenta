@@ -232,15 +232,6 @@ const timeSavings = computed(() => {
   return (slowest?.totalDuration ?? 0) - (fastest?.totalDuration ?? 0)
 })
 
-const getRouteTypeLabel = (type: string) => {
-  const labels: Record<string, string> = {
-    'direct': 'Direct',
-    'transfer': 'Cu transfer',
-    'walk': 'Cu mers pe jos'
-  }
-  return labels[type] || type
-}
-
 const getTotalStations = (route: CalculatedRoute) => {
   return route.segments
     .filter(s => s.type === 'bus')
