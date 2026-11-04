@@ -55,7 +55,10 @@ CI (`.github/workflows/ci.yml`) runs backend tests, the simulator build, fronten
   2. **Estimated Dijkstra** (fallback when there is no calendar/schedule for that date): graph of consecutive stops per route plus walking edges, travel time from average speed.
   Both are cached in `IMemoryCache` (5 min). Tests in `RouteCalculatorServiceTests` cover both paths; a result starting exactly at the requested time means the estimated fallback ran.
 - Ticket purchase uses `PaymentSimulatorService` (Luhn check, special test card numbers trigger declines); no real payment provider.
-- Database: SQLite (`TursibDb.db`, bundled into the Docker image) on `main`. A migration to PostgreSQL/Supabase is in progress on branch `stage0-postgres` (PR #15): Npgsql provider, all queries as LINQ (no raw SQLite SQL), CLI commands `dotnet run -- copy-from-sqlite <db>` and `dotnet run -- import-gtfs <folder>`, and Postgres integration tests that run when `TEST_POSTGRES_CONNECTION` is set. Check which branch you are on before touching data access.
+- Database: PostgreSQL hosted on Supabase (Npgsql provider). All data access is LINQ (no raw SQL), so the InMemory provider works in unit tests. Migrations run on startup. Locally, put the connection string in user-secrets (`dotnet user-secrets set "ConnectionStrings:DefaultConnection" "..." --project TursibBackend`, Development only) or use a local Postgres (`appsettings.Development.json` points at `Host=localhost;Database=tursib_dev`); production reads `ConnectionStrings__DefaultConnection` on Render. Use the Supabase **Session pooler** host (IPv4); the direct host is IPv6-only.
+- Maintenance CLI (runs after migrations, then exits): `dotnet run -- copy-from-sqlite <TursibDb.db>` copies the old SQLite database into an empty target; `dotnet run -- import-gtfs <folder>` re-imports a GTFS feed in one transaction. Both reset Postgres identity sequences after inserting explicit ids.
+- Postgres integration tests (`PostgresIntegrationTests`) run only when `TEST_POSTGRES_CONNECTION` is set; CI provides a Postgres service.
+- The current data has no `ServiceCalendars` (the original GTFS `calendar.txt` was never imported), so the schedule-based planner falls back to estimates until a full GTFS import is done.
 
 ## Live bus data flow
 
@@ -79,11 +82,13 @@ CI (`.github/workflows/ci.yml`) runs backend tests, the simulator build, fronten
 
 The UI is being redesigned to the "Semnal" design (Claude Design canvas: https://claude.ai/artifact/JyzxXR7tRtmG66N9icBptv). Tokens are in `src/assets/main.css` (light + `.dark`): warm paper background, ink text, one cobalt accent (`--accent-primary`), amber `--live`/`--live-soft`/`--live-ink` reserved for live data, Archivo (`--font-display`) for headings, times and line numbers, Public Sans for text, tabular numbers. Old `--gradient-*` tokens resolve to flat colors on purpose.
 
-Conventions used in redesigned components: use the global `.line-pill` (line number on its line color) and `.live-badge` classes; Lucide icons (`lucide-vue-next`) instead of emoji; real `<button>`s with `aria-label` for icon-only controls; 44 px minimum touch targets; shared stylesheets for repeated layouts (`assets/trip-panel.css` for trip detail panels, `assets/auth.css` for login/sign-up). Not yet redesigned: admin pages, tickets/checkout, station details, favorites, settings, statistics, trip history, walking directions, onboarding.
+Conventions used in redesigned components: use the global `.line-pill` (line number on its line color) and `.live-badge` classes; Lucide icons (`lucide-vue-next`) instead of emoji (import Lucide's `Map` as `MapIcon` so it does not shadow the global `Map`); real `<button>`s with `aria-label` for icon-only controls; 44 px minimum touch targets; shared stylesheets for repeated layouts (`assets/trip-panel.css` for trip detail panels, `assets/auth.css` for login/sign-up/admin login). Ticket types and prices live in `constants/ticketCatalog.ts` and must match `TicketsController`. Favorite icons are stored as keys and legacy emoji values are mapped in `utils/favoriteIcons.ts`. Not yet redesigned: the inner admin pages (emoji action buttons) and the walking directions panel.
+
+Secondary routes (tickets, settings, favorites, station, …) render inside the `panel-sheet` in `App.vue` over the always-mounted map; `/login`, `/signup`, `/loginadmin` and `/admin/*` are full-page. Some SFCs in this repo put `<script>` before `<template>`; check block order before splicing a file by markers.
 
 ## Gotchas
 
 - `vite-plugin-vue-devtools` adds a floating "V" pill at the bottom of the page in dev; it is not part of the app.
 - After a Vite hot reload of `MapView.vue` the imperative bus layer can show 0 markers; reload the page before concluding markers are broken.
 - On Render's free plan the simulator sleeps, so Firebase positions can be days old; check `bus_locations/<id>/timestamp` before debugging "frozen" buses.
-- The bundled `TursibDb.db` contains real user accounts and is used by production; do not reset or commit changes to it casually.
+- `TursibBackend/TursibDb.db` is the old SQLite database (source for `copy-from-sqlite`) and contains real user accounts; it is no longer used by production and should be removed from git.
