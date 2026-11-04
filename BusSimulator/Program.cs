@@ -3,9 +3,8 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
-using Firebase.Database;
-using Firebase.Database.Query;
 using Newtonsoft.Json;
+using Tursib.Contracts;
 
 namespace BusSimulator
 {
@@ -26,7 +25,9 @@ namespace BusSimulator
             Console.WriteLine("🚌 Tursib Bus Simulator - Starting...");
             Console.WriteLine("========================================");
 
-            var firebaseClient = new FirebaseClient(FirebaseUrl);
+            await using var publisher = CompositePublisher.FromEnvironment(FirebaseUrl);
+            await publisher.StartAsync();
+            Console.WriteLine($"📤 Publishing to: {publisher.Name}");
             var httpClient = new HttpClient();
 
             List<RouteInfo> routes;
@@ -52,7 +53,7 @@ namespace BusSimulator
             {
                 for (int i = 0; i < BusesPerRoute; i++)
                 {
-                    var sim = new BusSimulator(busId++, route, i, BusesPerRoute, firebaseClient, httpClient);
+                    var sim = new BusSimulator(busId++, route, i, BusesPerRoute, publisher, httpClient);
                     allBuses.Add(sim);
                 }
             }
@@ -151,7 +152,7 @@ namespace BusSimulator
         private readonly RouteInfo route;
         private readonly int busIndex;
         private readonly int totalBuses;
-        private readonly FirebaseClient firebase;
+        private readonly IPositionPublisher publisher;
         private readonly HttpClient httpClient;
         private List<Station> stations = new List<Station>();
         private List<(double Latitude, double Longitude)> routePoints = new List<(double, double)>();
@@ -185,13 +186,13 @@ namespace BusSimulator
         public bool IsReady => routePoints.Count > 0;
 
         public BusSimulator(int busId, RouteInfo route, int busIndex, int totalBuses,
-            FirebaseClient firebase, HttpClient httpClient)
+            IPositionPublisher publisher, HttpClient httpClient)
         {
             this.busId = busId;
             this.route = route;
             this.busIndex = busIndex;
             this.totalBuses = totalBuses;
-            this.firebase = firebase;
+            this.publisher = publisher;
             this.httpClient = httpClient;
         }
 
@@ -247,67 +248,29 @@ namespace BusSimulator
             MoveToNextPoint();
         }
 
-        public async Task SendUpdate()
+        public Task SendUpdate()
         {
             var location = GetCurrentLocation();
             var nextStation = GetNextStation();
-            var etaSeconds = nextStation != null ? CalculateEtaSeconds(nextStation, lastSpeed) : 0;
-            await SendLocationWithRetry(location, lastSpeed, nextStation, etaSeconds);
-        }
-
-        private async Task SendLocationWithRetry(
-            (double Latitude, double Longitude) location,
-            double speed = 0,
-            Station? nextStation = null,
-            int etaSeconds = 0,
-            int maxRetries = 3)
-        {
-            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            var position = new VehiclePosition
             {
-                try
-                {
-                    var payload = new Dictionary<string, object>
-                    {
-                        ["latitude"] = location.Latitude,
-                        ["longitude"] = location.Longitude,
-                        ["routeId"] = route.Id,
-                        ["routeNumber"] = route.RouteNumber,
-                        ["routeName"] = route.Name,
-                        ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                        ["speed"] = Math.Round(speed, 1),
-                        ["heading"] = Math.Round(CalculateHeading(), 1),
-                        ["occupancy"] = occupancy,
-                        ["status"] = status,
-                        ["directionId"] = isReturning ? 1 : 0,
-                        ["busIndex"] = busIndex
-                    };
-
-                    if (nextStation != null)
-                    {
-                        payload["nextStationId"] = nextStation.Id;
-                        payload["nextStationName"] = nextStation.Name;
-                        payload["nextStationEta"] = etaSeconds;
-                    }
-
-                    await firebase
-                        .Child("bus_locations")
-                        .Child($"route_{route.Id}_bus_{busIndex}")
-                        .PutAsync(payload);
-
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    if (attempt == maxRetries)
-                    {
-                        Console.WriteLine($"❌ Bus {busId} Firebase error: {ex.Message}");
-                    }
-                    else
-                    {
-                        await Task.Delay(500 * attempt);
-                    }
-                }
-            }
+                VehicleId = VehiclePosition.VehicleIdFor(route.Id, busIndex),
+                RouteId = route.Id,
+                RouteNumber = route.RouteNumber,
+                RouteName = route.Name,
+                Latitude = location.Latitude,
+                Longitude = location.Longitude,
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                Speed = Math.Round(lastSpeed, 1),
+                Heading = Math.Round(CalculateHeading(), 1),
+                Occupancy = occupancy,
+                Status = status,
+                DirectionId = isReturning ? 1 : 0,
+                NextStationId = nextStation?.Id,
+                NextStationName = nextStation?.Name,
+                NextStationEta = nextStation != null ? CalculateEtaSeconds(nextStation, lastSpeed) : null
+            };
+            return publisher.PublishAsync(position);
         }
 
         private double CalculateRealisticSpeed(double distToNearestStation)

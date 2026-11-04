@@ -9,11 +9,22 @@
 !TursibBackend.Tests/**
 !TursibFrontend/
 !TursibFrontend/**
+!Tursib.Contracts/
+!Tursib.Contracts/**
+!TursibIngestion/
+!TursibIngestion/**
+!TursibIngestion.Tests/
+!TursibIngestion.Tests/**
+!infra/
+!infra/**
+!docs/
+!docs/**
 !.github/
 !.github/**
 !render.yaml
 !CLAUDE.md
 !docker-compose.yml
+!.dockerignore
 !Lucrare_Licenta_Lavu_Cristian_Ioan_IMBUNATATITA.docx
 !Lucrare_Licenta_IMBUNATATITA.md
 
