@@ -35,3 +35,6 @@
 **/*.log
 **/.DS_Store
 **/Thumbs.db
+
+# Old SQLite database (data now lives in Supabase/PostgreSQL); kept locally only
+**/TursibDb.db
