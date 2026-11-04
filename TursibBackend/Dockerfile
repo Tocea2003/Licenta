@@ -13,9 +13,6 @@ FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 
-# Copy the SQLite database if it exists
-COPY TursibDb.db ./TursibDb.db
-
 ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production
 
