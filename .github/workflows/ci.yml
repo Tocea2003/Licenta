@@ -60,6 +60,17 @@ jobs:
       - name: Build
         run: dotnet build BusSimulator/BusSimulator.csproj -c Release
 
+  ingestion:
+    name: Ingestion (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Test
+        run: dotnet test TursibIngestion.Tests/TursibIngestion.Tests.csproj -c Release
+
   frontend:
     name: Frontend (Vue)
     runs-on: ubuntu-latest
@@ -89,16 +100,23 @@ jobs:
   docker:
     name: Docker images
     runs-on: ubuntu-latest
-    needs: [backend, simulator, frontend]
+    needs: [backend, simulator, ingestion, frontend]
     strategy:
       matrix:
         include:
+          # .NET services build from the repo root because they share Tursib.Contracts
           - name: backend
-            context: TursibBackend
+            context: .
+            file: TursibBackend/Dockerfile
           - name: bus-simulator
-            context: BusSimulator
+            context: .
+            file: BusSimulator/Dockerfile
+          - name: ingestion
+            context: .
+            file: TursibIngestion/Dockerfile
           - name: frontend
             context: TursibFrontend/Frontend
+            file: TursibFrontend/Frontend/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -106,6 +124,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: false
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}

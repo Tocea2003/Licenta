@@ -3,7 +3,7 @@ services:
     name: tursib-backend
     runtime: docker
     dockerfilePath: ./TursibBackend/Dockerfile
-    dockerContext: ./TursibBackend
+    dockerContext: .
     plan: free
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
@@ -28,7 +28,7 @@ services:
     name: tursib-bus-simulator
     runtime: docker
     dockerfilePath: ./BusSimulator/Dockerfile
-    dockerContext: ./BusSimulator
+    dockerContext: .
     plan: free
     envVars:
       - key: TURSIB_API_URL

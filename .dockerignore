@@ -1,0 +1,18 @@
+# Root build context (backend, simulator, ingestion). Frontend builds from its own folder.
+**/bin/
+**/obj/
+**/node_modules/
+**/.env
+**/.env.*
+**/*.db
+**/*.db-shm
+**/*.db-wal
+.git/
+.github/
+.claude/
+TursibFrontend/
+TursibBackend.Tests/
+TursibIngestion.Tests/
+docs/
+*.docx
+*.md
