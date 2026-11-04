@@ -268,11 +268,17 @@ if (app.Environment.IsDevelopment())
             trips = await db.Trips.CountAsync(),
             stopTimes = await db.StopTimes.CountAsync(),
             shapes = await db.ShapePoints.CountAsync(),
-            serviceCalendars = await db.ServiceCalendars.CountAsync()
+            serviceCalendars = await db.ServiceCalendars.CountAsync(),
+            serviceCalendarDates = await db.ServiceCalendarDates.CountAsync()
         });
     })
     .WithName("DebugGTFS")
     .RequireAuthorization(policy => policy.RequireRole("Admin"));
+
+    // Ce servicii GTFS circulă într-o zi (calendar + excepții), ex. /api/debug/services?date=2026-12-01
+    app.MapGet("/api/debug/services", async (DateTime date, TursibBackend.Services.RouteCalculatorService planner) =>
+        Results.Ok(new { date = date.ToString("yyyy-MM-dd"), services = (await planner.GetActiveServiceIdsAsync(date)).Order() }))
+    .WithName("DebugServices");
 }
 
 app.Run();

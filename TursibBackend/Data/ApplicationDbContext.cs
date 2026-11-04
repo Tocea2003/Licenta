@@ -19,6 +19,7 @@ namespace TursibBackend.Data
         public DbSet<Ticket> Tickets { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<ServiceCalendar> ServiceCalendars { get; set; }
+        public DbSet<ServiceCalendarDate> ServiceCalendarDates { get; set; }
 
         // Tabele GTFS (populate de GTFSImporter)
         public DbSet<Trip> Trips { get; set; }
@@ -75,6 +76,10 @@ namespace TursibBackend.Data
             // ServiceCalendar - index pe ServiceId pentru join rapid cu Trips
             modelBuilder.Entity<ServiceCalendar>()
                 .HasIndex(sc => sc.ServiceId);
+
+            // Excepțiile se caută după dată
+            modelBuilder.Entity<ServiceCalendarDate>()
+                .HasIndex(cd => cd.Date);
 
             // ========== TABELE GTFS ==========
             modelBuilder.Entity<Trip>(e =>

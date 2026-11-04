@@ -47,6 +47,7 @@ namespace TursibBackend
                 await ImportShapes();
                 await ImportTrips();
                 await ImportCalendar();
+                await ImportCalendarDates();
                 var stopTimes = await ImportStopTimes();
                 await ImportRouteStations(stopTimes);
                 await UpdateBusRoutes();
@@ -66,6 +67,7 @@ namespace TursibBackend
             await _db.Trips.ExecuteDeleteAsync();
             await _db.ShapePoints.ExecuteDeleteAsync();
             await _db.ServiceCalendars.ExecuteDeleteAsync();
+            await _db.ServiceCalendarDates.ExecuteDeleteAsync();
             await _db.RouteStations.ExecuteDeleteAsync();
             await _db.Stations.ExecuteDeleteAsync();
             await _db.Routes.ExecuteDeleteAsync();
@@ -137,9 +139,6 @@ namespace TursibBackend
                 return;
             }
 
-            // GTFS folosește YYYYMMDD; stocăm yyyy-MM-dd pentru comparații lexicografice
-            static string ToIsoDate(string raw) => $"{raw[..4]}-{raw.Substring(4, 2)}-{raw.Substring(6, 2)}";
-
             var calendars = ReadCsv("calendar.txt").Select(r => new ServiceCalendar
             {
                 ServiceId = r["service_id"],
@@ -157,6 +156,28 @@ namespace TursibBackend
             await InsertInBatches(calendars);
             Console.WriteLine($"✅ Imported {calendars.Count} calendar entries");
         }
+
+        private async Task ImportCalendarDates()
+        {
+            if (!File.Exists(Path.Combine(_gtfsPath, "calendar_dates.txt")))
+            {
+                Console.WriteLine("  ⚠️ calendar_dates.txt not found, skipping calendar exceptions");
+                return;
+            }
+
+            var exceptions = ReadCsv("calendar_dates.txt").Select(r => new ServiceCalendarDate
+            {
+                ServiceId = r["service_id"],
+                Date = ToIsoDate(r["date"]),
+                ExceptionType = int.Parse(r["exception_type"])
+            }).ToList();
+
+            await InsertInBatches(exceptions);
+            Console.WriteLine($"✅ Imported {exceptions.Count} calendar exceptions");
+        }
+
+        // GTFS folosește YYYYMMDD; stocăm yyyy-MM-dd pentru comparații lexicografice
+        private static string ToIsoDate(string raw) => $"{raw[..4]}-{raw.Substring(4, 2)}-{raw.Substring(6, 2)}";
 
         private async Task<List<StopTime>> ImportStopTimes()
         {
