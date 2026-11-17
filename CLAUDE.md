@@ -81,6 +81,15 @@ Outputs: SignalR event `bunching` (full list of active alerts, pushed on every c
 
 `TwinRunner.Run` (pure) samples every 10 s and reuses `BunchingAnalyzer`/`BunchingTracker`, returning `TwinRunResult` (`bunchedPercent`, `meanCv`, `minRatio`, `bunchingEpisodes`, 60 s series). `TwinService` adds the real world: geometry from `IRouteGeometryProvider` and, with `UseLiveState`, the starting positions of the live fleet (`initialisedFrom`: `live` or `even`). `POST /api/twin/run` (public, rate-limited, `TwinScenario.Validate` caps: 60 s–6 h, 2–30 buses, ≤10 disturbances) never touches `LiveBusState`. Frontend: `components/TwinPanel.vue` in AdminAnalytics (scenario form, run history, SVG chart of the minimum gap ratio against the 0.35 threshold), pure helpers in `utils/twin.ts`.
 
+### Bunching control (Stage 4)
+
+`Services/HoldControl.cs`: **holding** = a bus that is too close to the one ahead is kept at the stop. `HoldPolicy.HeadwayHold` (hold `(ideal − gapAhead) / v`, i.e. recover the missing gap) and `EqualizeHold` (`(gapBehind − gapAhead) / 2v`, balance front/back), both only below `HoldOptions.TriggerRatio` (0.85) and capped at `MaxHoldSeconds` (45 s per stop); config section `Holding`. They are wrapped as `ITwinControl` (`HeadwayHoldControl`, `EqualizeHoldControl`; `HoldPolicy.Create(name)`; names `none|headway|equalize`). Defaults were chosen from twin experiments (4 h, several seeds, 3–8 buses, noise and a 5 min stop): control removes almost all bunching; an early/light trigger costs less holding than a late/heavy one; `headway` is slightly better than `equalize` on larger fleets. Those are **model results, not field data**.
+
+- Twin: `TwinScenario.Strategy`, `TwinRunResult` now also has `Strategy`, `HoldSecondsPerBusHour` (cost to on-board passengers) and `AverageSpeedKmh`. `POST /api/twin/compare` (`TwinCompareRequest`: scenario + `strategies` + `replications` ≤ 10) runs every strategy over the same consecutive seeds and returns `TwinStrategySummary` averages with a point-wise averaged series.
+- Live: `BunchingPair`/`BunchingAlert` carry `RecommendedHoldSeconds` (`HoldPolicy.Recommend` = headway) for the follower of an active alert; `BunchingPanel` shows it as a dispatcher suggestion. Nothing in the backend commands buses.
+- Closed loop (demo): with `APPLY_HOLDS=true` the simulator polls `GET /api/live/bunching` every ~5 s (`HoldCoordinator`) and adds the recommended hold to the follower's next stop dwell. Not covered by tests (the simulator has no test project).
+- Frontend: `TwinChart.vue` (shared SVG chart), `TwinPanel.vue` "compare strategies" (table, chart, verdict), `utils/twin.ts` (`buildCompareRequest`, `reductionPercent`, `bestStrategy`).
+
 ## Frontend architecture
 
 - `views/HomeView.vue` hosts `components/Sidebar.vue` (planner, schedule board, routes list) and `components/MapView.vue` (the map and everything drawn on it). Sidebar emits `routeSelected` / `planSelected`; MapView receives `stations`, `selectedRouteId`, `tripPlan` props and exposes `centerMap`, `invalidateSize`, etc. via `defineExpose`.

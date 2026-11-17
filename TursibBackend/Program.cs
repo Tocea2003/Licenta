@@ -51,6 +51,7 @@ builder.Services.AddSingleton<IBusPositionHandler, HubBroadcastHandler>();
 
 // Stage 2: detecție bunching (pragurile se pot suprascrie din secțiunea „Bunching”)
 builder.Services.AddSingleton(builder.Configuration.GetSection("Bunching").Get<BunchingOptions>() ?? new BunchingOptions());
+builder.Services.AddSingleton(builder.Configuration.GetSection("Holding").Get<HoldOptions>() ?? new HoldOptions());
 builder.Services.AddSingleton<IRouteGeometryProvider, DbRouteGeometryProvider>();
 builder.Services.AddSingleton<BunchingDetector>();
 

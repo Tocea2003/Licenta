@@ -13,6 +13,39 @@ export interface TwinScenarioRequest {
   seed: number
   useLiveState: boolean
   disturbances: TwinDisturbance[]
+  /** strategia de control (implicit `none`) */
+  strategy?: TwinStrategy
+}
+
+/** Strategii de control a bunching-ului (holding la stație). */
+export type TwinStrategy = 'none' | 'headway' | 'equalize'
+
+/** Corpul cererii POST /api/twin/compare: același scenariu, mai multe strategii, mai multe seed-uri. */
+export interface TwinCompareRequest extends TwinScenarioRequest {
+  strategies?: TwinStrategy[]
+  replications: number
+}
+
+/** Rezultatul unei strategii, mediat pe mai multe rulări. */
+export interface TwinStrategySummary {
+  strategy: TwinStrategy
+  bunchedPercent: number
+  meanCv: number
+  minRatio: number
+  bunchingEpisodes: number
+  /** secunde de holding pe autobuz și pe oră: costul pentru pasagerii din autobuz */
+  holdSecondsPerBusHour: number
+  averageSpeedKmh: number
+  series: TwinSample[]
+}
+
+export interface TwinComparison {
+  routeId: number
+  initialisedFrom: 'live' | 'even'
+  busCount: number
+  durationSeconds: number
+  replications: number
+  results: TwinStrategySummary[]
 }
 
 export interface TwinSample {

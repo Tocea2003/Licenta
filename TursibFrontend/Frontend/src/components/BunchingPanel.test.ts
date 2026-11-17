@@ -42,6 +42,15 @@ describe('BunchingPanel', () => {
     expect(item.text()).toContain('100 m')
   })
 
+  it('shows the recommended hold only when the backend provides one', () => {
+    bunching.value = [alert({ recommendedHoldSeconds: 45 }), alert({ key: '9:g', followerId: 'route_9_bus_2' })]
+    const wrapper = mount(BunchingPanel)
+    const recommendations = wrapper.findAll('.recommend')
+    expect(recommendations).toHaveLength(1)
+    expect(recommendations[0]!.text()).toContain('45')
+    expect(recommendations[0]!.text()).toContain('route_9_bus_0')
+  })
+
   it('subscribes to the live store while mounted and releases it on unmount', () => {
     bunching.value = []
     const wrapper = mount(BunchingPanel)

@@ -56,6 +56,7 @@ services:
       - TURSIB_API_URL=http://backend:8080/api
       - FIREBASE_URL=${FIREBASE_URL}
       - INGEST_API_KEY=${INGEST_API_KEY:-dev-ingest-key}
+      - APPLY_HOLDS=${APPLY_HOLDS:-false}
     depends_on:
       - backend
     restart: unless-stopped

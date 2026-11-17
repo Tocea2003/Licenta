@@ -17,6 +17,15 @@ describe('parseBunchingList', () => {
     expect(a!.endedAt).toBeUndefined()
   })
 
+  it('keeps the recommended hold when the backend sends one', () => {
+    const [a, b] = parseBunchingList([
+      { key: 'a', routeId: 1, ratio: 0.1, recommendedHoldSeconds: 45 },
+      { key: 'b', routeId: 1, ratio: 0.1, recommendedHoldSeconds: null }
+    ])
+    expect(a!.recommendedHoldSeconds).toBe(45)
+    expect(b!.recommendedHoldSeconds).toBeUndefined()
+  })
+
   it('ignores malformed entries and non-arrays', () => {
     expect(parseBunchingList([null, 3, { routeId: 1 }])).toEqual([])
     expect(parseBunchingList(undefined)).toEqual([])

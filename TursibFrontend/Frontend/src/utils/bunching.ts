@@ -22,7 +22,8 @@ export function parseBunchingList(list: unknown): BunchingAlert[] {
       severity: a.severity === 'critical' ? 'critical' : 'warning',
       startedAt: Number(a.startedAt ?? 0),
       endedAt: typeof a.endedAt === 'number' ? a.endedAt : undefined,
-      headwaySeconds: typeof a.headwaySeconds === 'number' ? a.headwaySeconds : undefined
+      headwaySeconds: typeof a.headwaySeconds === 'number' ? a.headwaySeconds : undefined,
+      recommendedHoldSeconds: typeof a.recommendedHoldSeconds === 'number' ? a.recommendedHoldSeconds : undefined
     })
   }
   return alerts

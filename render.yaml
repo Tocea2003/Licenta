@@ -40,3 +40,6 @@ services:
       # aceeași valoare ca INGEST_API_KEY de pe backend; simulatorul publică pozițiile prin backend (SignalR)
       - key: INGEST_API_KEY
         sync: false
+      # true = simulatorul aplică recomandările de holding ale backend-ului (control bunching în buclă închisă)
+      - key: APPLY_HOLDS
+        value: "false"

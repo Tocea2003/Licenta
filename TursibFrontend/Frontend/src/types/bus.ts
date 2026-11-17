@@ -53,4 +53,6 @@ export interface BunchingAlert {
   endedAt?: number
   /** timpul estimat dintre cele două autobuze (s) */
   headwaySeconds?: number
+  /** cât ar trebui reținut autobuzul din spate la următoarea stație ca să redea golul (s); doar la alertele active */
+  recommendedHoldSeconds?: number
 }

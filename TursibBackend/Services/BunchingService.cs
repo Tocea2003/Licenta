@@ -143,7 +143,9 @@ public record BusOnLoop(string Id, double LoopPosition, double Speed);
 /// <summary>Golul dintre un autobuz și cel din fața lui, față de golul ideal (bucla / numărul de autobuze).</summary>
 public record BunchingPair(
     int RouteId, string? RouteNumber, string LeaderId, string FollowerId,
-    double GapMeters, double IdealGapMeters, double Ratio, double? HeadwaySeconds);
+    double GapMeters, double IdealGapMeters, double Ratio, double? HeadwaySeconds,
+    /// <summary>Cât ar trebui reținut urmăritorul la următoarea stație ca să redea golul (HoldPolicy); null dacă nu se calculează.</summary>
+    double? RecommendedHoldSeconds = null);
 
 public static class BunchingAnalyzer
 {
@@ -153,7 +155,7 @@ public static class BunchingAnalyzer
 
     /// <summary>Golurile dintre autobuzele consecutive ale unei linii, circular (ultimul → primul trece prin capătul buclei).</summary>
     public static IReadOnlyList<BunchingPair> ConsecutiveGaps(
-        int routeId, string? routeNumber, IReadOnlyList<BusOnLoop> buses, double loopLength)
+        int routeId, string? routeNumber, IReadOnlyList<BusOnLoop> buses, double loopLength, HoldOptions? hold = null)
     {
         if (buses.Count < 2) return Array.Empty<BunchingPair>();
 
@@ -169,7 +171,8 @@ public static class BunchingAnalyzer
 
             // timpul până ajunge urmăritorul unde e liderul acum, la viteza lui (minim 4 m/s ≈ 15 km/h)
             var speedMs = Math.Max(follower.Speed / 3.6, 4);
-            pairs.Add(new BunchingPair(routeId, routeNumber, leader.Id, follower.Id, gap, ideal, gap / ideal, gap / speedMs));
+            double? recommended = hold == null ? null : HoldPolicy.Recommend(gap, ideal, speedMs, hold);
+            pairs.Add(new BunchingPair(routeId, routeNumber, leader.Id, follower.Id, gap, ideal, gap / ideal, gap / speedMs, recommended));
         }
         return pairs;
     }
@@ -179,7 +182,7 @@ public static class BunchingAnalyzer
 public record BunchingAlert(
     string Key, int RouteId, string? RouteNumber, string LeaderId, string FollowerId,
     double GapMeters, double IdealGapMeters, double Ratio, string Severity,
-    long StartedAt, long? EndedAt, double? HeadwaySeconds);
+    long StartedAt, long? EndedAt, double? HeadwaySeconds, double? RecommendedHoldSeconds = null);
 
 public record BunchingChange(BunchingAlert Alert, bool Started);
 
@@ -266,7 +269,8 @@ public class BunchingTracker
         key, t.Pair.RouteId, t.Pair.RouteNumber, t.Pair.LeaderId, t.Pair.FollowerId,
         Math.Round(t.Pair.GapMeters), Math.Round(t.Pair.IdealGapMeters), Math.Round(t.Pair.Ratio, 2),
         SeverityFor(t.Pair.Ratio), t.StartedAt?.ToUnixTimeSeconds() ?? 0, endedAt,
-        t.Pair.HeadwaySeconds is { } h ? Math.Round(h) : null);
+        t.Pair.HeadwaySeconds is { } h ? Math.Round(h) : null,
+        endedAt == null && t.Pair.RecommendedHoldSeconds is > 0 ? Math.Round(t.Pair.RecommendedHoldSeconds.Value) : null);
 }
 
 /// <summary>Handler de evenimente: la fiecare lot (cel mult o dată la câteva secunde) analizează flota și publică alertele.</summary>
@@ -278,6 +282,7 @@ public class BunchingDetector : IBusPositionHandler
     private readonly IRouteGeometryProvider _geometry;
     private readonly IHubContext<BusHub> _hub;
     private readonly BunchingOptions _options;
+    private readonly HoldOptions _hold;
     private readonly TimeProvider _time;
     private readonly BunchingTracker _tracker;
     private readonly Dictionary<string, double> _lastAlong = new();
@@ -287,8 +292,9 @@ public class BunchingDetector : IBusPositionHandler
     private volatile IReadOnlyList<BunchingAlert> _recent = Array.Empty<BunchingAlert>();
 
     public BunchingDetector(LiveBusState state, IRouteGeometryProvider geometry, IHubContext<BusHub> hub,
-        BunchingOptions options, TimeProvider? time = null)
+        BunchingOptions options, HoldOptions hold, TimeProvider? time = null)
     {
+        _hold = hold;
         _state = state;
         _geometry = geometry;
         _hub = hub;
@@ -326,7 +332,7 @@ public class BunchingDetector : IBusPositionHandler
                 onLoop.Add(new BusOnLoop(bus.Id, BunchingAnalyzer.LoopPosition(along, bus.DirectionId!.Value, geometry.LengthMeters), bus.Speed));
             }
             pairs.AddRange(BunchingAnalyzer.ConsecutiveGaps(
-                route.Key, route.First().RouteNumber, onLoop, 2 * geometry.LengthMeters));
+                route.Key, route.First().RouteNumber, onLoop, 2 * geometry.LengthMeters, _hold));
         }
 
         var liveIds = fresh.Select(p => p.Id).ToHashSet();

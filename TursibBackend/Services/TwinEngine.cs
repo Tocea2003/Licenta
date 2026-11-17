@@ -65,6 +65,7 @@ public class TwinEngine
     private readonly Random _random;
     private readonly List<TwinDisturbance> _disturbances;
     private readonly double[] _lastDeparture;
+    private readonly double[] _initialPositions;
     private int _nextDisturbance;
 
     public IReadOnlyList<TwinBus> Buses { get; }
@@ -72,6 +73,10 @@ public class TwinEngine
     public int StopCount { get; }
     public double StopSpacing { get; }
     public double IdealGapMeters => _config.LoopLengthMeters / Buses.Count;
+    /// <summary>Suma reținerilor adăugate de strategia de control (fără perturbări): costul controlului.</summary>
+    public double TotalControlHoldSeconds { get; private set; }
+    /// <summary>Distanța totală parcursă de toată flota de la începutul simulării.</summary>
+    public double DistanceTravelledMeters => Buses.Select((b, i) => b.Position - _initialPositions[i]).Sum();
 
     /// <param name="initialLoopPositions">poziția inițială a fiecărui autobuz pe buclă (0..2L), în ordinea indicilor</param>
     public TwinEngine(TwinConfig config, IReadOnlyList<double> initialLoopPositions, int seed,
@@ -102,6 +107,8 @@ public class TwinEngine
                 };
             })
             .ToList();
+
+        _initialPositions = Buses.Select(b => b.Position).ToArray();
 
         // La început, la fiecare stație aștepta exact cât ar fi trecut de la ultimul autobuz care a depășit-o.
         _lastDeparture = new double[StopCount];
@@ -188,7 +195,9 @@ public class TwinEngine
         dwell = Math.Clamp(dwell, 0, _config.MaxDwellSeconds);
 
         var extra = _control.ExtraHoldSeconds(new TwinStopContext(bus, index, gapAhead, gapBehind, IdealGapMeters, Time, _config));
-        bus.DwellRemaining = dwell + Math.Max(0, extra);
+        extra = Math.Max(0, extra);
+        TotalControlHoldSeconds += extra;
+        bus.DwellRemaining = dwell + extra;
     }
 
     private int StopIndex(double stopPosition) =>

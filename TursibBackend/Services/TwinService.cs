@@ -12,6 +12,8 @@ public class TwinScenario
     public bool UseLiveState { get; set; }
     /// <summary>Multiplicator al cererii de pasageri (1 = normal).</summary>
     public double DemandFactor { get; set; } = 1;
+    /// <summary>Strategia de control: <c>none</c>, <c>headway</c> sau <c>equalize</c> (vezi <see cref="HoldPolicy"/>).</summary>
+    public string Strategy { get; set; } = HoldPolicy.None;
     public List<TwinDisturbance> Disturbances { get; set; } = new();
 
     public const int MaxDurationSeconds = 6 * 3600;
@@ -25,6 +27,7 @@ public class TwinScenario
         if (RouteId <= 0) return "routeId este obligatoriu.";
         if (DurationSeconds is < 60 or > MaxDurationSeconds) return $"durationSeconds trebuie să fie între 60 și {MaxDurationSeconds}.";
         if (BusCount is { } n && (n < MinBuses || n > MaxBuses)) return $"busCount trebuie să fie între {MinBuses} și {MaxBuses}.";
+        if (!HoldPolicy.IsKnown(Strategy)) return $"strategy trebuie să fie una dintre: {string.Join(", ", HoldPolicy.Strategies)}.";
         if (DemandFactor is < 0.1 or > 5) return "demandFactor trebuie să fie între 0,1 și 5.";
         if (Disturbances.Count > MaxDisturbances) return $"Cel mult {MaxDisturbances} perturbări.";
         if (Disturbances.Any(d => d.AtSecond < 0 || d.AtSecond > DurationSeconds || d.HoldSeconds is < 1 or > 3600 || d.BusIndex < 0))
@@ -52,7 +55,11 @@ public record TwinRunResult(
     /// <summary>câte alerte de bunching (cu aceeași persistență ca în producție) ar fi apărut</summary>
     int BunchingEpisodes,
     IReadOnlyList<TwinSample> Series,
-    IReadOnlyList<double> FinalLoopPositions);
+    IReadOnlyList<double> FinalLoopPositions,
+    string Strategy = HoldPolicy.None,
+    /// <summary>cât a reținut în total strategia de control, pe autobuz și pe oră simulată (costul pentru pasagerii din autobuz)</summary>
+    double HoldSecondsPerBusHour = 0,
+    double AverageSpeedKmh = 0);
 
 public static class TwinRunner
 {
@@ -62,7 +69,8 @@ public static class TwinRunner
     /// <summary>Rulează scenariul headless și întoarce metricile. Pur și deterministic pentru același seed.</summary>
     public static TwinRunResult Run(
         TwinConfig config, IReadOnlyList<double> initialLoopPositions, TwinScenario scenario,
-        string initialisedFrom, BunchingOptions? options = null, ITwinControl? control = null)
+        string initialisedFrom, BunchingOptions? options = null, ITwinControl? control = null,
+        string strategy = HoldPolicy.None)
     {
         options ??= new BunchingOptions();
         var engine = new TwinEngine(config, initialLoopPositions, scenario.Seed, scenario.Disturbances, control);
@@ -101,7 +109,10 @@ public static class TwinRunner
             scenario.RouteId, initialisedFrom, engine.Buses.Count, scenario.DurationSeconds,
             Math.Round(config.RouteLengthMeters), Math.Round(100 * bunchedSamples / samples, 1),
             Math.Round(cvSum / samples, 3), Math.Round(maxCv, 3), Math.Round(minRatio, 3), episodes, series,
-            engine.Buses.Select(b => Math.Round(engine.LoopPosition(b))).ToList());
+            engine.Buses.Select(b => Math.Round(engine.LoopPosition(b))).ToList(),
+            strategy,
+            Math.Round(engine.TotalControlHoldSeconds / engine.Buses.Count / (scenario.DurationSeconds / 3600.0), 1),
+            Math.Round(engine.DistanceTravelledMeters / engine.Buses.Count / scenario.DurationSeconds * 3.6, 1));
     }
 
     private static double Cv(IReadOnlyList<double> values)
@@ -113,24 +124,106 @@ public static class TwinRunner
     }
 }
 
+/// <summary>Rezultatul unei strategii, mediat pe mai multe rulări cu seed-uri diferite.</summary>
+public record TwinStrategySummary(
+    string Strategy, double BunchedPercent, double MeanCv, double MinRatio, double BunchingEpisodes,
+    double HoldSecondsPerBusHour, double AverageSpeedKmh, IReadOnlyList<TwinSample> Series);
+
+public record TwinComparison(
+    int RouteId, string InitialisedFrom, int BusCount, int DurationSeconds, int Replications,
+    IReadOnlyList<TwinStrategySummary> Results);
+
+/// <summary>Cerere de comparare: același scenariu rulat cu fiecare strategie, pe mai multe seed-uri.</summary>
+public class TwinCompareRequest : TwinScenario
+{
+    public List<string>? Strategies { get; set; }
+    public int Replications { get; set; } = 5;
+    public const int MaxReplications = 10;
+
+    public new string? Validate()
+    {
+        var error = base.Validate();
+        if (error != null) return error;
+        if (Replications is < 1 or > MaxReplications) return $"replications trebuie să fie între 1 și {MaxReplications}.";
+        if (Strategies != null && (Strategies.Count == 0 || Strategies.Any(x => !HoldPolicy.IsKnown(x))))
+            return $"strategies trebuie să conțină valori din: {string.Join(", ", HoldPolicy.Strategies)}.";
+        return null;
+    }
+}
+
 /// <summary>Leagă twin-ul de realitate: geometria traseului din baza de date și pozițiile live ale flotei.</summary>
 public class TwinService
 {
     private readonly IRouteGeometryProvider _geometry;
     private readonly LiveBusState _state;
     private readonly BunchingOptions _options;
+    private readonly HoldOptions _hold;
     private readonly TimeProvider _time;
 
-    public TwinService(IRouteGeometryProvider geometry, LiveBusState state, BunchingOptions options, TimeProvider? time = null)
+    public TwinService(IRouteGeometryProvider geometry, LiveBusState state, BunchingOptions options, HoldOptions hold,
+        TimeProvider? time = null)
     {
         _geometry = geometry;
         _state = state;
         _options = options;
+        _hold = hold;
         _time = time ?? TimeProvider.System;
     }
 
-    /// <summary>Rulează scenariul; null dacă linia nu are geometrie (nu o putem modela).</summary>
+    private sealed record Prepared(TwinConfig Config, IReadOnlyList<double> Initial, string From);
+
+    /// <summary>Rulează scenariul (cu strategia din <see cref="TwinScenario.Strategy"/>); null dacă linia nu are geometrie.</summary>
     public async Task<TwinRunResult?> RunAsync(TwinScenario scenario, CancellationToken ct, ITwinControl? control = null)
+    {
+        var prepared = await PrepareAsync(scenario, ct);
+        return prepared == null ? null : Execute(prepared, scenario, control ?? HoldPolicy.Create(scenario.Strategy, _hold));
+    }
+
+    /// <summary>
+    /// Compară strategiile pe același scenariu. Fiecare strategie rulează pe <see cref="TwinCompareRequest.Replications"/>
+    /// seed-uri consecutive (aceleași pentru toate strategiile) și metricile se mediază, ca să nu depindă de un singur noroc.
+    /// </summary>
+    public async Task<TwinComparison?> CompareAsync(TwinCompareRequest request, CancellationToken ct)
+    {
+        var prepared = await PrepareAsync(request, ct);
+        if (prepared == null) return null;
+
+        var strategies = request.Strategies ?? HoldPolicy.Strategies.ToList();
+        var results = new List<TwinStrategySummary>();
+        foreach (var strategy in strategies)
+        {
+            var runs = Enumerable.Range(0, request.Replications)
+                .Select(i => Execute(prepared, Clone(request, request.Seed + i, strategy), HoldPolicy.Create(strategy, _hold)))
+                .ToList();
+            results.Add(Summarize(strategy, runs));
+        }
+        return new TwinComparison(request.RouteId, prepared.From, prepared.Initial.Count, request.DurationSeconds,
+            request.Replications, results);
+    }
+
+    private static TwinScenario Clone(TwinScenario s, int seed, string strategy) => new()
+    {
+        RouteId = s.RouteId, BusCount = s.BusCount, DurationSeconds = s.DurationSeconds, Seed = seed,
+        UseLiveState = s.UseLiveState, DemandFactor = s.DemandFactor, Disturbances = s.Disturbances, Strategy = strategy
+    };
+
+    private static TwinStrategySummary Summarize(string strategy, IReadOnlyList<TwinRunResult> runs)
+    {
+        double Avg(Func<TwinRunResult, double> f) => Math.Round(runs.Average(f), 3);
+        var series = runs[0].Series
+            .Select((_, i) =>
+            {
+                var min = runs.Average(r => r.Series[i].MinRatio);
+                return new TwinSample(runs[0].Series[i].T, Math.Round(min, 3), Math.Round(runs.Average(r => r.Series[i].Cv), 3),
+                    min < new BunchingOptions().EnterRatio);
+            })
+            .ToList();
+        return new TwinStrategySummary(strategy, Math.Round(runs.Average(r => r.BunchedPercent), 1), Avg(r => r.MeanCv),
+            Avg(r => r.MinRatio), Math.Round(runs.Average(r => r.BunchingEpisodes), 1),
+            Math.Round(runs.Average(r => r.HoldSecondsPerBusHour), 1), Math.Round(runs.Average(r => r.AverageSpeedKmh), 1), series);
+    }
+
+    private async Task<Prepared?> PrepareAsync(TwinScenario scenario, CancellationToken ct)
     {
         var geometry = await _geometry.GetAsync(scenario.RouteId, ct);
         if (geometry == null) return null;
@@ -140,13 +233,14 @@ public class TwinService
         var loop = config.LoopLengthMeters;
 
         var initial = scenario.UseLiveState ? LivePositions(scenario.RouteId, geometry) : null;
-        if (initial is { Count: >= TwinScenario.MinBuses })
-            return TwinRunner.Run(config, initial, scenario, "live", _options, control);
+        if (initial is { Count: >= TwinScenario.MinBuses }) return new Prepared(config, initial, "live");
 
         var n = scenario.BusCount ?? 3;
-        var even = Enumerable.Range(0, n).Select(i => i * loop / n).ToList();
-        return TwinRunner.Run(config, even, scenario, "even", _options, control);
+        return new Prepared(config, Enumerable.Range(0, n).Select(i => i * loop / n).ToList(), "even");
     }
+
+    private TwinRunResult Execute(Prepared p, TwinScenario scenario, ITwinControl control) =>
+        TwinRunner.Run(p.Config, p.Initial, scenario, p.From, _options, control, scenario.Strategy);
 
     /// <summary>Pozițiile reale ale liniei pe bucla dus-întors (doar autobuze recente, cu direcție, aproape de traseu).</summary>
     private List<double>? LivePositions(int routeId, RouteGeometry geometry)

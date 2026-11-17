@@ -275,6 +275,26 @@ const dictionary: Dictionary = {
   twinCv: { ro: 'Neuniformitate', en: 'Irregularity' },
   twinEpisodes: { ro: 'Alerte', en: 'Alerts' },
   twinRemove: { ro: 'Elimină rularea', en: 'Remove run' },
+  twinCompare: { ro: 'Compară strategiile de control', en: 'Compare control strategies' },
+  twinComparisonTitle: { ro: 'Comparație strategii de control (holding la stație)', en: 'Control strategy comparison (holding at stops)' },
+  twinStrategy: { ro: 'Strategie', en: 'Strategy' },
+  twinStrategy_none: { ro: 'Fără control', en: 'No control' },
+  twinStrategy_headway: { ro: 'Headway (recuperează golul din față)', en: 'Headway (recover the gap ahead)' },
+  twinStrategy_equalize: { ro: 'Equalize (egalizează față/spate)', en: 'Equalize (balance front/back)' },
+  twinHoldCost: { ro: 'Holding (s / autobuz / oră)', en: 'Holding (s / bus / hour)' },
+  twinAvgSpeed: { ro: 'Viteză medie', en: 'Average speed' },
+  twinVerdict: {
+    ro: '{strategy}: neuniformitatea scade cu {drop}% față de fără control, la un cost de ≈ {hold} s de holding pe autobuz și oră.',
+    en: '{strategy}: irregularity drops by {drop}% versus no control, at a cost of ≈ {hold} s of holding per bus per hour.'
+  },
+  twinComparisonNote: {
+    ro: 'Medie pe {n} rulări cu seed-uri diferite; aceleași seed-uri pentru toate strategiile. Rezultate din model, nu măsurători reale.',
+    en: 'Average of {n} runs with different seeds; the same seeds for every strategy. Model results, not field measurements.'
+  },
+  bunchingRecommend: {
+    ro: 'Recomandare: reține {bus} la următoarea stație ≈ {seconds} s',
+    en: 'Recommendation: hold {bus} at the next stop for ≈ {seconds} s'
+  },
   bunchingTitle: { ro: 'Autobuze „lipite” (bunching)', en: 'Bus bunching' },
   bunchingActive: { ro: 'active', en: 'active' },
   bunchingHint: {
@@ -774,6 +794,17 @@ const germanOverrides: Record<string, string> = {
   twinCv: 'Ungleichmäßigkeit',
   twinEpisodes: 'Warnungen',
   twinRemove: 'Lauf entfernen',
+  twinCompare: 'Regelstrategien vergleichen',
+  twinComparisonTitle: 'Vergleich der Regelstrategien (Halten an Haltestellen)',
+  twinStrategy: 'Strategie',
+  twinStrategy_none: 'Keine Regelung',
+  twinStrategy_headway: 'Headway (Abstand nach vorn wiederherstellen)',
+  twinStrategy_equalize: 'Equalize (vorn/hinten ausgleichen)',
+  twinHoldCost: 'Halten (s / Bus / Stunde)',
+  twinAvgSpeed: 'Durchschnittsgeschwindigkeit',
+  twinVerdict: '{strategy}: Die Ungleichmäßigkeit sinkt um {drop}% gegenüber keiner Regelung, bei ≈ {hold} s Halten pro Bus und Stunde.',
+  twinComparisonNote: 'Mittelwert aus {n} Läufen mit unterschiedlichen Seeds; dieselben Seeds für alle Strategien. Modellergebnisse, keine Messungen.',
+  bunchingRecommend: 'Empfehlung: {bus} an der nächsten Haltestelle ≈ {seconds} s halten',
   bunchingTitle: 'Bus-Pulk (Bunching)',
   bunchingActive: 'aktiv',
   bunchingHint: 'Zwei Busse derselben Linie fahren zu dicht beieinander; wir vergleichen ihren Abstand mit dem Idealabstand.',

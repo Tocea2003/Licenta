@@ -48,6 +48,38 @@ describe('TwinPanel', () => {
     expect(wrapper.find('polyline').exists()).toBe(true)
   })
 
+  it('compares strategies and highlights the best one with a verdict', async () => {
+    const summary = (strategy: string, meanCv: number, hold: number) => ({
+      strategy, bunchedPercent: strategy === 'none' ? 80 : 0, meanCv, minRatio: 0.1, bunchingEpisodes: 0,
+      holdSecondsPerBusHour: hold, averageSpeedKmh: 18, series: result.series
+    })
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.endsWith('/Routes')
+          ? { ok: true, json: async () => [{ id: 9, routeNumber: '9', name: 'Test' }] }
+          : { ok: true, json: async () => ({
+              routeId: 9, initialisedFrom: 'even', busCount: 3, durationSeconds: 14400, replications: 5,
+              results: [summary('none', 0.9, 0), summary('headway', 0.09, 40), summary('equalize', 0.2, 45)]
+            }) }
+      )
+    )
+    const wrapper = mount(TwinPanel)
+    await flushPromises()
+    await wrapper.find('select').setValue('9')
+    await wrapper.find('button.run--secondary').trigger('click')
+    await flushPromises()
+
+    const post = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/twin/compare'))!
+    expect(JSON.parse(post[1].body)).toMatchObject({ routeId: 9, strategies: ['none', 'headway', 'equalize'], replications: 5 })
+
+    const rows = wrapper.findAll('.comparison tbody tr')
+    expect(rows).toHaveLength(3)
+    expect(rows.filter(r => r.classes().includes('best')).map(r => r.text())).toHaveLength(1)
+    expect(wrapper.find('.best').text()).toContain('Headway')
+    expect(wrapper.find('.verdict').text()).toContain('90%')   // (0,9 -> 0,09)
+    expect(wrapper.findAll('.comparison polyline')).toHaveLength(3)
+  })
+
   it('shows the server message when the run is rejected', async () => {
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(

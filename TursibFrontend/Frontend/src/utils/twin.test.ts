@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import type { TwinRunResult, TwinSample } from '@/types/twin'
-import { buildScenario, chartYMax, linePoints, runLabel, type TwinForm } from './twin'
+import type { TwinRunResult, TwinSample, TwinStrategySummary } from '@/types/twin'
+import { bestStrategy, buildCompareRequest, buildScenario, chartYMax, linePoints, reductionPercent, runLabel, type TwinForm } from './twin'
 
 const form = (extra: Partial<TwinForm> = {}): TwinForm => ({
   routeId: 9, busCount: 3, durationMinutes: 120, useLive: false,
@@ -48,8 +48,8 @@ describe('linePoints', () => {
 
 describe('chartYMax', () => {
   it('is at least 1 and rounds up to a tenth', () => {
-    expect(chartYMax([result([sample(0, 0.5)])])).toBe(1)
-    expect(chartYMax([result([sample(0, 1.23)])])).toBe(1.3)
+    expect(chartYMax([[sample(0, 0.5)]])).toBe(1)
+    expect(chartYMax([[sample(0, 1.23)]])).toBe(1.3)
   })
 })
 
@@ -57,5 +57,38 @@ describe('runLabel', () => {
   it('describes the scenario', () => {
     expect(runLabel(form(), result([]))).toBe('fără perturbare · 3 autobuze')
     expect(runLabel(form({ disturbance: true }), result([], { initialisedFrom: 'live' }))).toBe('4 min la min 10 · 3 autobuze · live')
+  })
+})
+
+describe('buildCompareRequest', () => {
+  it('reuses the scenario and asks for all strategies with several replications', () => {
+    expect(buildCompareRequest(form({ disturbance: true }))).toMatchObject({
+      routeId: 9, durationSeconds: 7200, strategies: ['none', 'headway', 'equalize'], replications: 5,
+      disturbances: [{ atSecond: 600, busIndex: 0, holdSeconds: 240 }]
+    })
+  })
+
+  it('is null when the form is invalid', () => {
+    expect(buildCompareRequest(form({ routeId: null }))).toBeNull()
+  })
+})
+
+describe('reductionPercent', () => {
+  it('computes the drop against the baseline', () => {
+    expect(reductionPercent(80, 20)).toBe(75)
+    expect(reductionPercent(0.4, 0.4)).toBe(0)
+    expect(reductionPercent(50, 75)).toBe(-50)
+    expect(reductionPercent(0, 10)).toBe(0)
+  })
+})
+
+describe('bestStrategy', () => {
+  const summary = (strategy: TwinStrategySummary['strategy'], meanCv: number, hold = 0): TwinStrategySummary => ({
+    strategy, bunchedPercent: 0, meanCv, minRatio: 1, bunchingEpisodes: 0, holdSecondsPerBusHour: hold, averageSpeedKmh: 18, series: []
+  })
+
+  it('picks the lowest irregularity, preferring the cheaper one on ties', () => {
+    expect(bestStrategy([summary('none', 0.9), summary('headway', 0.1, 50), summary('equalize', 0.1, 40)])!.strategy).toBe('equalize')
+    expect(bestStrategy([])).toBeNull()
   })
 })

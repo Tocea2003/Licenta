@@ -213,6 +213,8 @@ public class BunchingEndToEndTests : IClassFixture<BunchingEndToEndTests.Bunchin
             Assert.Equal("route_9_bus_1", alert.LeaderId);
             Assert.Equal("critical", alert.Severity);
             Assert.InRange(alert.GapMeters, 90, 110);
+            // recomandare de holding pentru urmăritor: pozitivă și în limita plafonului
+            Assert.InRange(alert.RecommendedHoldSeconds ?? 0, 1, new HoldOptions().MaxHoldSeconds);
 
             var rest = await _factory.CreateClient().GetFromJsonAsync<JsonElement>("/api/live/bunching");
             Assert.Equal(1, rest.GetProperty("active").GetArrayLength()); // o singură alertă activă

@@ -49,35 +49,20 @@
         </label>
       </div>
 
-      <button class="run" type="submit" :disabled="running || !scenario">
+      <button class="run" type="submit" :disabled="busy || !scenario">
         <Play :size="16" aria-hidden="true" /> {{ running ? t('twinRunning') : t('twinRun') }}
+      </button>
+      <button class="run run--secondary" type="button" :disabled="busy || !scenario" @click="compare">
+        <Scale :size="16" aria-hidden="true" /> {{ comparing ? t('twinRunning') : t('twinCompare') }}
       </button>
     </form>
 
     <p v-if="error" class="error" role="alert">{{ error }}</p>
 
     <div v-if="runs.length > 0" class="results">
-      <div class="chart-wrap">
-        <svg :viewBox="`0 0 ${W} ${H + 24}`" role="img" :aria-label="t('twinChartLabel')" class="chart">
-          <g transform="translate(0,8)">
-            <rect x="0" :y="thresholdY" :width="W" :height="H - thresholdY" class="zone" />
-            <line x1="0" :x2="W" :y1="thresholdY" :y2="thresholdY" class="threshold" />
-            <text x="4" :y="thresholdY - 4" class="axis-text">{{ t('twinThreshold') }} {{ BUNCHING_THRESHOLD }}</text>
-            <polyline
-              v-for="r in runs"
-              :key="r.id"
-              :points="linePoints(r.result.series, r.result.durationSeconds, W, H, yMax)"
-              :stroke="r.color"
-              fill="none"
-              stroke-width="2"
-              stroke-linejoin="round"
-            />
-            <line x1="0" :x2="W" :y1="H" :y2="H" class="axis" />
-            <text v-for="h in hourTicks" :key="h" :x="(h * 3600 / maxDuration) * W" :y="H + 14" class="axis-text" text-anchor="middle">{{ h }} h</text>
-          </g>
-        </svg>
-        <p class="chart-note">{{ t('twinChartNote') }}</p>
-      </div>
+      <TwinChart :lines="runLines" :label="t('twinChartLabel')" :threshold-label="t('twinThreshold')">
+        {{ t('twinChartNote') }}
+      </TwinChart>
 
       <table class="runs">
         <thead>
@@ -104,28 +89,61 @@
         </tbody>
       </table>
     </div>
+
+    <div v-if="comparison" class="results comparison">
+      <h4>{{ t('twinComparisonTitle') }}</h4>
+      <p v-if="verdict" class="verdict">{{ verdict }}</p>
+      <TwinChart :lines="comparisonLines" :label="t('twinChartLabel')" :threshold-label="t('twinThreshold')">
+        {{ t('twinChartNote') }}
+      </TwinChart>
+      <table class="runs">
+        <thead>
+          <tr>
+            <th scope="col">{{ t('twinStrategy') }}</th>
+            <th scope="col">{{ t('twinBunchedTime') }}</th>
+            <th scope="col">{{ t('twinCv') }}</th>
+            <th scope="col">{{ t('twinHoldCost') }}</th>
+            <th scope="col">{{ t('twinAvgSpeed') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="r in comparison.results" :key="r.strategy" :class="{ best: r.strategy === best?.strategy }">
+            <td><span class="swatch" :style="{ background: strategyColor(r.strategy) }"></span>{{ t(`twinStrategy_${r.strategy}`) }}</td>
+            <td>{{ r.bunchedPercent }}%</td>
+            <td>{{ r.meanCv }}</td>
+            <td>{{ r.holdSecondsPerBusHour }} s</td>
+            <td>{{ r.averageSpeedKmh }} km/h</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="chart-note">{{ t('twinComparisonNote', undefined, { n: comparison.replications }) }}</p>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { FlaskConical, Play, X } from 'lucide-vue-next'
+import { FlaskConical, Play, Scale, X } from 'lucide-vue-next'
+import TwinChart, { type ChartLine } from '@/components/TwinChart.vue'
 import { useLanguage } from '@/composables/useLanguage'
-import { buildScenario, BUNCHING_THRESHOLD, chartYMax, linePoints, MAX_BUSES, MIN_BUSES, runLabel, type TwinForm } from '@/utils/twin'
-import type { TwinRunEntry, TwinRunResult } from '@/types/twin'
+import { bestStrategy, buildCompareRequest, buildScenario, MAX_BUSES, MIN_BUSES, reductionPercent, runLabel, type TwinForm } from '@/utils/twin'
+import type { TwinComparison, TwinRunEntry, TwinRunResult, TwinStrategy } from '@/types/twin'
 
 const { t } = useLanguage()
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5022/api'
 const MAX_RUNS = 5
 const COLORS = ['#2563eb', '#c2410c', '#0f766e', '#7c3aed', '#be123c']
-const W = 600
-const H = 160
+const STRATEGY_COLORS: Record<TwinStrategy, string> = { none: '#be123c', headway: '#2563eb', equalize: '#0f766e' }
+const strategyColor = (s: TwinStrategy) => STRATEGY_COLORS[s]
 
 interface RouteOption { id: number; routeNumber: string; name: string }
 
 const routes = ref<RouteOption[]>([])
 const runs = ref<TwinRunEntry[]>([])
 const running = ref(false)
+const comparing = ref(false)
+const comparison = ref<TwinComparison | null>(null)
+const busy = computed(() => running.value || comparing.value)
 const error = ref('')
 let nextId = 1
 
@@ -141,10 +159,24 @@ const form = reactive<TwinForm>({
 })
 
 const scenario = computed(() => buildScenario(form))
-const yMax = computed(() => chartYMax(runs.value.map(r => r.result)))
-const thresholdY = computed(() => H - (BUNCHING_THRESHOLD / yMax.value) * H)
-const maxDuration = computed(() => Math.max(...runs.value.map(r => r.result.durationSeconds), 3600))
-const hourTicks = computed(() => Array.from({ length: Math.floor(maxDuration.value / 3600) + 1 }, (_, i) => i))
+const runLines = computed<ChartLine[]>(() =>
+  runs.value.map(r => ({ id: r.id, color: r.color, series: r.result.series, durationSeconds: r.result.durationSeconds })))
+const comparisonLines = computed<ChartLine[]>(() =>
+  (comparison.value?.results ?? []).map(r => ({
+    id: r.strategy, color: strategyColor(r.strategy), series: r.series, durationSeconds: comparison.value!.durationSeconds
+  })))
+const best = computed(() => bestStrategy(comparison.value?.results ?? []))
+/** Concluzia în cuvinte: cât scade neuniformitatea cu cea mai bună strategie față de fără control, și cu ce cost. */
+const verdict = computed(() => {
+  const none = comparison.value?.results.find(r => r.strategy === 'none')
+  const top = best.value
+  if (!none || !top || top.strategy === 'none') return ''
+  return t('twinVerdict', undefined, {
+    strategy: t(`twinStrategy_${top.strategy}`),
+    drop: reductionPercent(none.meanCv, top.meanCv),
+    hold: Math.round(top.holdSecondsPerBusHour)
+  })
+})
 
 onMounted(async () => {
   try {
@@ -183,6 +215,30 @@ async function run() {
   }
 }
 
+async function compare() {
+  const body = buildCompareRequest(form)
+  if (!body) return
+  comparing.value = true
+  error.value = ''
+  try {
+    const res = await fetch(`${API_BASE_URL}/twin/compare`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    if (!res.ok) {
+      const problem = await res.json().catch(() => null)
+      error.value = problem?.message ?? t('twinRunError')
+      return
+    }
+    comparison.value = (await res.json()) as TwinComparison
+  } catch {
+    error.value = t('twinRunError')
+  } finally {
+    comparing.value = false
+  }
+}
+
 function remove(id: number) {
   runs.value = runs.value.filter(r => r.id !== id)
 }
@@ -213,14 +269,13 @@ function remove(id: number) {
   background: var(--accent-primary); color: #fff;
 }
 .run:disabled { opacity: 0.5; cursor: not-allowed; }
+.run--secondary { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-primary); }
+.comparison h4 { margin: 0; font-size: 15px; color: var(--text-primary); }
+.verdict { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.runs tr.best td { background: var(--live-soft); }
 .error { margin: 12px 0 0; font-size: 13px; color: var(--color-danger); }
 
 .results { margin-top: 20px; display: grid; gap: 16px; }
-.chart { width: 100%; height: auto; display: block; }
-.zone { fill: var(--color-danger-soft); }
-.threshold { stroke: var(--color-danger); stroke-width: 1; stroke-dasharray: 4 3; }
-.axis { stroke: var(--border-primary); stroke-width: 1; }
-.axis-text { font-size: 10px; fill: var(--text-secondary); }
 .chart-note { margin: 4px 0 0; font-size: 12px; color: var(--text-secondary); }
 
 .runs { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }

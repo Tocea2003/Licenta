@@ -19,6 +19,9 @@ namespace BusSimulator
         // Firebase rămâne activ implicit (rezervă pentru frontend); FIREBASE_ENABLED=false îl oprește.
         public static readonly bool FirebaseEnabled =
             !string.Equals(Environment.GetEnvironmentVariable("FIREBASE_ENABLED"), "false", StringComparison.OrdinalIgnoreCase);
+        // APPLY_HOLDS=true: simulatorul aplică recomandările de holding ale backend-ului (control în buclă închisă).
+        public static readonly bool ApplyHolds =
+            string.Equals(Environment.GetEnvironmentVariable("APPLY_HOLDS"), "true", StringComparison.OrdinalIgnoreCase);
         private const int BusesPerRoute = 3;
 
         static async Task Main(string[] args)
@@ -77,6 +80,9 @@ namespace BusSimulator
             Console.WriteLine("📡 Moving all buses simultaneously every 1 second...");
             Console.WriteLine("Press Ctrl+C to stop.\n");
 
+            if (ApplyHolds)
+                Console.WriteLine("⏸️ APPLY_HOLDS activ: aplic recomandările de holding ale backend-ului.");
+
             // Central loop: move ALL buses at once, then send ALL updates
             int tick = 0;
             while (true)
@@ -96,6 +102,8 @@ namespace BusSimulator
                 await Task.WhenAll(updates);
 
                 tick++;
+                if (ApplyHolds && tick % 10 == 0)
+                    _ = HoldCoordinator.RefreshAsync(httpClient, readyBuses);
                 if (tick % 30 == 0)
                     Console.WriteLine($"📡 Tick {tick}: {readyBuses.Count} buses updated");
 
@@ -220,6 +228,12 @@ namespace BusSimulator
 
         public bool IsReady => routePoints.Count > 0;
 
+        /// <summary>Id-ul din Firebase / ingest: route_{routeId}_bus_{index}</summary>
+        public string Key => $"route_{route.Id}_bus_{busIndex}";
+
+        /// <summary>Holding cerut de controlul de bunching; se adaugă la următoarea oprire într-o stație.</summary>
+        public double PendingHoldSeconds { get; set; }
+
         public BusSimulator(int busId, RouteInfo route, int busIndex, int totalBuses,
             FirebaseClient firebase, HttpClient httpClient)
         {
@@ -267,7 +281,15 @@ namespace BusSimulator
             {
                 UpdateOccupancy(nearestStation);
                 isDwelling = true;
-                dwellEndTime = DateTime.Now.AddMilliseconds(CalculateDwellTime());
+                var dwellMs = CalculateDwellTime();
+                var hold = PendingHoldSeconds;
+                if (hold > 0)
+                {
+                    dwellMs += (int)(hold * 1000);
+                    PendingHoldSeconds = 0;
+                    Console.WriteLine($"⏸️ {Key}: holding {hold:F0}s la stație (control bunching)");
+                }
+                dwellEndTime = DateTime.Now.AddMilliseconds(dwellMs);
                 status = "at_station";
             }
             else if (distToNearest < 80)
@@ -647,6 +669,52 @@ namespace BusSimulator
                     Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
             return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
         }
+    }
+
+    /// <summary>Citește alertele de bunching active și transmite fiecărui autobuz holding-ul recomandat (0 dacă nu mai e alertă).</summary>
+    static class HoldCoordinator
+    {
+        private static int refreshing;
+
+        public static async Task RefreshAsync(HttpClient httpClient, List<BusSimulator> buses)
+        {
+            if (Interlocked.Exchange(ref refreshing, 1) == 1) return; // un singur apel în același timp
+            try
+            {
+                var json = await httpClient.GetStringAsync($"{Program.ApiUrl}/live/bunching");
+                var recommended = new Dictionary<string, double>();
+                var active = JsonConvert.DeserializeObject<BunchingResponse>(json)?.Active ?? new List<BunchingAlert>();
+                foreach (var alert in active)
+                    if (alert.RecommendedHoldSeconds is > 0)
+                        recommended[alert.FollowerId] = alert.RecommendedHoldSeconds.Value;
+
+                foreach (var bus in buses)
+                    bus.PendingHoldSeconds = recommended.TryGetValue(bus.Key, out var seconds) ? seconds : 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ Nu pot citi recomandările de holding: {ex.Message}");
+            }
+            finally
+            {
+                Interlocked.Exchange(ref refreshing, 0);
+            }
+        }
+    }
+
+    class BunchingResponse
+    {
+        [JsonProperty("active")]
+        public List<BunchingAlert> Active { get; set; } = new List<BunchingAlert>();
+    }
+
+    class BunchingAlert
+    {
+        [JsonProperty("followerId")]
+        public string FollowerId { get; set; } = string.Empty;
+
+        [JsonProperty("recommendedHoldSeconds")]
+        public double? RecommendedHoldSeconds { get; set; }
     }
 
     class Station

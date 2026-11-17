@@ -25,6 +25,10 @@
             {{ t('bunchingGap') }} {{ formatGap(a.gapMeters) }} / {{ formatGap(a.idealGapMeters) }}
             <template v-if="a.headwaySeconds != null"> · ≈ {{ formatDuration(a.headwaySeconds) }}</template>
           </span>
+          <span v-if="a.recommendedHoldSeconds" class="recommend">
+            <Hand :size="13" aria-hidden="true" />
+            {{ t('bunchingRecommend', undefined, { bus: a.followerId, seconds: Math.round(a.recommendedHoldSeconds) }) }}
+          </span>
         </div>
         <span class="badge">{{ t(a.severity === 'critical' ? 'bunchingCritical' : 'bunchingWarning') }}</span>
         <span class="since">{{ formatDuration(alertDurationSeconds(a, nowSeconds)) }}</span>
@@ -46,7 +50,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { CircleCheck, TriangleAlert } from 'lucide-vue-next'
+import { CircleCheck, Hand, TriangleAlert } from 'lucide-vue-next'
 import { useLiveBusesStore } from '@/stores/liveBuses'
 import { useLanguage } from '@/composables/useLanguage'
 import { alertDurationSeconds, formatDuration, formatGap, parseBunchingList, sortAlerts } from '@/utils/bunching'
@@ -123,6 +127,7 @@ onUnmounted(() => {
 }
 .alert--critical .badge { color: var(--color-danger); border: 1px solid var(--color-danger); }
 .alert--warning .badge { color: var(--live-ink); border: 1px solid var(--live-ink); }
+.recommend { display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 12px; font-weight: 600; color: var(--text-primary); }
 .since { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 
 .recent { margin-top: 16px; font-size: 13px; color: var(--text-secondary); }
