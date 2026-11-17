@@ -38,6 +38,10 @@ public class KafkaPositionConsumer : BackgroundService
     private readonly KafkaOptions _options;
     private readonly LiveIngestService _ingest;
     private readonly ILogger<KafkaPositionConsumer> _logger;
+    private long _lastMessageUnix;
+
+    /// <summary>Când a sosit ultimul mesaj de pe Kafka (secunde Unix), null dacă niciunul.</summary>
+    public long? LastMessageAt => Interlocked.Read(ref _lastMessageUnix) is var t && t > 0 ? t : null;
 
     public KafkaPositionConsumer(KafkaOptions options, LiveIngestService ingest, ILogger<KafkaPositionConsumer> logger)
     {
@@ -92,6 +96,7 @@ public class KafkaPositionConsumer : BackgroundService
                     if (result?.Message == null) break;
 
                     any = true;
+                    Interlocked.Exchange(ref _lastMessageUnix, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
                     if (KafkaMessageParser.TryParse(result.Message.Value, out var position)) batch.Add(position!);
                     else _logger.LogDebug("Mesaj Kafka ignorat (JSON invalid) la {Offset}", result.TopicPartitionOffset);
                 }

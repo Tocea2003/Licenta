@@ -52,6 +52,12 @@ public class TripMatcherTests
 
     private static (TripMatcher matcher, FakeTimeProvider clock) Create(bool seed = true, int maxDeviation = 1800)
     {
+        var (matcher, clock, _) = CreateWithServices(seed, maxDeviation);
+        return (matcher, clock);
+    }
+
+    private static (TripMatcher matcher, FakeTimeProvider clock, ServiceProvider services) CreateWithServices(bool seed = true, int maxDeviation = 1800)
+    {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddMemoryCache();
@@ -67,7 +73,40 @@ public class TripMatcherTests
         }
         var clock = new FakeTimeProvider(Wednesday0821);
         return (new TripMatcher(sp.GetRequiredService<IServiceScopeFactory>(), new TripMatchOptions { MaxDeviationSeconds = maxDeviation },
-            NullLogger<TripMatcher>.Instance, clock), clock);
+            NullLogger<TripMatcher>.Instance, clock), clock, sp);
+    }
+
+    [Fact]
+    public async Task AScheduleImportedWhileRunning_IsPickedUpWithinAMinute()
+    {
+        var (matcher, clock, sp) = CreateWithServices(seed: false);
+        Assert.Empty(await matcher.AssignAsync(new[] { Bus("route_5_bus_0") }, clock.GetUtcNow(), default));
+
+        using (var scope = sp.CreateScope()) ScheduleSeed.Add(scope.ServiceProvider.GetRequiredService<ApplicationDbContext>());   // importul GTFS
+
+        Assert.Empty(await matcher.AssignAsync(new[] { Bus("route_5_bus_0") }, clock.GetUtcNow(), default));   // încă din cache
+        clock.Advance(TimeSpan.FromSeconds(61));
+        Assert.Equal("T2", (await matcher.AssignAsync(new[] { Bus("route_5_bus_0") }, clock.GetUtcNow(), default))["route_5_bus_0"].TripId);
+    }
+
+    [Fact]
+    public async Task AReimportedSchedule_ReplacesTheCachedOneWithinAnHour()
+    {
+        var (matcher, clock, sp) = CreateWithServices();
+        Assert.Equal(5, (await matcher.ScheduleSummaryAsync(clock.GetUtcNow(), default)).Trips);
+
+        using (var scope = sp.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            db.StopTimes.RemoveRange(db.StopTimes.Where(st => st.TripId == "T3"));
+            db.Trips.RemoveRange(db.Trips.Where(t => t.TripId == "T3"));
+            db.SaveChanges();
+        }
+
+        clock.Advance(TimeSpan.FromMinutes(30));
+        Assert.Equal(5, (await matcher.ScheduleSummaryAsync(clock.GetUtcNow(), default)).Trips);   // încă din cache
+        clock.Advance(TimeSpan.FromMinutes(31));
+        Assert.Equal(4, (await matcher.ScheduleSummaryAsync(clock.GetUtcNow(), default)).Trips);
     }
 
     private static BusPosition Bus(string id, int route = 5, int? direction = 0, int? nextStop = 102) => new()
@@ -250,6 +289,27 @@ public class GtfsRealtimeTripEndpointTests : IClassFixture<GtfsRealtimeTripEndpo
     }
 
     [Fact]
+    public async Task StatusReportsTodaysScheduleAndFreshPositions()
+    {
+        var ingest = _factory.CreateClient();
+        ingest.DefaultRequestHeaders.Add("X-Ingest-Key", "test-key");
+        await ingest.PostAsJsonAsync("/api/live/positions", new[]
+        {
+            new { id = "route_6_bus_0", routeId = 6, latitude = 45.79, longitude = 24.15, directionId = 0, timestamp = ScheduleFactory.Now.ToUnixTimeSeconds() }
+        });
+
+        var status = await _factory.CreateClient().GetFromJsonAsync<JsonElement>("/api/live/status");
+
+        var schedule = status.GetProperty("schedule");
+        Assert.Equal("2026-11-18", schedule.GetProperty("serviceDate").GetString());
+        Assert.True(schedule.GetProperty("hasCalendar").GetBoolean());
+        Assert.Equal(5, schedule.GetProperty("tripsToday").GetInt32());          // T1-T3, R1, S1 (W1 doar în weekend)
+        Assert.True(status.GetProperty("live").GetProperty("fresh").GetInt32() >= 1);
+        Assert.True(status.GetProperty("live").GetProperty("acceptedTotal").GetInt64() >= 1);
+        Assert.True(status.GetProperty("ingest").GetProperty("http").GetBoolean());
+    }
+
+    [Fact]
     public async Task TheFeedCarriesTheTripIdDeducedFromTheSchedule()
     {
         var ingest = _factory.CreateClient();
@@ -267,5 +327,27 @@ public class GtfsRealtimeTripEndpointTests : IClassFixture<GtfsRealtimeTripEndpo
         Assert.Equal("T2", trip.GetProperty("tripId").GetString());
         Assert.Equal("20261118", trip.GetProperty("startDate").GetString());
         Assert.Equal("SCHEDULED", trip.GetProperty("scheduleRelationship").GetString());
+    }
+}
+
+
+public class StatusEndpointTests : IClassFixture<AuthWebAppFactory>
+{
+    private readonly AuthWebAppFactory _factory;
+    public StatusEndpointTests(AuthWebAppFactory factory) => _factory = factory;
+
+    [Fact]
+    public async Task AMinimalInstallation_ReportsWhatIsMissing_WithoutSecrets()
+    {
+        var response = await _factory.CreateClient().GetAsync("/api/live/status");
+        var body = await response.Content.ReadAsStringAsync();
+        var status = JsonDocument.Parse(body).RootElement;
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(JsonValueKind.Null, status.GetProperty("ingest").GetProperty("embeddedMqtt").ValueKind);   // nu e configurat
+        Assert.Equal(JsonValueKind.Null, status.GetProperty("ingest").GetProperty("kafka").ValueKind);
+        Assert.False(status.GetProperty("history").GetProperty("enabled").GetBoolean());
+        Assert.False(status.GetProperty("schedule").GetProperty("hasCalendar").GetBoolean());              // fără GTFS importat
+        Assert.DoesNotContain("integration-test-key", body);
     }
 }

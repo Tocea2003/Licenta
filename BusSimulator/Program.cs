@@ -694,6 +694,10 @@ namespace BusSimulator
         private readonly MqttClientOptions options;
         private readonly MqttQualityOfServiceLevel qos;
         private DateTime lastAttempt = DateTime.MinValue;
+        // MQTT_PUBLISH_INTERVAL_SECONDS: cât de des raportează fiecare „dispozitiv”. Implicit la fiecare tick (0,5 s);
+        // pe un broker gratuit (cu trafic lunar limitat) 10 s, cum raportează de obicei dispozitivele AVL reale.
+        private readonly TimeSpan publishInterval;
+        private DateTime lastPublish = DateTime.MinValue;
 
         public MqttPublisher(string host)
         {
@@ -721,6 +725,10 @@ namespace BusSimulator
                 });
             }
             options = builder.Build();
+            publishInterval = TimeSpan.FromSeconds(
+                double.TryParse(Environment.GetEnvironmentVariable("MQTT_PUBLISH_INTERVAL_SECONDS"),
+                    System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var seconds)
+                    ? Math.Max(0, seconds) : 0);
             qos = Environment.GetEnvironmentVariable("MQTT_QOS") == "1"
                 ? MqttQualityOfServiceLevel.AtLeastOnce
                 : MqttQualityOfServiceLevel.AtMostOnce;
@@ -728,7 +736,9 @@ namespace BusSimulator
 
         public async Task PublishAsync(List<Dictionary<string, object>> payloads)
         {
+            if (DateTime.UtcNow - lastPublish < publishInterval) return;
             if (!client.IsConnected && !await TryConnect()) return;
+            lastPublish = DateTime.UtcNow;
 
             foreach (var payload in payloads)
             {

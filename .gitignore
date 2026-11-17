@@ -11,6 +11,8 @@
 !TursibMessaging/**
 !TursibIngestion/
 !TursibIngestion/**
+!docs/
+!docs/**
 !infra/
 !infra/**
 !TursibFrontend/
@@ -45,3 +47,8 @@
 
 # Old SQLite database (data now lives in Supabase/PostgreSQL); kept locally only
 **/TursibDb.db
+
+# SQLite (baza veche conține conturi reale de utilizatori; nu se urmărește în git)
+**/*.db
+**/*.db-shm
+**/*.db-wal

@@ -300,6 +300,18 @@ public class PositionHistoryEndpointTests : IClassFixture<PositionHistoryEndpoin
     private readonly HistoryFactory _factory;
     public PositionHistoryEndpointTests(HistoryFactory factory) => _factory = factory;
 
+    private HttpClient Admin(string role = "Admin") => TestTokens.Client(_factory, role);
+
+    [Theory]
+    [InlineData("/api/live/history?routeId=4")]
+    [InlineData("/api/live/history/bounds?routeId=4")]
+    public async Task History_IsOnlyForAdministrators(string url)
+    {
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().GetAsync(url)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Admin(role: "User").GetAsync(url)).StatusCode);
+        Assert.Contains((await Admin().GetAsync(url)).StatusCode, new[] { HttpStatusCode.OK, HttpStatusCode.NoContent });
+    }
+
     [Fact]
     public async Task IngestedPositions_AreSavedAndReplayableInOrder()
     {
@@ -316,7 +328,7 @@ public class PositionHistoryEndpointTests : IClassFixture<PositionHistoryEndpoin
         JsonElement rows = default;
         for (var attempt = 0; attempt < 50; attempt++)
         {
-            rows = await _factory.CreateClient().GetFromJsonAsync<JsonElement>("/api/live/history?routeId=4");
+            rows = await Admin().GetFromJsonAsync<JsonElement>("/api/live/history?routeId=4");
             if (rows.GetArrayLength() == 3) break;
             await Task.Delay(100);
         }
@@ -342,7 +354,7 @@ public class PositionHistoryEndpointTests : IClassFixture<PositionHistoryEndpoin
         JsonElement bounds = default;
         for (var attempt = 0; attempt < 50; attempt++)
         {
-            var response = await _factory.CreateClient().GetAsync("/api/live/history/bounds?routeId=14");
+            var response = await Admin().GetAsync("/api/live/history/bounds?routeId=14");
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 bounds = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -353,13 +365,13 @@ public class PositionHistoryEndpointTests : IClassFixture<PositionHistoryEndpoin
 
         Assert.Equal(t0, bounds.GetProperty("first").GetInt64());
         Assert.Equal(t0 + 20, bounds.GetProperty("last").GetInt64());
-        Assert.Equal(HttpStatusCode.NoContent, (await _factory.CreateClient().GetAsync("/api/live/history/bounds?routeId=987")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Admin().GetAsync("/api/live/history/bounds?routeId=987")).StatusCode);
     }
 
     [Fact]
     public async Task History_RequiresARouteOrVehicle_AndABoundedWindow()
     {
-        var client = _factory.CreateClient();
+        var client = Admin();
         Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/live/history")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest,
             (await client.GetAsync("/api/live/history?routeId=4&from=2026-01-01T00:00:00Z&to=2026-01-02T00:00:00Z")).StatusCode);
@@ -373,11 +385,13 @@ public class HistoryDisabledTests : IClassFixture<AuthWebAppFactory>
     private readonly AuthWebAppFactory _factory;
     public HistoryDisabledTests(AuthWebAppFactory factory) => _factory = factory;
 
+    private HttpClient Admin() => TestTokens.Client(_factory, "Admin");
+
     [Theory]
     [InlineData("/api/live/history?routeId=1")]
     [InlineData("/api/live/history/bounds?routeId=1")]
     public async Task History_Returns503_WhenNotEnabled(string url) =>
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await _factory.CreateClient().GetAsync(url)).StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await Admin().GetAsync(url)).StatusCode);
 }
 
 // ── GTFS-Realtime ──────────────────────────────────────────────────────────────────────────────────
@@ -597,5 +611,28 @@ public class BrokerSecurityOptionsTests
         Assert.Equal(SecurityProtocol.SaslSsl, options.SecurityProtocol);
         Assert.Equal(SaslMechanism.ScramSha256, options.SaslMechanism);
         Assert.Equal(("positions", "g"), (options.Topic, options.GroupId));
+    }
+}
+
+
+/// <summary>
+/// Token JWT valid pentru serverul de test. Îl semnăm cu cheia pe care o validează serverul (JWT_KEY), nu cu
+/// IConfiguration-ul din DI: fabrica de test reîncarcă appsettings.json după ce Program fixează Jwt:Key.
+/// </summary>
+public static class TestTokens
+{
+    public static string For(string role) =>
+        new JwtService(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Jwt:Key"] = Environment.GetEnvironmentVariable("JWT_KEY"),
+            ["Jwt:Issuer"] = "TursibBackend",
+            ["Jwt:Audience"] = "TursibAdminApp"
+        }).Build()).GenerateToken(new User { Id = 1, Username = "admin", Role = role });
+
+    public static HttpClient Client(Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> factory, string role)
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", For(role));
+        return client;
     }
 }

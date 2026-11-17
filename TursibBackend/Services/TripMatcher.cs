@@ -72,7 +72,10 @@ public sealed class TripScheduleIndex
 /// </summary>
 public class TripMatcher
 {
-    private static readonly TimeSpan MissingIndexRetry = TimeSpan.FromMinutes(5);
+    // Orarul se poate schimba fără repornire (import GTFS din CLI / workflow): unul lipsă se reîncearcă repede,
+    // unul găsit se reîncarcă periodic, nu doar la schimbarea zilei.
+    private static readonly TimeSpan MissingIndexRetry = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan IndexRefresh = TimeSpan.FromHours(1);
 
     private readonly IServiceScopeFactory _scopes;
     private readonly TripMatchOptions _options;
@@ -165,6 +168,14 @@ public class TripMatcher
         return result;
     }
 
+    /// <summary>Data de serviciu (ora României) și câte curse circulă în ea; null = fără orar pentru ziua aceea.</summary>
+    public async Task<(DateOnly ServiceDate, int? Trips)> ScheduleSummaryAsync(DateTimeOffset now, CancellationToken ct)
+    {
+        var date = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, _zone).DateTime);
+        var index = await GetIndexAsync(date, ct);
+        return (date, index?.TripCount);
+    }
+
     private static int? StopIndexAtOrAfter(TripScheduleIndex.Entry trip, int stop, int from)
     {
         for (var i = Math.Max(0, from); i < trip.StopIds.Length; i++)
@@ -175,13 +186,12 @@ public class TripMatcher
     private async Task<TripScheduleIndex?> GetIndexAsync(DateOnly date, CancellationToken ct)
     {
         var now = _time.GetUtcNow();
-        if (_cache is { } c && c.Date == date && (c.Index != null || now - c.BuiltAt < MissingIndexRetry)) return c.Index;
+        if (IsFresh(_cache, date, now)) return _cache!.Value.Index;
 
         await _buildLock.WaitAsync(ct);
         try
         {
-            if (_cache is { } again && again.Date == date && (again.Index != null || now - again.BuiltAt < MissingIndexRetry))
-                return again.Index;
+            if (IsFresh(_cache, date, now)) return _cache!.Value.Index;
 
             TripScheduleIndex? index = null;
             try { index = await BuildAsync(date, ct); }
@@ -194,6 +204,9 @@ public class TripMatcher
         }
         finally { _buildLock.Release(); }
     }
+
+    private static bool IsFresh((DateOnly Date, TripScheduleIndex? Index, DateTimeOffset BuiltAt)? cache, DateOnly date, DateTimeOffset now) =>
+        cache is { } c && c.Date == date && now - c.BuiltAt < (c.Index == null ? MissingIndexRetry : IndexRefresh);
 
     private async Task<TripScheduleIndex?> BuildAsync(DateOnly date, CancellationToken ct)
     {

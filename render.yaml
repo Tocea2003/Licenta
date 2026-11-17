@@ -38,6 +38,13 @@ services:
         sync: false
       - key: Mqtt__Password
         sync: false
+      # Istoric pentru replay, dimensionat pentru planul gratuit Supabase (~60 de autobuze la 30 s, păstrat 2 zile ≈ 350 k rânduri)
+      - key: History__Enabled
+        value: "true"
+      - key: History__SampleSeconds
+        value: "30"
+      - key: History__RetentionDays
+        value: "2"
     healthCheckPath: /api/routes
 
   - type: web
@@ -65,6 +72,9 @@ services:
         sync: false
       - key: MQTT_PASSWORD
         sync: false
+      # un mesaj la 10 s per autobuz ține traficul în limita unui broker gratuit (vezi docs/DEPLOYMENT.md)
+      - key: MQTT_PUBLISH_INTERVAL_SECONDS
+        value: "10"
       # true = simulatorul aplică recomandările de holding ale backend-ului (control bunching în buclă închisă)
       - key: APPLY_HOLDS
         value: "false"

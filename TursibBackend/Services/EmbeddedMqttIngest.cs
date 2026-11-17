@@ -17,6 +17,9 @@ public class EmbeddedMqttIngest : BackgroundService
     private readonly TimeProvider _time;
     private readonly ConcurrentQueue<BusPosition> _pending = new();
     private long _received, _rejected;
+    private MqttSubscriber? _subscriber;
+
+    public bool Connected => _subscriber?.IsConnected ?? false;
 
     public EmbeddedMqttIngest(MqttOptions options, LiveIngestService ingest, ILogger<EmbeddedMqttIngest> logger, TimeProvider? time = null)
     {
@@ -62,7 +65,7 @@ public class EmbeddedMqttIngest : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var subscriber = new MqttSubscriber(_options,
+        var subscriber = _subscriber = new MqttSubscriber(_options,
             (topic, payload, _) => { Handle(topic, payload.Span); return Task.CompletedTask; },
             _logger, "tursib-backend");
         await subscriber.StartAsync(stoppingToken);

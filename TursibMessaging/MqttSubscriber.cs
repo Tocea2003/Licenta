@@ -72,6 +72,10 @@ public class MqttSubscriber : BackgroundService
     private readonly MqttMessageHandler _handler;
     private readonly ILogger _logger;
     private readonly string _clientIdPrefix;
+    private IMqttClient? _client;
+
+    /// <summary>Dacă suntem conectați acum la broker (pentru pagina de stare).</summary>
+    public bool IsConnected => _client?.IsConnected ?? false;
 
     public MqttSubscriber(MqttOptions options, MqttMessageHandler handler, ILogger logger, string clientIdPrefix = "tursib")
     {
@@ -85,6 +89,7 @@ public class MqttSubscriber : BackgroundService
     {
         var factory = new MqttFactory();
         using var client = factory.CreateMqttClient();
+        _client = client;
 
         client.ApplicationMessageReceivedAsync += e =>
             _handler(e.ApplicationMessage.Topic, e.ApplicationMessage.PayloadSegment.ToArray(), stoppingToken);
@@ -117,5 +122,6 @@ public class MqttSubscriber : BackgroundService
         }
 
         if (client.IsConnected) await client.DisconnectAsync();
+        _client = null;
     }
 }

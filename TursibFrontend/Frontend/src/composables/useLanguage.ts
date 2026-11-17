@@ -613,6 +613,10 @@ const dictionary: Dictionary = {
     en: 'History is not enabled on the server (History:Enabled).'
   },
   replayLoadError: { ro: 'Nu am putut încărca istoricul.', en: 'Could not load the history.' },
+  replayUnauthorized: {
+    ro: 'Sesiunea de administrator a expirat. Autentifică-te din nou.',
+    en: 'Your admin session has expired. Please sign in again.'
+  },
   replaySummary: {
     ro: '{points} poziții de la {buses} autobuze, pe {span}.',
     en: '{points} positions from {buses} buses, over {span}.'
@@ -1144,6 +1148,7 @@ const germanOverrides: Record<string, string> = {
   replayEmpty: 'Für diese Linie gibt es im gewählten Zeitfenster keinen Verlauf.',
   replayDisabled: 'Der Verlauf ist auf dem Server nicht aktiviert (History:Enabled).',
   replayLoadError: 'Der Verlauf konnte nicht geladen werden.',
+  replayUnauthorized: 'Die Admin-Sitzung ist abgelaufen. Bitte erneut anmelden.',
   replaySummary: '{points} Positionen von {buses} Bussen, über {span}.',
   registeredTab: 'Registriert',
   addBus: 'Bus hinzufügen',

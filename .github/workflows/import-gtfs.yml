@@ -1,0 +1,70 @@
+name: Import GTFS into Supabase
+
+# Importă feed-ul GTFS oficial Tursib în baza de producție (Supabase).
+# Pregătire o singură dată: Settings → Secrets and variables → Actions → New repository secret
+#   SUPABASE_CONNECTION_STRING = conexiunea Npgsql prin *Session pooler* (IPv4; runner-ele GitHub nu au IPv6), ex.
+#   Host=aws-0-eu-central-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<ref>;Password=...;SSL Mode=Require
+# Pornire: Actions → Import GTFS into Supabase → Run workflow (bifează „dry_run” ca să verifici doar feed-ul).
+# Opțional, import lunar automat: variabila de repo GTFS_AUTO_IMPORT = true.
+
+on:
+  workflow_dispatch:
+    inputs:
+      feed_url:
+        description: URL, sau cale în repo, a feed-ului GTFS (.zip)
+        default: https://tursib.ro/trasee/gtfs
+        required: true
+      dry_run:
+        description: Doar verifică feed-ul, fără să scrie în baza de date
+        type: boolean
+        default: false
+  schedule:
+    - cron: "17 3 1 * *"   # în fiecare lună, pe 1, la 03:17 UTC (doar dacă GTFS_AUTO_IMPORT = true)
+
+permissions:
+  contents: read
+
+concurrency:
+  group: import-gtfs
+  cancel-in-progress: false
+
+jobs:
+  import:
+    if: github.event_name == 'workflow_dispatch' || vars.GTFS_AUTO_IMPORT == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FEED_URL: ${{ inputs.feed_url || 'https://tursib.ro/trasee/gtfs' }}
+      DRY_RUN: ${{ inputs.dry_run || false }}
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Build
+        run: dotnet build TursibBackend/TursibBackend.csproj -c Release
+
+      - name: Verify the feed (no database)
+        run: dotnet run --project TursibBackend -c Release --no-build --no-launch-profile -- import-gtfs --dry-run "$FEED_URL"
+
+      - name: Check the secret
+        if: env.DRY_RUN != 'true'
+        env:
+          CONNECTION: ${{ secrets.SUPABASE_CONNECTION_STRING }}
+        run: |
+          if [ -z "$CONNECTION" ]; then
+            echo "::error::Setează secretul SUPABASE_CONNECTION_STRING (vezi comentariul de la începutul workflow-ului)."
+            exit 1
+          fi
+
+      # Aplică întâi migrările care lipsesc (ca la pornirea backend-ului), apoi importă totul într-o singură tranzacție:
+      # dacă ceva eșuează, datele vechi rămân. Biletele, utilizatorii și favoritele nu sunt atinse.
+      - name: Import into Supabase
+        if: env.DRY_RUN != 'true'
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.SUPABASE_CONNECTION_STRING }}
+          JWT_KEY: import-only-not-used-for-signing-tokens-0123456789
+          ASPNETCORE_ENVIRONMENT: Production
+        run: dotnet run --project TursibBackend -c Release --no-build --no-launch-profile -- import-gtfs "$FEED_URL"

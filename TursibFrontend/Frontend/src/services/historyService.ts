@@ -4,18 +4,27 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5022/api'
 
 /** De ce nu avem istoric: backend-ul nu îl înregistrează, cererea e invalidă sau serverul nu răspunde. */
 export class HistoryError extends Error {
-  constructor(public readonly kind: 'disabled' | 'invalid' | 'network', message: string) {
+  constructor(public readonly kind: 'disabled' | 'invalid' | 'network' | 'unauthorized', message: string) {
     super(message)
     this.name = 'HistoryError'
   }
 }
 
+/** Istoricul e doar pentru administratori: trimitem tokenul sesiunii de admin. */
+function authHeaders(): HeadersInit {
+  const token = localStorage.getItem('admin_token') || localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 async function getJson(url: string): Promise<{ status: number; body: unknown }> {
   let response: Response
   try {
-    response = await fetch(url)
+    response = await fetch(url, { headers: authHeaders() })
   } catch {
     throw new HistoryError('network', 'Serverul nu răspunde')
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new HistoryError('unauthorized', 'Sesiunea de administrator a expirat')
   }
   if (response.status === 503) throw new HistoryError('disabled', 'Istoricul nu este activat pe server')
   if (response.status === 400) {

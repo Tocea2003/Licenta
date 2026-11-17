@@ -1,0 +1,32 @@
+name: Keep Render services awake
+
+# Serviciile gratuite Render adorm după ~15 min fără trafic HTTP, iar un backend sau simulator adormit oprește datele live.
+# Acest workflow le „ține treze” doar în orele de demo, ca să încapă în cele ~750 de ore gratuite pe lună ale workspace-ului
+# (2 servicii × ~12 h × ~22 zile lucrătoare ≈ 530 h).
+# Activare: Settings → Secrets and variables → Actions → Variables → KEEPALIVE_URLS, ex.
+#   https://<backend>.onrender.com/api/live/status https://<simulator>.onrender.com/
+# Recomandat în loc de asta: un monitor extern gratuit (UptimeRobot), mai punctual decât cron-ul GitHub
+# (vezi docs/DEPLOYMENT.md). Pe un repo privat, fiecare rulare consumă din minutele gratuite GitHub Actions.
+
+on:
+  schedule:
+    - cron: "*/14 6-17 * * 1-5"   # la 14 min, luni-vineri, 06:00-17:59 UTC (08-20 ora României iarna)
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    if: vars.KEEPALIVE_URLS != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping
+        env:
+          URLS: ${{ vars.KEEPALIVE_URLS }}
+        run: |
+          for url in $URLS; do
+            code=$(curl -s -o /dev/null -m 90 -w "%{http_code}" "$url" || echo "000")
+            echo "$code $url"
+            if [ "$code" -lt 200 ] || [ "$code" -ge 400 ]; then echo "::warning::$url a răspuns $code"; fi
+          done

@@ -38,7 +38,9 @@ app.use(VueFire, {
   modules: [VueFireDatabaseOptionsAPI()]
 })
 
-app.mount('#app')
+// Montăm după ce router-ul a rezolvat prima rută: altfel aplicația pornește pe „/”, harta principală începe să se
+// inițializeze și e demontată imediat pe paginile full-page (/admin, /login), cu „Map container not found”.
+router.isReady().then(() => app.mount('#app'))
 
 // Export database pentru a fi folosit în componente
 export { database }

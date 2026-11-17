@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -59,10 +60,12 @@ public class LiveController : ControllerBase
     }
 
     /// <summary>
-    /// Istoricul pozițiilor pentru replay, în ordine cronologică. Necesită <c>History:Enabled</c>.
+    /// Istoricul pozițiilor pentru replay, în ordine cronologică. Necesită <c>History:Enabled</c> și rol de administrator
+    /// (istoricul agregat spune mai mult decât poziția curentă și e costisitor de servit).
     /// Interval implicit: ultimele 10 minute; maximum 6 ore și 20 000 de poziții per cerere.
     /// </summary>
     [HttpGet("history")]
+    [Authorize(Roles = "Admin")]
     [EnableRateLimiting("general")]
     public async Task<IActionResult> GetHistory(
         [FromQuery] int? routeId, [FromQuery] string? vehicleId,
@@ -94,6 +97,7 @@ public class LiveController : ControllerBase
 
     /// <summary>Intervalul pentru care există istoric (ca interfața de replay să propună o fereastră cu date).</summary>
     [HttpGet("history/bounds")]
+    [Authorize(Roles = "Admin")]
     [EnableRateLimiting("general")]
     public async Task<IActionResult> GetHistoryBounds([FromQuery] int? routeId, CancellationToken ct = default)
     {

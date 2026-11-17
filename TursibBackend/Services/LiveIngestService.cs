@@ -9,6 +9,13 @@ public class LiveIngestService
 {
     private readonly LiveBusState _state;
     private readonly LiveEventBus _bus;
+    private long _accepted;
+    private long _lastIngestUnix;
+
+    /// <summary>Câte poziții au fost acceptate de la pornire.</summary>
+    public long AcceptedTotal => Interlocked.Read(ref _accepted);
+    /// <summary>Când a sosit ultima poziție acceptată (secunde Unix), null dacă niciuna.</summary>
+    public long? LastIngestAt => Interlocked.Read(ref _lastIngestUnix) is var t && t > 0 ? t : null;
 
     public LiveIngestService(LiveBusState state, LiveEventBus bus)
     {
@@ -20,6 +27,11 @@ public class LiveIngestService
     public IReadOnlyList<BusPosition> Ingest(IEnumerable<BusPosition> batch)
     {
         var accepted = _state.Apply(batch);
+        if (accepted.Count > 0)
+        {
+            Interlocked.Add(ref _accepted, accepted.Count);
+            Interlocked.Exchange(ref _lastIngestUnix, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        }
         _bus.Publish(accepted);
         return accepted;
     }

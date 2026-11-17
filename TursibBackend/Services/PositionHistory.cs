@@ -80,6 +80,11 @@ public class PositionHistoryWriter : BackgroundService
     private readonly ILogger<PositionHistoryWriter> _logger;
     private DateTime _lastPurge = DateTime.MinValue;
 
+    /// <summary>Ultima scriere reușită (secunde Unix) și ultima eroare, pentru pagina de stare.</summary>
+    public long? LastFlushAt { get; private set; }
+    public string? LastError { get; private set; }
+    public long Written { get; private set; }
+
     public PositionHistoryWriter(PositionHistoryBuffer buffer, HistoryOptions options, IServiceScopeFactory scopes,
         ILogger<PositionHistoryWriter> logger)
     {
@@ -112,7 +117,10 @@ public class PositionHistoryWriter : BackgroundService
             {
                 db.VehiclePositionHistory.AddRange(records);
                 await db.SaveChangesAsync(ct);
+                Written += records.Count;
             }
+            LastFlushAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            LastError = null;
             if (DateTime.UtcNow - _lastPurge > TimeSpan.FromHours(1))
             {
                 _lastPurge = DateTime.UtcNow;
@@ -122,6 +130,7 @@ public class PositionHistoryWriter : BackgroundService
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Nu am putut salva {Count} poziții în istoric; le reîncerc", records.Count);
+            LastError = ex.GetType().Name;
             _buffer.Requeue(records);
         }
     }

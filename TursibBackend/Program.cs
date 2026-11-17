@@ -6,6 +6,14 @@ using System.Threading.RateLimiting;
 using TursibBackend.Data;
 using TursibBackend.Services;
 
+// Verificarea unui feed GTFS fără bază de date, fără JWT_KEY, fără migrări:
+//   dotnet run -- import-gtfs --dry-run <folder | fișier.zip | URL>
+if (args.Length >= 3 && args[0] == "import-gtfs" && args[1] == "--dry-run")
+{
+    Environment.ExitCode = await GtfsCli.DryRunAsync(args[2]);
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // --- JWT Key: prefer environment variable over appsettings ---
@@ -56,14 +64,18 @@ var kafkaOptions = builder.Configuration.GetSection("Kafka").Get<KafkaOptions>()
 kafkaOptions.BootstrapServers ??= Environment.GetEnvironmentVariable("KAFKA_BOOTSTRAP_SERVERS");
 builder.Services.AddSingleton(kafkaOptions);
 if (!string.IsNullOrWhiteSpace(kafkaOptions.BootstrapServers))
-    builder.Services.AddHostedService<KafkaPositionConsumer>();
+{
+    builder.Services.AddSingleton<KafkaPositionConsumer>();
+    builder.Services.AddHostedService(sp => sp.GetRequiredService<KafkaPositionConsumer>());
+}
 
 // Ingestia MQTT integrată (fără worker/Kafka): doar cu Ingestion:EmbeddedMqtt=true și Mqtt:Host setat
 if (builder.Configuration.GetValue<bool>("Ingestion:EmbeddedMqtt") && !string.IsNullOrWhiteSpace(builder.Configuration["Mqtt:Host"]))
 {
     var mqttOptions = builder.Configuration.GetSection("Mqtt").Get<TursibMessaging.MqttOptions>() ?? new TursibMessaging.MqttOptions();
     builder.Services.AddSingleton(mqttOptions);
-    builder.Services.AddHostedService<EmbeddedMqttIngest>();
+    builder.Services.AddSingleton<EmbeddedMqttIngest>();
+    builder.Services.AddHostedService(sp => sp.GetRequiredService<EmbeddedMqttIngest>());
 }
 
 var historyOptions = builder.Configuration.GetSection("History").Get<HistoryOptions>() ?? new HistoryOptions();
@@ -72,7 +84,8 @@ if (historyOptions.Enabled)
 {
     builder.Services.AddSingleton<PositionHistoryBuffer>();
     builder.Services.AddSingleton<IBusPositionHandler, PositionHistoryHandler>();
-    builder.Services.AddHostedService<PositionHistoryWriter>();
+    builder.Services.AddSingleton<PositionHistoryWriter>();
+    builder.Services.AddHostedService(sp => sp.GetRequiredService<PositionHistoryWriter>());
 }
 
 // Stage 2: detecție bunching (pragurile se pot suprascrie din secțiunea „Bunching”)
@@ -189,7 +202,7 @@ using (var scope = app.Services.CreateScope())
 
     // Comenzi de întreținere din linia de comandă (rulează și se opresc):
     //   dotnet run -- copy-from-sqlite <cale TursibDb.db>
-    //   dotnet run -- import-gtfs <folder GTFS>
+    //   dotnet run -- import-gtfs <folder GTFS | fișier.zip | URL>   (ex. https://tursib.ro/trasee/gtfs)
     if (args.Length >= 2 && args[0] is "copy-from-sqlite" or "import-gtfs")
     {
         if (args[0] == "copy-from-sqlite")
@@ -199,7 +212,8 @@ using (var scope = app.Services.CreateScope())
         }
         else
         {
-            await new TursibBackend.GTFSImporter(db, args[1]).ImportAllAsync();
+            Environment.ExitCode = await GtfsCli.ImportAsync(db, args[1]);
+            if (Environment.ExitCode != 0) return;
         }
         Console.WriteLine("✅ Done.");
         return;
@@ -274,11 +288,16 @@ app.MapPost("/api/import-gtfs", async (ApplicationDbContext db, IConfiguration c
 {
     try
     {
+        // GTFS_PATH poate fi un folder, un .zip sau un URL (ex. https://tursib.ro/trasee/gtfs)
         var gtfsPath = Environment.GetEnvironmentVariable("GTFS_PATH")
             ?? config["GtfsPath"]
             ?? throw new InvalidOperationException("GTFS path not configured");
 
-        await new TursibBackend.GTFSImporter(db, gtfsPath).ImportAllAsync();
+        using var feed = await TursibBackend.GtfsFeedSource.ResolveAsync(gtfsPath);
+        var missing = feed.MissingFiles();
+        if (missing.Count > 0)
+            return Results.BadRequest(new { message = $"Feed incomplet, lipsesc: {string.Join(", ", missing)}" });
+        await new TursibBackend.GTFSImporter(db, feed.Folder).ImportAllAsync();
         return Results.Ok(new { message = "GTFS import completed successfully" });
     }
     catch (Exception ex)
@@ -333,3 +352,49 @@ if (app.Environment.IsDevelopment())
 app.Run();
 
 public partial class Program { }
+
+/// <summary>Comenzile CLI pentru feed-ul GTFS (verificare și import).</summary>
+public static class GtfsCli
+{
+    public static async Task<int> DryRunAsync(string source)
+    {
+        try
+        {
+            using var feed = await TursibBackend.GtfsFeedSource.ResolveAsync(source);
+            return Report(feed) ? 0 : 1;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException)
+        {
+            Console.Error.WriteLine($"❌ {ex.Message}");
+            return 1;
+        }
+    }
+
+    public static async Task<int> ImportAsync(ApplicationDbContext db, string source)
+    {
+        try
+        {
+            using var feed = await TursibBackend.GtfsFeedSource.ResolveAsync(source);
+            if (!Report(feed)) return 1;
+            await new TursibBackend.GTFSImporter(db, feed.Folder).ImportAllAsync();
+            return 0;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException)
+        {
+            Console.Error.WriteLine($"❌ {ex.Message}");
+            return 1;
+        }
+    }
+
+    /// <summary>Afișează conținutul feed-ului; false dacă lipsesc fișiere obligatorii.</summary>
+    private static bool Report(TursibBackend.GtfsFeedSource feed)
+    {
+        foreach (var (file, rows) in feed.RowCounts()) Console.WriteLine($"   {file,-20} {rows,8} rânduri");
+        if (!feed.RowCounts().ContainsKey("calendar.txt"))
+            Console.WriteLine("   ⚠️ fără calendar.txt: planificatorul și potrivirea curselor nu vor avea orar pe zile");
+        var missing = feed.MissingFiles();
+        if (missing.Count == 0) return true;
+        Console.Error.WriteLine($"❌ Feed incomplet, lipsesc: {string.Join(", ", missing)}");
+        return false;
+    }
+}

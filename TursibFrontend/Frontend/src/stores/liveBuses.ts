@@ -9,8 +9,11 @@ import { hubUrlFromApiUrl, mergePositions, parseBusLocations, parsePositionList 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5022/api'
 /** `signalr` | `firebase` | `auto` (implicit: SignalR, cu Firebase ca rezervă) */
 const LIVE_SOURCE = (import.meta.env.VITE_LIVE_SOURCE as string | undefined) ?? 'auto'
-/** dacă SignalR nu a livrat nimic de atâta timp, pornește Firebase ca rezervă */
-const STALE_AFTER_MS = 15_000
+/**
+ * Dacă SignalR nu a livrat nimic de atâta timp, pornește Firebase ca rezervă. Peste intervalul de raportare al
+ * dispozitivelor (în cloud simulatorul publică pe MQTT la 10 s; dispozitivele AVL reale la 10–30 s).
+ */
+const STALE_AFTER_MS = 35_000
 const WATCHDOG_MS = 5_000
 const RETRY_CONNECT_MS = 30_000
 

@@ -21,7 +21,7 @@ const ReplayMapStub = {
 }
 
 function mockApi(overrides: Record<string, () => unknown> = {}) {
-  const fetchMock = vi.fn((url: string) => {
+  const fetchMock = vi.fn((url: string, _init?: RequestInit) => {
     const path = Object.keys(overrides).find(k => url.includes(k))
     if (path) return Promise.resolve(overrides[path]!())
     if (url.endsWith('/Routes')) return Promise.resolve({ ok: true, status: 200, json: async () => [{ id: 5, routeNumber: '5', name: 'Test', color: '#2563eb' }] })
@@ -117,6 +117,17 @@ describe('AdminReplay', () => {
     mockApi({ '/live/history/bounds': () => ({ ok: false, status: 503, json: async () => ({}) }) })
     const wrapper = await mountAndLoad()
     expect(wrapper.find('[role="alert"]').text()).toContain('History:Enabled')
+  })
+
+  it('sends the admin token and explains an expired session', async () => {
+    localStorage.setItem('admin_token', 'abc')
+    const fetchMock = mockApi({ '/live/history/bounds': () => ({ ok: false, status: 401, json: async () => ({}) }) })
+    const wrapper = await mountAndLoad()
+
+    const call = fetchMock.mock.calls.find(([u]) => String(u).includes('/live/history/bounds'))!
+    expect((call[1] as RequestInit).headers).toEqual({ Authorization: 'Bearer abc' })
+    expect(wrapper.find('[role="alert"]').text()).toContain('Sesiunea de administrator a expirat')
+    localStorage.removeItem('admin_token')
   })
 
   it('reports a network failure', async () => {

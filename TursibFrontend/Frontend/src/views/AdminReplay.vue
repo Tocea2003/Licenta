@@ -136,7 +136,7 @@ const routes = ref<RouteOption[]>([])
 const routeId = ref<number | null>(null)
 const windowKey = ref<ReplayWindow>('latest')
 const status = ref<'idle' | 'loading' | 'ready' | 'empty' | 'error'>('idle')
-const errorKind = ref<'disabled' | 'invalid' | 'network'>('network')
+const errorKind = ref<'disabled' | 'invalid' | 'network' | 'unauthorized'>('network')
 const errorMessage = ref('')
 
 const tracks = ref<ReplayTrack[]>([])
@@ -159,7 +159,10 @@ const trails = computed<ReplayTrail[]>(() =>
     : tracks.value.map(tr => ({ id: tr.id, points: trailFor(tr, playhead.value, TRAIL_SECONDS) })).filter(tr => tr.points.length > 1))
 
 const errorText = computed(() =>
-  errorKind.value === 'disabled' ? t('replayDisabled') : errorKind.value === 'invalid' ? errorMessage.value : t('replayLoadError'))
+  errorKind.value === 'disabled' ? t('replayDisabled')
+    : errorKind.value === 'unauthorized' ? t('replayUnauthorized')
+    : errorKind.value === 'invalid' ? errorMessage.value
+    : t('replayLoadError'))
 
 onMounted(async () => {
   try {
