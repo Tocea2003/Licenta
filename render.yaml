@@ -22,6 +22,8 @@ services:
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         sync: false
+      - key: INGEST_API_KEY
+        sync: false
     healthCheckPath: /api/routes
 
   - type: web
@@ -35,3 +37,6 @@ services:
         value: https://aplicatie-web-pentru-urmarirea-in-timp.onrender.com/api
       - key: FIREBASE_URL
         value: https://licenta-ulbs-default-rtdb.europe-west1.firebasedatabase.app/
+      # aceeași valoare ca INGEST_API_KEY de pe backend; simulatorul publică pozițiile prin backend (SignalR)
+      - key: INGEST_API_KEY
+        sync: false

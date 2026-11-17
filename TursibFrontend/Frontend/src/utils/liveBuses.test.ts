@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { BusLocation } from '@/types/bus'
-import { parseBusLocations, selectVisibleBuses, computeStationEtas } from './liveBuses'
+import { parseBusLocations, selectVisibleBuses, computeStationEtas, hubUrlFromApiUrl, parsePositionList, mergePositions } from './liveBuses'
 
 const bus = (id: string, routeId: number, latitude: number, extra: Partial<BusLocation> = {}): BusLocation => ({
   id, routeId, latitude, longitude: 24.15, timestamp: 0, speed: 30, heading: 0, ...extra
@@ -78,5 +78,44 @@ describe('computeStationEtas', () => {
       bus('tooFar', 2, 45.75, { heading: 0 })
     ], options)
     expect(etas).toEqual([])
+  })
+})
+
+describe('hubUrlFromApiUrl', () => {
+  it('replaces the /api suffix with the hub path', () => {
+    expect(hubUrlFromApiUrl('http://localhost:5022/api')).toBe('http://localhost:5022/hubs/buses')
+    expect(hubUrlFromApiUrl('https://tursib.onrender.com/api/')).toBe('https://tursib.onrender.com/hubs/buses')
+    expect(hubUrlFromApiUrl('https://example.com')).toBe('https://example.com/hubs/buses')
+  })
+})
+
+describe('parsePositionList', () => {
+  it('parses backend positions and treats null as missing', () => {
+    const result = parsePositionList([
+      { id: 'route_3_bus_1', latitude: 45.8, longitude: 24.1, routeId: 3, speed: 12, heading: 10, timestamp: 5, occupancy: null, nextStationName: null },
+      { id: 'legacy_1', latitude: 45.8, longitude: 24.1, routeId: 3 },
+      { latitude: 45.8, longitude: 24.1 }
+    ])
+    expect(result).toHaveLength(1)
+    expect(result[0]!.occupancy).toBeUndefined()
+    expect(result[0]!.nextStationName).toBeUndefined()
+  })
+
+  it('returns [] for non-array input', () => {
+    expect(parsePositionList(null)).toEqual([])
+    expect(parsePositionList({})).toEqual([])
+  })
+})
+
+describe('mergePositions', () => {
+  it('updates existing buses, adds new ones and ignores stale updates', () => {
+    const current = [bus('a', 1, 45.0, { timestamp: 10 }), bus('b', 1, 45.1, { timestamp: 10 })]
+    const merged = mergePositions(current, [
+      bus('a', 1, 45.5, { timestamp: 11 }),
+      bus('b', 1, 99, { timestamp: 5 }),
+      bus('c', 2, 45.3, { timestamp: 1 })
+    ])
+    const byId = Object.fromEntries(merged.map(b => [b.id, b.latitude]))
+    expect(byId).toEqual({ a: 45.5, b: 45.1, c: 45.3 })
   })
 })

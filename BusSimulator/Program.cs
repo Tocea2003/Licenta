@@ -15,6 +15,10 @@ namespace BusSimulator
             ?? "https://licenta-ulbs-default-rtdb.europe-west1.firebasedatabase.app/";
         public static readonly string ApiUrl = Environment.GetEnvironmentVariable("TURSIB_API_URL")
             ?? "http://localhost:5022/api";
+        public static readonly string? IngestKey = Environment.GetEnvironmentVariable("INGEST_API_KEY");
+        // Firebase rămâne activ implicit (rezervă pentru frontend); FIREBASE_ENABLED=false îl oprește.
+        public static readonly bool FirebaseEnabled =
+            !string.Equals(Environment.GetEnvironmentVariable("FIREBASE_ENABLED"), "false", StringComparison.OrdinalIgnoreCase);
         private const int BusesPerRoute = 3;
 
         static async Task Main(string[] args)
@@ -78,11 +82,17 @@ namespace BusSimulator
             while (true)
             {
                 var updates = new List<Task>();
+                var payloads = new List<Dictionary<string, object>>();
                 foreach (var bus in readyBuses)
                 {
                     bus.Tick();
-                    updates.Add(bus.SendUpdate());
+                    payloads.Add(bus.BuildPayload());
+                    if (FirebaseEnabled)
+                        updates.Add(bus.SendUpdate());
                 }
+                // Un singur apel către backend per tick, cu toate pozițiile (SignalR le împrăștie clienților)
+                if (!string.IsNullOrWhiteSpace(IngestKey))
+                    updates.Add(PostToBackend(httpClient, payloads));
                 await Task.WhenAll(updates);
 
                 tick++;
@@ -91,6 +101,32 @@ namespace BusSimulator
 
                 await Task.Delay(500);
             }
+        }
+
+        private static DateTime lastIngestError = DateTime.MinValue;
+
+        static async Task PostToBackend(HttpClient httpClient, List<Dictionary<string, object>> payloads)
+        {
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"{ApiUrl}/live/positions")
+                {
+                    Content = new StringContent(JsonConvert.SerializeObject(payloads), System.Text.Encoding.UTF8, "application/json")
+                };
+                request.Headers.Add("X-Ingest-Key", IngestKey);
+                using var response = await httpClient.SendAsync(request);
+                if (!response.IsSuccessStatusCode && DateTime.UtcNow - lastIngestError > TimeSpan.FromSeconds(30))
+                {
+                    lastIngestError = DateTime.UtcNow;
+                    Console.WriteLine($"⚠️ Backend ingest a răspuns {(int)response.StatusCode}");
+                }
+            }
+            catch (Exception ex) when (DateTime.UtcNow - lastIngestError > TimeSpan.FromSeconds(30))
+            {
+                lastIngestError = DateTime.UtcNow;
+                Console.WriteLine($"⚠️ Backend ingest indisponibil: {ex.Message}");
+            }
+            catch (Exception) { /* alt eșec în fereastra de 30 s: deja raportat */ }
         }
 
         static Task StartHealthServer(string port)
@@ -247,65 +283,56 @@ namespace BusSimulator
             MoveToNextPoint();
         }
 
-        public async Task SendUpdate()
+        /// <summary>Starea curentă ca payload (aceleași câmpuri pentru Firebase și pentru ingest-ul backend).</summary>
+        public Dictionary<string, object> BuildPayload()
         {
             var location = GetCurrentLocation();
             var nextStation = GetNextStation();
-            var etaSeconds = nextStation != null ? CalculateEtaSeconds(nextStation, lastSpeed) : 0;
-            await SendLocationWithRetry(location, lastSpeed, nextStation, etaSeconds);
+            var payload = new Dictionary<string, object>
+            {
+                ["id"] = $"route_{route.Id}_bus_{busIndex}",
+                ["latitude"] = location.Latitude,
+                ["longitude"] = location.Longitude,
+                ["routeId"] = route.Id,
+                ["routeNumber"] = route.RouteNumber,
+                ["routeName"] = route.Name,
+                ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                ["speed"] = Math.Round(lastSpeed, 1),
+                ["heading"] = Math.Round(CalculateHeading(), 1),
+                ["occupancy"] = occupancy,
+                ["status"] = status,
+                ["directionId"] = isReturning ? 1 : 0,
+                ["busIndex"] = busIndex
+            };
+
+            if (nextStation != null)
+            {
+                payload["nextStationId"] = nextStation.Id;
+                payload["nextStationName"] = nextStation.Name;
+                payload["nextStationEta"] = CalculateEtaSeconds(nextStation, lastSpeed);
+            }
+            return payload;
         }
 
-        private async Task SendLocationWithRetry(
-            (double Latitude, double Longitude) location,
-            double speed = 0,
-            Station? nextStation = null,
-            int etaSeconds = 0,
-            int maxRetries = 3)
+        public async Task SendUpdate()
         {
-            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            var payload = BuildPayload();
+            for (int attempt = 1; attempt <= 3; attempt++)
             {
                 try
                 {
-                    var payload = new Dictionary<string, object>
-                    {
-                        ["latitude"] = location.Latitude,
-                        ["longitude"] = location.Longitude,
-                        ["routeId"] = route.Id,
-                        ["routeNumber"] = route.RouteNumber,
-                        ["routeName"] = route.Name,
-                        ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                        ["speed"] = Math.Round(speed, 1),
-                        ["heading"] = Math.Round(CalculateHeading(), 1),
-                        ["occupancy"] = occupancy,
-                        ["status"] = status,
-                        ["directionId"] = isReturning ? 1 : 0,
-                        ["busIndex"] = busIndex
-                    };
-
-                    if (nextStation != null)
-                    {
-                        payload["nextStationId"] = nextStation.Id;
-                        payload["nextStationName"] = nextStation.Name;
-                        payload["nextStationEta"] = etaSeconds;
-                    }
-
                     await firebase
                         .Child("bus_locations")
                         .Child($"route_{route.Id}_bus_{busIndex}")
                         .PutAsync(payload);
-
                     return;
                 }
                 catch (Exception ex)
                 {
-                    if (attempt == maxRetries)
-                    {
+                    if (attempt == 3)
                         Console.WriteLine($"❌ Bus {busId} Firebase error: {ex.Message}");
-                    }
                     else
-                    {
                         await Task.Delay(500 * attempt);
-                    }
                 }
             }
         }

@@ -32,6 +32,34 @@ export function parseBusLocations(raw: Record<string, unknown> | null | undefine
   return buses
 }
 
+/** Adresa hub-ului SignalR, derivată din adresa API-ului (`http://host/api` -> `http://host/hubs/buses`). */
+export function hubUrlFromApiUrl(apiUrl: string): string {
+  return `${apiUrl.replace(/\/+$/, '').replace(/\/api$/, '')}/hubs/buses`
+}
+
+/** Poziții primite de la backend (SignalR / GET /api/live/positions): aceleași câmpuri, dar cu `null` pentru lipsă. */
+export function parsePositionList(list: unknown): BusLocation[] {
+  if (!Array.isArray(list)) return []
+  const raw: Record<string, unknown> = {}
+  for (const item of list) {
+    if (item && typeof item === 'object' && typeof (item as { id?: unknown }).id === 'string') {
+      const clean = Object.fromEntries(Object.entries(item).filter(([, v]) => v !== null))
+      raw[(item as { id: string }).id] = clean
+    }
+  }
+  return parseBusLocations(raw)
+}
+
+/** Aplică un lot de poziții noi peste cele existente (după id); pozițiile mai vechi decât cele deja știute sunt ignorate. */
+export function mergePositions(current: BusLocation[], batch: BusLocation[]): BusLocation[] {
+  const byId = new Map(current.map(b => [b.id, b]))
+  for (const next of batch) {
+    const existing = byId.get(next.id)
+    if (!existing || (next.timestamp ?? 0) >= (existing.timestamp ?? 0)) byId.set(next.id, next)
+  }
+  return [...byId.values()]
+}
+
 export interface VisibleBusOptions {
   userLocation?: { lat: number; lon: number } | null
   selectedRouteId?: number | null

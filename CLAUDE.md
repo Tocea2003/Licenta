@@ -61,9 +61,13 @@ CI (`.github/workflows/ci.yml`) runs backend tests, the simulator build, fronten
 - The official feed is at https://tursib.ro/trasee/gtfs (redirects to the current `tursib.gtfs_*.zip`). Active services for a date = `calendar.txt` weekdays in range, minus `calendar_dates.txt` removals, plus additions (`RouteCalculatorService.GetActiveServiceIdsAsync`; in Development `GET /api/debug/services?date=yyyy-MM-dd` shows them). Production (Supabase) has no calendar yet, so it still falls back to estimates until the feed is imported there.
 - When importing locally, override `ConnectionStrings__DefaultConnection`: the Development user-secrets point at Supabase production.
 
-## Live bus data flow
+## Live bus data flow (event-driven, Stage 1)
 
-`BusSimulator` loads routes/stations/shapes from the API, moves `BusesPerRoute` buses per route (dwell at stops, peak-hour speeds in Romania local time) and `PUT`s each position every ~0.5 s to Firebase Realtime Database at `bus_locations/route_{routeId}_bus_{index}`. The frontend reads that node directly; the backend is not in this path. Entries not starting with `route_` are legacy and ignored.
+`BusSimulator` loads routes/stations/shapes from the API and moves `BusesPerRoute` buses per route (dwell at stops, peak-hour speeds in Romania local time). Every ~0.5 s it sends **one batch** with all positions to `POST /api/live/positions` (header `X-Ingest-Key` = `INGEST_API_KEY`, set on both backend and simulator; without it ingest returns 503, and the simulator skips the backend). It still writes `bus_locations/route_{routeId}_bus_{index}` to Firebase unless `FIREBASE_ENABLED=false`.
+
+Backend (`Services/LiveBusService.cs`, `Hubs/BusHub.cs`, `Controllers/LiveController.cs`): `LiveBusState` (singleton, last position per bus; validates, ignores older timestamps, `StaleBusCleaner` drops buses silent for 5 min) → `LiveEventBus` (bounded `Channel`) → `LiveEventDispatcher` calls every registered `IBusPositionHandler`. `HubBroadcastHandler` pushes batches to SignalR clients (`/hubs/buses`, event `positions`; `GetSnapshot()` returns everything on connect). **New consumers (bunching detector, digital twin) = a new `IBusPositionHandler` registered in `Program.cs`.** `GET /api/live/positions` returns the same snapshot over REST.
+
+Frontend `stores/liveBuses.ts` is the only reader (MapView, AdminBuses, AdminAnalytics): SignalR first, Firebase as automatic fallback while SignalR delivers nothing for 15 s (`VITE_LIVE_SOURCE=signalr|firebase|auto`, default `auto`). Never call Firebase `off()` on `bus_locations`; it removes every listener. Entries not starting with `route_` are legacy and ignored.
 
 ## Frontend architecture
 
@@ -71,7 +75,7 @@ CI (`.github/workflows/ci.yml`) runs backend tests, the simulator build, fronten
 - `MapView.vue` is very large and is being split up incrementally. Pure logic already extracted, with tests:
   - `utils/geo.ts` (haversine, bearing, nearest station, trimming a GTFS shape between two stops)
   - `services/osrmService.ts` (public OSRM for walking routes and road fallback) and `services/tripGeometry.ts` (bus segment = GTFS shape trimmed between stops, OSRM fallback)
-  - `utils/liveBuses.ts` (parse Firebase data, choose visible buses, station ETAs) and `stores/liveBuses.ts` (one shared, ref-counted Firebase subscription, intended to become the SignalR source later). MapView, AdminBuses and AdminAnalytics all read from it; never call Firebase `off()` on `bus_locations`, it removes every listener including the map's.
+  - `utils/liveBuses.ts` (parse Firebase data, choose visible buses, station ETAs) and `stores/liveBuses.ts` (one shared, ref-counted subscription: SignalR with Firebase fallback). MapView, AdminBuses and AdminAnalytics all read from it; never call Firebase `off()` on `bus_locations`, it removes every listener including the map's.
   - `services/valhallaService.ts` (walking directions: Valhalla pedestrian profile, localized instructions, straight-line fallback).
 - Live bus markers are **imperative Leaflet markers** in a layer group (not vue-leaflet components) so they can animate with a CSS transform transition; the icon is only rebuilt when its visual signature changes. Route casing (white outline) lives in a custom `casingPane` below the overlay pane, because vue-leaflet does not guarantee layer order.
 - Map tiles are OpenStreetMap muted with a CSS filter (`.map-tiles`, inverted in dark mode). CARTO basemaps now require an API key, so they are not used.

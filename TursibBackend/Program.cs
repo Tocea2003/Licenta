@@ -43,6 +43,14 @@ builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<RouteCalculatorService>();
 builder.Services.AddScoped<PaymentSimulatorService>();
 
+// Platforma live (event-driven): ingest -> stare în memorie + coadă de evenimente -> handler-e (SignalR, ...)
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<LiveBusState>();
+builder.Services.AddSingleton<LiveEventBus>();
+builder.Services.AddSingleton<IBusPositionHandler, HubBroadcastHandler>();
+builder.Services.AddHostedService<LiveEventDispatcher>();
+builder.Services.AddHostedService<StaleBusCleaner>();
+
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -219,6 +227,7 @@ app.UseAuthorization();
 
 // Mapează controllerele
 app.MapControllers();
+app.MapHub<TursibBackend.Hubs.BusHub>("/hubs/buses");
 
 // Endpoint pentru import GTFS
 app.MapPost("/api/import-gtfs", async (ApplicationDbContext db, IConfiguration config, ILogger<Program> logger) =>
