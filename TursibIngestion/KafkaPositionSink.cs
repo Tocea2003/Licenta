@@ -1,0 +1,81 @@
+using System.Text;
+using Confluent.Kafka;
+using Confluent.Kafka.Admin;
+
+namespace TursibIngestion;
+
+public class KafkaOptions
+{
+    public string BootstrapServers { get; set; } = "localhost:9092";
+    public string Topic { get; set; } = "vehicle-positions";
+    public string DeadLetterTopic { get; set; } = "vehicle-positions.dlq";
+    public int Partitions { get; set; } = 3;
+    /// <summary>Pozițiile live nu trebuie păstrate mult în Kafka: istoricul pentru replay e în PostgreSQL.</summary>
+    public long RetentionMs { get; set; } = 3_600_000;
+}
+
+/// <summary>Publică pe Kafka cu cheia = id-ul vehiculului, ca pozițiile aceluiași autobuz să rămână în ordine (aceeași partiție).</summary>
+public sealed class KafkaPositionSink : IPositionSink, IDisposable
+{
+    private readonly IProducer<string, string> _producer;
+    private readonly IProducer<string, byte[]> _dlqProducer;
+    private readonly KafkaOptions _options;
+
+    public KafkaPositionSink(KafkaOptions options)
+    {
+        _options = options;
+        var config = new ProducerConfig
+        {
+            BootstrapServers = options.BootstrapServers,
+            ClientId = "tursib-ingestion",
+            EnableIdempotence = true,       // fără dubluri la retrimiteri, ordine păstrată pe partiție
+            LingerMs = 20,                  // grupează mesajele apropiate în același lot
+            CompressionType = CompressionType.Lz4
+        };
+        _producer = new ProducerBuilder<string, string>(config).Build();
+        _dlqProducer = new ProducerBuilder<string, byte[]>(config).Build();
+    }
+
+    /// <summary>Creează topicurile dacă lipsesc (idempotent), ca mediul local să pornească fără pași manuali.</summary>
+    public async Task EnsureTopicsAsync(ILogger logger, CancellationToken ct)
+    {
+        using var admin = new AdminClientBuilder(new AdminClientConfig { BootstrapServers = _options.BootstrapServers }).Build();
+        var retention = new Dictionary<string, string> { ["retention.ms"] = _options.RetentionMs.ToString() };
+        try
+        {
+            await admin.CreateTopicsAsync(new[]
+            {
+                new TopicSpecification { Name = _options.Topic, NumPartitions = _options.Partitions, ReplicationFactor = 1, Configs = retention },
+                new TopicSpecification { Name = _options.DeadLetterTopic, NumPartitions = 1, ReplicationFactor = 1, Configs = retention }
+            });
+            logger.LogInformation("Topicuri create: {Topic}, {Dlq}", _options.Topic, _options.DeadLetterTopic);
+        }
+        catch (CreateTopicsException ex) when (ex.Results.All(r => r.Error.Code is ErrorCode.TopicAlreadyExists or ErrorCode.NoError))
+        {
+            logger.LogInformation("Topicurile există deja");
+        }
+    }
+
+    public async Task PublishAsync(string vehicleId, string json, CancellationToken ct) =>
+        await _producer.ProduceAsync(_options.Topic, new Message<string, string> { Key = vehicleId, Value = json }, ct);
+
+    public async Task PublishRejectedAsync(string topic, ReadOnlyMemory<byte> payload, RejectReason reason, CancellationToken ct) =>
+        await _dlqProducer.ProduceAsync(_options.DeadLetterTopic, new Message<string, byte[]>
+        {
+            Key = topic,
+            Value = payload.ToArray(),
+            Headers = new Headers
+            {
+                { "reason", Encoding.UTF8.GetBytes(reason.ToString()) },
+                { "mqtt-topic", Encoding.UTF8.GetBytes(topic) }
+            }
+        }, ct);
+
+    public void Dispose()
+    {
+        _producer.Flush(TimeSpan.FromSeconds(5));
+        _producer.Dispose();
+        _dlqProducer.Flush(TimeSpan.FromSeconds(5));
+        _dlqProducer.Dispose();
+    }
+}

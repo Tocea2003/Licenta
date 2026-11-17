@@ -47,7 +47,25 @@ builder.Services.AddScoped<PaymentSimulatorService>();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<LiveBusState>();
 builder.Services.AddSingleton<LiveEventBus>();
+builder.Services.AddSingleton<LiveIngestService>();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IBusPositionHandler, HubBroadcastHandler>();
+
+// Pipeline pe evenimente: Kafka (vehicle-positions) -> LiveIngestService; opțional istoric în PostgreSQL pentru replay
+var kafkaOptions = builder.Configuration.GetSection("Kafka").Get<KafkaOptions>() ?? new KafkaOptions();
+kafkaOptions.BootstrapServers ??= Environment.GetEnvironmentVariable("KAFKA_BOOTSTRAP_SERVERS");
+builder.Services.AddSingleton(kafkaOptions);
+if (!string.IsNullOrWhiteSpace(kafkaOptions.BootstrapServers))
+    builder.Services.AddHostedService<KafkaPositionConsumer>();
+
+var historyOptions = builder.Configuration.GetSection("History").Get<HistoryOptions>() ?? new HistoryOptions();
+builder.Services.AddSingleton(historyOptions);
+if (historyOptions.Enabled)
+{
+    builder.Services.AddSingleton<PositionHistoryBuffer>();
+    builder.Services.AddSingleton<IBusPositionHandler, PositionHistoryHandler>();
+    builder.Services.AddHostedService<PositionHistoryWriter>();
+}
 
 // Stage 2: detecție bunching (pragurile se pot suprascrie din secțiunea „Bunching”)
 builder.Services.AddSingleton(builder.Configuration.GetSection("Bunching").Get<BunchingOptions>() ?? new BunchingOptions());

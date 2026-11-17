@@ -17,6 +17,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.10" />
+    <PackageReference Include="Google.Protobuf" Version="3.29.2" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.0.10" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
@@ -26,6 +27,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TursibBackend\TursibBackend.csproj" />
+    <ProjectReference Include="..\TursibIngestion\TursibIngestion.csproj" />
   </ItemGroup>
 
 </Project>

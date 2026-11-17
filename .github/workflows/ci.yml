@@ -49,6 +49,29 @@ jobs:
           name: backend-test-results
           path: test-results
 
+  # Testele de integrare împotriva unor brokere reale (MQTT + Kafka); izolate într-un job separat.
+  event-infra:
+    name: Kafka + MQTT integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Start Mosquitto and Kafka
+        run: |
+          docker run -d --name mosquitto -p 1883:1883 eclipse-mosquitto:2 mosquitto -c /mosquitto-no-auth.conf
+          docker run -d --name kafka -p 9092:9092 apache/kafka:4.1.0
+          for i in $(seq 1 30); do
+            docker exec kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1 && break
+            sleep 2
+          done
+      - name: Integration tests
+        env:
+          TEST_KAFKA_BOOTSTRAP: localhost:9092
+          TEST_MQTT_HOST: localhost
+        run: dotnet test TursibBackend.Tests/TursibBackend.Tests.csproj -c Release --filter "FullyQualifiedName~IntegrationTests"
+
   simulator:
     name: Bus simulator (.NET)
     runs-on: ubuntu-latest
@@ -95,6 +118,8 @@ jobs:
         include:
           - name: backend
             context: TursibBackend
+          - name: ingestion
+            context: TursibIngestion
           - name: bus-simulator
             context: BusSimulator
           - name: frontend

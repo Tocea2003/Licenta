@@ -6,11 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TURSIB Tracker: real-time bus tracking and trip planning for Sibiu public transport, built on the real Tursib GTFS feed. Originally a bachelor thesis; now being extended as a master's "Advanced System Engineering" project (event-driven platform, digital twin, bus-bunching control). UI copy is Romanian first, with English and German translations.
 
-Three deployables plus tests:
+Four deployables plus tests:
 
 - `TursibBackend/` – ASP.NET Core 9 REST API (EF Core, JWT auth, GTFS import, routing).
 - `TursibFrontend/Frontend/` – Vue 3 + TypeScript + Vite PWA (Leaflet map, Pinia, Capacitor for Android/iOS).
-- `BusSimulator/` – .NET console app that simulates buses along GTFS shapes and writes positions to Firebase.
+- `BusSimulator/` – .NET console app that simulates buses along GTFS shapes and publishes their positions (MQTT, HTTP ingest and/or Firebase).
+- `TursibIngestion/` – .NET worker: MQTT → validation → Kafka topic `vehicle-positions` (self-contained, its own Dockerfile context).
 - `TursibBackend.Tests/` – xUnit tests for the backend.
 
 The root `.gitignore` is a **whitelist** (`*` then `!folder/**`). A new top-level file or folder is ignored until it is added there.
@@ -60,6 +61,26 @@ CI (`.github/workflows/ci.yml`) runs backend tests, the simulator build, fronten
 - Postgres integration tests (`PostgresIntegrationTests`) run only when `TEST_POSTGRES_CONNECTION` is set; CI provides a Postgres service.
 - The official feed is at https://tursib.ro/trasee/gtfs (redirects to the current `tursib.gtfs_*.zip`). Active services for a date = `calendar.txt` weekdays in range, minus `calendar_dates.txt` removals, plus additions (`RouteCalculatorService.GetActiveServiceIdsAsync`; in Development `GET /api/debug/services?date=yyyy-MM-dd` shows them). Production (Supabase) has no calendar yet, so it still falls back to estimates until the feed is imported there.
 - When importing locally, override `ConnectionStrings__DefaultConnection`: the Development user-secrets point at Supabase production.
+
+## Event-driven pipeline (MQTT → Kafka → backend)
+
+```
+BusSimulator (acts as in-bus devices) --MQTT tursib/vehicles/{id}/position--> Mosquitto
+  --> TursibIngestion (validate; invalid -> vehicle-positions.dlq with a `reason` header)
+  --> Kafka/Redpanda topic vehicle-positions (key = vehicle id, so one bus stays ordered)
+  --> TursibBackend KafkaPositionConsumer --> LiveIngestService --> LiveBusState + LiveEventBus
+        --> SignalR (map)   --> PositionHistory (PostgreSQL, replay)   --> GTFS-RT feed   --> bunching/twin
+```
+
+- **TursibIngestion** (`PositionParser`, `PositionIngestor`, `MqttSubscriber`, `KafkaPositionSink`): the vehicle id comes from the MQTT topic and a payload whose `id` differs is rejected (`IdMismatch`), so a device cannot spoof another bus. Also rejects oversized payloads (4 KB), bad JSON, non-`route_` ids, bad coordinates, timestamps > 5 min in the future. Creates the topics at startup (3 partitions, 1 h retention: live data only; replay history lives in PostgreSQL). Config via env: `Mqtt__Host`, `Mqtt__Port`, `Mqtt__Username/Password`, `Mqtt__SharedGroup` (shared subscription to run several instances), `Kafka__BootstrapServers`, `Kafka__Topic`, `Kafka__DeadLetterTopic`. Logs counters every 15 s.
+- **Contract**: `VehiclePositionMessage` (ingestion) and `BusPosition` (backend) are deliberately separate types so each Docker context stays self-contained; `PositionIngestorTests.WhatIngestionWrites_IsWhatTheBackendReads` guards against drift. Change both together.
+- **Backend consumer** (`Services/KafkaPositionConsumer.cs`): enabled only when `Kafka:BootstrapServers` (or `KAFKA_BOOTSTRAP_SERVERS`) is set. Batches up to 500 messages / 100 ms, commits the offset **after** `LiveIngestService.Ingest` (at-least-once; `LiveBusState` ignores older positions, so replays are harmless), `AutoOffsetReset=Latest`. `POST /api/live/positions` (HTTP ingest) goes through the same `LiveIngestService` and stays the simple path for the cloud deployment, where no MQTT/Kafka is provisioned.
+- **History** (`Services/PositionHistory.cs`, table `VehiclePositionHistory`, migration `AddVehiclePositionHistory`): off by default. `History:Enabled=true` registers `PositionHistoryHandler` (an `IBusPositionHandler`) which samples one position per bus every `History:SampleSeconds` (15) into a buffer; `PositionHistoryWriter` flushes it in batches every `History:FlushSeconds` and purges rows older than `History:RetentionDays` (3). Row volume matters on Supabase's free tier: ~60 buses at 15 s ≈ 350 k rows/day. `GET /api/live/history?routeId=|vehicleId=&from=&to=&limit=` returns them chronologically (max 6 h window, 20 000 rows; 503 when disabled).
+- **GTFS-Realtime** (`Protos/gtfs-realtime.proto` is the official subset with the official field numbers, compiled by Grpc.Tools; `GtfsRealtimeFeedBuilder`): `GET /api/gtfs-rt/vehicle-positions` (protobuf; `?format=json` for debugging). Vehicles silent for 2 min drop out. There is no `trip_id` (the simulator does not follow concrete trips), so entities use `schedule_relationship=UNSCHEDULED` with `route_id` + `direction_id`; speed is m/s, occupancy % maps to `OccupancyStatus`, `stop_id` is the next station id.
+
+Local run without Docker (what was used to verify the chain): Mosquitto (`listener 1883`, `allow_anonymous true`), Kafka/Redpanda on `localhost:9092`, then `Mqtt__Host=127.0.0.1 Kafka__BootstrapServers=localhost:9092 dotnet run --project TursibIngestion`, the backend with `Kafka__BootstrapServers=localhost:9092 History__Enabled=true`, and the simulator with `MQTT_HOST=127.0.0.1 FIREBASE_ENABLED=false`. `docker compose up` starts everything (`mosquitto`, `redpanda`, `ingestion`, backend, simulator). The simulator publishes QoS 0 by default (`MQTT_QOS=1` for at-least-once); `MQTT_PORT/USERNAME/PASSWORD` are supported. Mosquitto config and the production ACL sketch are in `infra/mosquitto/mosquitto.conf`.
+
+Integration tests against real brokers (`EventInfraIntegrationTests`: MQTT → ingestion code → Kafka + DLQ, and Kafka → backend consumer → snapshot + GTFS-RT) run only when `TEST_KAFKA_BOOTSTRAP` and `TEST_MQTT_HOST` are set (CI job `event-infra`). Everything else is covered with in-memory fakes.
 
 ## Live bus data flow (event-driven, Stage 1)
 

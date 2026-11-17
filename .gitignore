@@ -7,6 +7,10 @@
 !TursibBackend/**
 !TursibBackend.Tests/
 !TursibBackend.Tests/**
+!TursibIngestion/
+!TursibIngestion/**
+!infra/
+!infra/**
 !TursibFrontend/
 !TursibFrontend/**
 !.github/

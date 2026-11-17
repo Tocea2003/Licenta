@@ -25,6 +25,7 @@ namespace TursibBackend.Data
         public DbSet<Trip> Trips { get; set; }
         public DbSet<StopTime> StopTimes { get; set; }
         public DbSet<ShapePoint> ShapePoints { get; set; }
+        public DbSet<VehiclePositionRecord> VehiclePositionHistory { get; set; }
 
         // Aici configurăm relațiile (deși EF Core le-ar putea deduce singur,
         // e bine să fim expliciți pentru relația Many-to-Many)
@@ -94,6 +95,17 @@ namespace TursibBackend.Data
                 e.HasIndex(st => new { st.TripId, st.StopSequence });
                 e.HasIndex(st => st.StopId);
                 e.HasOne<Station>().WithMany().HasForeignKey(st => st.StopId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<VehiclePositionRecord>(e =>
+            {
+                e.ToTable("VehiclePositionHistory");
+                e.Property(r => r.VehicleId).HasMaxLength(64).IsRequired();
+                e.Property(r => r.Status).HasMaxLength(32);
+                // replay: pozițiile unei linii sau ale unui autobuz într-un interval de timp
+                e.HasIndex(r => new { r.RouteId, r.RecordedAt });
+                e.HasIndex(r => new { r.VehicleId, r.RecordedAt });
+                e.HasIndex(r => r.RecordedAt);
             });
 
             modelBuilder.Entity<ShapePoint>(e =>

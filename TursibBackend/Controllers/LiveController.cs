@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using TursibBackend.Data;
 using TursibBackend.Services;
 
 namespace TursibBackend.Controllers;
@@ -12,16 +14,21 @@ public class LiveController : ControllerBase
     public const string ApiKeyHeader = "X-Ingest-Key";
 
     private readonly LiveBusState _state;
-    private readonly LiveEventBus _bus;
+    private readonly LiveIngestService _ingest;
     private readonly IConfiguration _config;
     private readonly BunchingDetector _bunching;
+    private readonly ApplicationDbContext _db;
+    private readonly HistoryOptions _history;
 
-    public LiveController(LiveBusState state, LiveEventBus bus, IConfiguration config, BunchingDetector bunching)
+    public LiveController(LiveBusState state, LiveIngestService ingest, IConfiguration config, BunchingDetector bunching,
+        ApplicationDbContext db, HistoryOptions history)
     {
         _state = state;
-        _bus = bus;
+        _ingest = ingest;
         _config = config;
         _bunching = bunching;
+        _db = db;
+        _history = history;
     }
 
     /// <summary>Alertele de bunching: cele active acum și cele încheiate recent.</summary>
@@ -46,9 +53,41 @@ public class LiveController : ControllerBase
         if (batch.Count > LiveBusState.MaxBatchSize)
             return BadRequest(new { message = $"Maximum {LiveBusState.MaxBatchSize} poziții per cerere." });
 
-        var accepted = _state.Apply(batch);
-        _bus.Publish(accepted);
+        var accepted = _ingest.Ingest(batch);
         return Ok(new { received = batch.Count, accepted = accepted.Count });
+    }
+
+    /// <summary>
+    /// Istoricul pozițiilor pentru replay, în ordine cronologică. Necesită <c>History:Enabled</c>.
+    /// Interval implicit: ultimele 10 minute; maximum 6 ore și 20 000 de poziții per cerere.
+    /// </summary>
+    [HttpGet("history")]
+    public async Task<IActionResult> GetHistory(
+        [FromQuery] int? routeId, [FromQuery] string? vehicleId,
+        [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int limit = 5000, CancellationToken ct = default)
+    {
+        if (!_history.Enabled)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Istoricul nu este activat (History:Enabled)." });
+        if (routeId == null && string.IsNullOrWhiteSpace(vehicleId))
+            return BadRequest(new { message = "Specifică routeId sau vehicleId." });
+
+        var end = (to ?? DateTime.UtcNow).ToUniversalTime();
+        var start = (from ?? end.AddMinutes(-10)).ToUniversalTime();
+        if (start >= end) return BadRequest(new { message = "from trebuie să fie înaintea lui to." });
+        if (end - start > TimeSpan.FromHours(6)) return BadRequest(new { message = "Interval maxim: 6 ore." });
+
+        var query = _db.VehiclePositionHistory.AsNoTracking().Where(r => r.RecordedAt >= start && r.RecordedAt <= end);
+        if (routeId != null) query = query.Where(r => r.RouteId == routeId);
+        if (!string.IsNullOrWhiteSpace(vehicleId)) query = query.Where(r => r.VehicleId == vehicleId);
+
+        var rows = await query.OrderBy(r => r.RecordedAt).ThenBy(r => r.VehicleId)
+            .Take(Math.Clamp(limit, 1, 20_000)).ToListAsync(ct);
+        return Ok(rows.Select(r => new
+        {
+            id = r.VehicleId, routeId = r.RouteId, latitude = r.Latitude, longitude = r.Longitude,
+            speed = r.Speed, heading = r.Heading, occupancy = r.Occupancy, status = r.Status, directionId = r.DirectionId,
+            timestamp = new DateTimeOffset(DateTime.SpecifyKind(r.RecordedAt, DateTimeKind.Utc)).ToUnixTimeSeconds()
+        }));
     }
 
     private static bool KeysEqual(string a, string b)

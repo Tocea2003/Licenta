@@ -6,6 +6,9 @@ using System.Linq;
 using Firebase.Database;
 using Firebase.Database.Query;
 using Newtonsoft.Json;
+using MQTTnet;
+using MQTTnet.Client;
+using MQTTnet.Protocol;
 
 namespace BusSimulator
 {
@@ -19,6 +22,9 @@ namespace BusSimulator
         // Firebase rămâne activ implicit (rezervă pentru frontend); FIREBASE_ENABLED=false îl oprește.
         public static readonly bool FirebaseEnabled =
             !string.Equals(Environment.GetEnvironmentVariable("FIREBASE_ENABLED"), "false", StringComparison.OrdinalIgnoreCase);
+        // MQTT_HOST setat: fiecare autobuz publică pe MQTT ca un dispozitiv (tursib/vehicles/{id}/position);
+        // serviciul de ingestie le ia de acolo și le pune pe Kafka. Înlocuiește ingestul HTTP direct.
+        public static readonly string? MqttHost = Environment.GetEnvironmentVariable("MQTT_HOST");
         // APPLY_HOLDS=true: simulatorul aplică recomandările de holding ale backend-ului (control în buclă închisă).
         public static readonly bool ApplyHolds =
             string.Equals(Environment.GetEnvironmentVariable("APPLY_HOLDS"), "true", StringComparison.OrdinalIgnoreCase);
@@ -80,6 +86,10 @@ namespace BusSimulator
             Console.WriteLine("📡 Moving all buses simultaneously every 1 second...");
             Console.WriteLine("Press Ctrl+C to stop.\n");
 
+            MqttPublisher? mqtt = string.IsNullOrWhiteSpace(MqttHost) ? null : new MqttPublisher(MqttHost);
+            if (mqtt != null)
+                Console.WriteLine($"📡 Pozițiile se publică pe MQTT ({MqttHost}), ca dispozitive din autobuze.");
+
             if (ApplyHolds)
                 Console.WriteLine("⏸️ APPLY_HOLDS activ: aplic recomandările de holding ale backend-ului.");
 
@@ -99,6 +109,8 @@ namespace BusSimulator
                 // Un singur apel către backend per tick, cu toate pozițiile (SignalR le împrăștie clienților)
                 if (!string.IsNullOrWhiteSpace(IngestKey))
                     updates.Add(PostToBackend(httpClient, payloads));
+                if (mqtt != null)
+                    updates.Add(mqtt.PublishAsync(payloads));
                 await Task.WhenAll(updates);
 
                 tick++;
@@ -668,6 +680,71 @@ namespace BusSimulator
                     Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180) *
                     Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
             return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        }
+    }
+
+    /// <summary>
+    /// Publică pozițiile pe MQTT, un mesaj per autobuz pe topicul tursib/vehicles/{id}/position (ca un dispozitiv din autobuz).
+    /// QoS 0 implicit: telemetria se reîmprospătează de două ori pe secundă, deci un mesaj pierdut nu contează.
+    /// Dacă brokerul cade, mesajele se pierd și reconectarea se încearcă la fiecare 5 secunde.
+    /// </summary>
+    class MqttPublisher
+    {
+        private readonly IMqttClient client = new MqttFactory().CreateMqttClient();
+        private readonly MqttClientOptions options;
+        private readonly MqttQualityOfServiceLevel qos;
+        private DateTime lastAttempt = DateTime.MinValue;
+
+        public MqttPublisher(string host)
+        {
+            var port = int.TryParse(Environment.GetEnvironmentVariable("MQTT_PORT"), out var p) ? p : 1883;
+            var builder = new MqttClientOptionsBuilder()
+                .WithTcpServer(host, port)
+                .WithClientId($"tursib-simulator-{Guid.NewGuid():N}"[..40]);
+            var user = Environment.GetEnvironmentVariable("MQTT_USERNAME");
+            if (!string.IsNullOrEmpty(user))
+                builder.WithCredentials(user, Environment.GetEnvironmentVariable("MQTT_PASSWORD"));
+            options = builder.Build();
+            qos = Environment.GetEnvironmentVariable("MQTT_QOS") == "1"
+                ? MqttQualityOfServiceLevel.AtLeastOnce
+                : MqttQualityOfServiceLevel.AtMostOnce;
+        }
+
+        public async Task PublishAsync(List<Dictionary<string, object>> payloads)
+        {
+            if (!client.IsConnected && !await TryConnect()) return;
+
+            foreach (var payload in payloads)
+            {
+                var message = new MqttApplicationMessageBuilder()
+                    .WithTopic($"tursib/vehicles/{payload["id"]}/position")
+                    .WithPayload(JsonConvert.SerializeObject(payload))
+                    .WithQualityOfServiceLevel(qos)
+                    .Build();
+                try { await client.PublishAsync(message); }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ MQTT publish a eșuat: {ex.Message}");
+                    return;
+                }
+            }
+        }
+
+        private async Task<bool> TryConnect()
+        {
+            if (DateTime.UtcNow - lastAttempt < TimeSpan.FromSeconds(5)) return false;
+            lastAttempt = DateTime.UtcNow;
+            try
+            {
+                await client.ConnectAsync(options);
+                Console.WriteLine("✅ Conectat la brokerul MQTT");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ MQTT indisponibil: {ex.Message}");
+                return false;
+            }
         }
     }
 
