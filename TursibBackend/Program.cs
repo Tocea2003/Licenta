@@ -48,6 +48,12 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<LiveBusState>();
 builder.Services.AddSingleton<LiveEventBus>();
 builder.Services.AddSingleton<IBusPositionHandler, HubBroadcastHandler>();
+
+// Stage 2: detecție bunching (pragurile se pot suprascrie din secțiunea „Bunching”)
+builder.Services.AddSingleton(builder.Configuration.GetSection("Bunching").Get<BunchingOptions>() ?? new BunchingOptions());
+builder.Services.AddSingleton<IRouteGeometryProvider, DbRouteGeometryProvider>();
+builder.Services.AddSingleton<BunchingDetector>();
+builder.Services.AddSingleton<IBusPositionHandler>(sp => sp.GetRequiredService<BunchingDetector>());
 builder.Services.AddHostedService<LiveEventDispatcher>();
 builder.Services.AddHostedService<StaleBusCleaner>();
 

@@ -69,6 +69,12 @@ Backend (`Services/LiveBusService.cs`, `Hubs/BusHub.cs`, `Controllers/LiveContro
 
 Frontend `stores/liveBuses.ts` is the only reader (MapView, AdminBuses, AdminAnalytics): SignalR first, Firebase as automatic fallback while SignalR delivers nothing for 15 s (`VITE_LIVE_SOURCE=signalr|firebase|auto`, default `auto`). Never call Firebase `off()` on `bus_locations`; it removes every listener. Entries not starting with `route_` are legacy and ignored.
 
+### Bus-bunching detection (Stage 2)
+
+`Services/BunchingService.cs`: `BunchingDetector` is an `IBusPositionHandler` (throttled to one evaluation per `EvaluationIntervalSeconds`). For each route with ≥2 fresh buses (with `directionId`) it projects every position onto the route shape (`RouteGeometry`, from the first trip's shape via `DbRouteGeometryProvider`, the same shape the simulator drives; a per-bus hint keeps looping routes on the right pass), places the bus on the **round-trip loop** (`BunchingAnalyzer.LoopPosition`: forward = distance, returning = 2L − distance) and measures the gap to the bus ahead against the ideal `2L / n`. `BunchingTracker` turns ratios into alerts: enter below `EnterRatio` (0.35) for `MinDurationSeconds` (10 s), leave above `ExitRatio` (0.6); severity `critical` below 0.15. Thresholds live in the `Bunching` config section (`BunchingOptions`; tests set `Bunching:MinDurationSeconds=0`).
+
+Outputs: SignalR event `bunching` (full list of active alerts, pushed on every change and every evaluation while any is active), hub method `GetBunching()`, and `GET /api/live/bunching` (`{ active, recent }`). Frontend: `stores/liveBuses.ts` exposes `bunching`; `components/BunchingPanel.vue` (in AdminAnalytics) renders it, `utils/bunching.ts` holds the pure helpers.
+
 ## Frontend architecture
 
 - `views/HomeView.vue` hosts `components/Sidebar.vue` (planner, schedule board, routes list) and `components/MapView.vue` (the map and everything drawn on it). Sidebar emits `routeSelected` / `planSelected`; MapView receives `stations`, `selectedRouteId`, `tripPlan` props and exposes `centerMap`, `invalidateSize`, etc. via `defineExpose`.

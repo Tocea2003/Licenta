@@ -30,3 +30,27 @@ export interface StationEta {
   eta: string
   color: string
 }
+
+/** Alertă de bunching: două autobuze ale aceleiași linii circulă prea aproape (detectată de backend). */
+export interface BunchingAlert {
+  key: string
+  routeId: number
+  routeNumber?: string
+  /** autobuzul din față */
+  leaderId: string
+  /** autobuzul care îl urmează prea aproape */
+  followerId: string
+  /** distanța dintre ele pe traseu (m) */
+  gapMeters: number
+  /** distanța ideală dacă ar fi echidistante (m) */
+  idealGapMeters: number
+  /** gapMeters / idealGapMeters */
+  ratio: number
+  severity: 'warning' | 'critical'
+  /** secunde Unix */
+  startedAt: number
+  /** secunde Unix; lipsește cât timp alerta e activă */
+  endedAt?: number
+  /** timpul estimat dintre cele două autobuze (s) */
+  headwaySeconds?: number
+}

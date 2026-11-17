@@ -14,13 +14,19 @@ public class LiveController : ControllerBase
     private readonly LiveBusState _state;
     private readonly LiveEventBus _bus;
     private readonly IConfiguration _config;
+    private readonly BunchingDetector _bunching;
 
-    public LiveController(LiveBusState state, LiveEventBus bus, IConfiguration config)
+    public LiveController(LiveBusState state, LiveEventBus bus, IConfiguration config, BunchingDetector bunching)
     {
         _state = state;
         _bus = bus;
         _config = config;
+        _bunching = bunching;
     }
+
+    /// <summary>Alertele de bunching: cele active acum și cele încheiate recent.</summary>
+    [HttpGet("bunching")]
+    public IActionResult GetBunching() => Ok(new { active = _bunching.Active, recent = _bunching.Recent });
 
     /// <summary>Ultima poziție cunoscută a tuturor autobuzelor (același conținut ca snapshot-ul SignalR).</summary>
     [HttpGet("positions")]

@@ -2,7 +2,8 @@ import { ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { getDatabase, onValue, ref as dbRef, type Unsubscribe } from 'firebase/database'
 import { HubConnectionBuilder, HubConnectionState, LogLevel, type HubConnection } from '@microsoft/signalr'
-import type { BusLocation } from '@/types/bus'
+import type { BunchingAlert, BusLocation } from '@/types/bus'
+import { parseBunchingList } from '@/utils/bunching'
 import { hubUrlFromApiUrl, mergePositions, parseBusLocations, parsePositionList } from '@/utils/liveBuses'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5022/api'
@@ -29,6 +30,8 @@ export const useLiveBusesStore = defineStore('liveBuses', () => {
   const lastUpdate = ref<number | null>(null)
   /** sursa care alimentează acum harta */
   const source = ref<LiveSource>(null)
+  /** alertele de bunching active acum (vin doar prin SignalR; backend-ul le detectează) */
+  const bunching = shallowRef<BunchingAlert[]>([])
 
   let subscribers = 0
   let hub: HubConnection | null = null
@@ -56,6 +59,7 @@ export const useLiveBusesStore = defineStore('liveBuses', () => {
       lastSignalrData = Date.now()
       publish(snapshot, 'signalr')
     }
+    bunching.value = parseBunchingList(await hub.invoke('GetBunching'))
   }
 
   async function connectSignalR() {
@@ -73,6 +77,8 @@ export const useLiveBusesStore = defineStore('liveBuses', () => {
       lastSignalrData = Date.now()
       publish(mergePositions(buses.value, parsed), 'signalr')
     })
+    connection.on('bunching', (list: unknown) => { bunching.value = parseBunchingList(list) })
+    connection.onreconnecting(() => { bunching.value = [] })
     connection.onreconnected(() => { void loadSnapshot().catch(() => {}) })
 
     try {
@@ -153,8 +159,9 @@ export const useLiveBusesStore = defineStore('liveBuses', () => {
     void connection?.stop().catch(() => {})
     connected.value = false
     source.value = null
+    bunching.value = []
     lastSignalrData = 0
   }
 
-  return { buses, connected, error, lastUpdate, source, subscribe, unsubscribe: unsubscribeOne }
+  return { buses, connected, error, lastUpdate, source, bunching, subscribe, unsubscribe: unsubscribeOne }
 })
