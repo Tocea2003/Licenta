@@ -53,6 +53,9 @@ builder.Services.AddSingleton<IBusPositionHandler, HubBroadcastHandler>();
 builder.Services.AddSingleton(builder.Configuration.GetSection("Bunching").Get<BunchingOptions>() ?? new BunchingOptions());
 builder.Services.AddSingleton<IRouteGeometryProvider, DbRouteGeometryProvider>();
 builder.Services.AddSingleton<BunchingDetector>();
+
+// Stage 3: digital twin (simulare accelerată a liniilor, independentă de fluxul live)
+builder.Services.AddSingleton<TwinService>();
 builder.Services.AddSingleton<IBusPositionHandler>(sp => sp.GetRequiredService<BunchingDetector>());
 builder.Services.AddHostedService<LiveEventDispatcher>();
 builder.Services.AddHostedService<StaleBusCleaner>();

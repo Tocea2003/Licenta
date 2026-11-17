@@ -94,6 +94,9 @@
       <!-- Alerte bunching (detectate de backend pe fluxul live) -->
       <BunchingPanel />
 
+      <!-- Digital twin: simulare accelerată a liniilor -->
+      <TwinPanel />
+
       <!-- Detalii autobuze live -->
       <div class="live-buses-section">
         <div class="section-header">
@@ -143,6 +146,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { useLiveBusesStore } from '@/stores/liveBuses'
 import BunchingPanel from '@/components/BunchingPanel.vue'
+import TwinPanel from '@/components/TwinPanel.vue'
 import type { BusLocation } from '@/types/bus'
 import { useLanguage } from '@/composables/useLanguage'
 

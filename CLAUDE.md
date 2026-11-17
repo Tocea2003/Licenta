@@ -75,6 +75,12 @@ Frontend `stores/liveBuses.ts` is the only reader (MapView, AdminBuses, AdminAna
 
 Outputs: SignalR event `bunching` (full list of active alerts, pushed on every change and every evaluation while any is active), hub method `GetBunching()`, and `GET /api/live/bunching` (`{ active, recent }`). Frontend: `stores/liveBuses.ts` exposes `bunching`; `components/BunchingPanel.vue` (in AdminAnalytics) renders it, `utils/bunching.ts` holds the pure helpers.
 
+### Digital twin (Stage 3)
+
+`Services/TwinEngine.cs` is a deterministic (seeded), headless simulation of one line on its round-trip loop (length 2L, stops evenly spaced). Buses cannot overtake (`MinGapMeters`); dwell time at a stop = base + boarding × passengers waiting (arrival rate × time since the previous bus left), with `DwellJitter` noise. That feedback is what makes bunching emerge: calibrated (`PassengerArrivalRate` 0.008/s) so an even fleet without noise stays stable, noise makes it drift, and a stopped bus (`TwinDisturbance`) bunches the fleet. `ITwinControl.ExtraHoldSeconds(TwinStopContext)` is called when a bus arrives at a stop and may add holding time; `NoControl` is the default. **Stage 4 control strategies implement this interface and are compared in the twin before use.**
+
+`TwinRunner.Run` (pure) samples every 10 s and reuses `BunchingAnalyzer`/`BunchingTracker`, returning `TwinRunResult` (`bunchedPercent`, `meanCv`, `minRatio`, `bunchingEpisodes`, 60 s series). `TwinService` adds the real world: geometry from `IRouteGeometryProvider` and, with `UseLiveState`, the starting positions of the live fleet (`initialisedFrom`: `live` or `even`). `POST /api/twin/run` (public, rate-limited, `TwinScenario.Validate` caps: 60 s–6 h, 2–30 buses, ≤10 disturbances) never touches `LiveBusState`. Frontend: `components/TwinPanel.vue` in AdminAnalytics (scenario form, run history, SVG chart of the minimum gap ratio against the 0.35 threshold), pure helpers in `utils/twin.ts`.
+
 ## Frontend architecture
 
 - `views/HomeView.vue` hosts `components/Sidebar.vue` (planner, schedule board, routes list) and `components/MapView.vue` (the map and everything drawn on it). Sidebar emits `routeSelected` / `planSelected`; MapView receives `stations`, `selectedRouteId`, `tripPlan` props and exposes `centerMap`, `invalidateSize`, etc. via `defineExpose`.
