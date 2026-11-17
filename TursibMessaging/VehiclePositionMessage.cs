@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace TursibIngestion;
+namespace TursibMessaging;
 
 /// <summary>
 /// Contractul mesajelor de poziție: ce publică dispozitivul din autobuz pe MQTT și ce ajunge pe Kafka.

@@ -7,6 +7,7 @@ using MQTTnet;
 using MQTTnet.Client;
 using TursibBackend.Services;
 using TursibIngestion;
+using TursibMessaging;
 using Xunit;
 
 namespace TursibBackend.Tests;
@@ -15,14 +16,30 @@ namespace TursibBackend.Tests;
 /// Rulează doar când sunt setate TEST_KAFKA_BOOTSTRAP (ex. localhost:9092) și TEST_MQTT_HOST (ex. localhost):
 /// verifică codul real împotriva unui broker Kafka (sau Redpanda) și a unui broker MQTT, nu a unor simulări.
 /// </summary>
-public sealed class EventInfraFactAttribute : FactAttribute
+public class RequiresEnvFactAttribute : FactAttribute
 {
-    public EventInfraFactAttribute()
+    public RequiresEnvFactAttribute(params string[] variables)
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEST_KAFKA_BOOTSTRAP"))
-            || string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEST_MQTT_HOST")))
-            Skip = "Set TEST_KAFKA_BOOTSTRAP and TEST_MQTT_HOST to run the Kafka/MQTT integration tests";
+        var missing = variables.Where(v => string.IsNullOrEmpty(Environment.GetEnvironmentVariable(v))).ToList();
+        if (missing.Count > 0) Skip = $"Set {string.Join(", ", missing)} to run this integration test";
     }
+}
+
+public sealed class EventInfraFactAttribute : RequiresEnvFactAttribute
+{
+    public EventInfraFactAttribute() : base("TEST_KAFKA_BOOTSTRAP", "TEST_MQTT_HOST") { }
+}
+
+/// <summary>Brokere cu TLS + autentificare (ca cele gestionate din cloud): TEST_MQTT_TLS_PORT, TEST_MQTT_CA, TEST_SECURE_USER/PASS.</summary>
+public sealed class SecureMqttFactAttribute : RequiresEnvFactAttribute
+{
+    public SecureMqttFactAttribute() : base("TEST_MQTT_HOST", "TEST_MQTT_TLS_PORT", "TEST_MQTT_CA", "TEST_SECURE_USER", "TEST_SECURE_PASS") { }
+}
+
+/// <summary>Kafka cu SASL_SSL: TEST_KAFKA_SASL_BOOTSTRAP, TEST_MQTT_CA (același CA), TEST_SECURE_USER/PASS.</summary>
+public sealed class SecureKafkaFactAttribute : RequiresEnvFactAttribute
+{
+    public SecureKafkaFactAttribute() : base("TEST_KAFKA_SASL_BOOTSTRAP", "TEST_MQTT_CA", "TEST_SECURE_USER", "TEST_SECURE_PASS") { }
 }
 
 public class MqttToKafkaIntegrationTests
@@ -44,7 +61,7 @@ public class MqttToKafkaIntegrationTests
         await sink.EnsureTopicsAsync(NullLogger.Instance, default);
 
         var ingestor = new PositionIngestor(sink, new IngestionMetrics(), NullLogger<PositionIngestor>.Instance);
-        var subscriber = new MqttSubscriber(new MqttOptions { Host = MqttHost }, ingestor, NullLogger<MqttSubscriber>.Instance);
+        var subscriber = new MqttSubscriber(new MqttOptions { Host = MqttHost }, ingestor.HandleAsync, NullLogger<MqttSubscriber>.Instance);
         await subscriber.StartAsync(default);
         try
         {
@@ -130,5 +147,119 @@ public class KafkaToBackendIntegrationTests : IClassFixture<KafkaToBackendIntegr
 
         var feed = await client.GetFromJsonAsync<JsonElement>("/api/gtfs-rt/vehicle-positions?format=json");
         Assert.Contains(feed.GetProperty("entity").EnumerateArray(), e => e.GetProperty("id").GetString() == "route_66_bus_0");
+    }
+}
+
+
+/// <summary>Ingestia MQTT integrată în backend, împotriva unui broker real: simulator → MQTT → backend, fără worker și fără Kafka.</summary>
+public class EmbeddedMqttIntegrationTests : IClassFixture<EmbeddedMqttIntegrationTests.EmbeddedFactory>
+{
+    public class EmbeddedFactory : AuthWebAppFactory
+    {
+        protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
+        {
+            base.ConfigureWebHost(builder);
+            builder.UseSetting("Ingestion:EmbeddedMqtt", "true");
+            builder.UseSetting("Mqtt:Host", Environment.GetEnvironmentVariable("TEST_MQTT_HOST") ?? "localhost");
+        }
+    }
+
+    private readonly EmbeddedFactory _factory;
+    public EmbeddedMqttIntegrationTests(EmbeddedFactory factory) => _factory = factory;
+
+    [RequiresEnvFact("TEST_MQTT_HOST")]
+    public async Task MqttMessages_ReachTheLiveSnapshotAndTheGtfsRealtimeFeed_WithoutKafka()
+    {
+        var client = _factory.CreateClient();
+        using var device = new MqttFactory().CreateMqttClient();
+        await device.ConnectAsync(new MqttClientOptionsBuilder().WithTcpServer(Environment.GetEnvironmentVariable("TEST_MQTT_HOST")).Build());
+
+        JsonElement snapshot = default;
+        for (var attempt = 0; attempt < 40; attempt++)
+        {
+            var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            await device.PublishStringAsync("tursib/vehicles/route_88_bus_0/position",
+                $$"""{"latitude":45.8,"longitude":24.2,"routeId":88,"timestamp":{{ts}},"speed":22,"directionId":0}""");
+            snapshot = await client.GetFromJsonAsync<JsonElement>("/api/live/positions");
+            if (snapshot.EnumerateArray().Any(b => b.GetProperty("id").GetString() == "route_88_bus_0")) break;
+            await Task.Delay(300);
+        }
+
+        Assert.Contains(snapshot.EnumerateArray(), b => b.GetProperty("id").GetString() == "route_88_bus_0");
+    }
+}
+
+public class SecureBrokerIntegrationTests
+{
+    private static MqttOptions SecureMqtt(string? password = null, string? ca = null) => new()
+    {
+        Host = Environment.GetEnvironmentVariable("TEST_MQTT_HOST")!,
+        Port = int.Parse(Environment.GetEnvironmentVariable("TEST_MQTT_TLS_PORT")!),
+        UseTls = true,
+        CaCertificatePath = ca ?? Environment.GetEnvironmentVariable("TEST_MQTT_CA"),
+        Username = Environment.GetEnvironmentVariable("TEST_SECURE_USER"),
+        Password = password ?? Environment.GetEnvironmentVariable("TEST_SECURE_PASS")
+    };
+
+    [SecureMqttFact]
+    public async Task MqttSubscriber_ConnectsOverTlsWithCredentials_AndReceivesMessages()
+    {
+        var received = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var subscriber = new MqttSubscriber(SecureMqtt(),
+            (topic, payload, _) => { received.TrySetResult(topic); return Task.CompletedTask; }, NullLogger.Instance);
+        await subscriber.StartAsync(default);
+        try
+        {
+            using var device = new MqttFactory().CreateMqttClient();
+            await device.ConnectAsync(SecureMqtt().Build("test-device"));
+            for (var attempt = 0; attempt < 30 && !received.Task.IsCompleted; attempt++)
+            {
+                await device.PublishStringAsync("tursib/vehicles/route_9_bus_0/position", "{}");
+                await Task.Delay(300);
+            }
+            Assert.Equal("tursib/vehicles/route_9_bus_0/position", await received.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        }
+        finally { await subscriber.StopAsync(default); }
+    }
+
+    [SecureMqttFact]
+    public async Task MqttConnection_IsRefused_ForAWrongPassword_OrAnUntrustedCertificate()
+    {
+        using var client = new MqttFactory().CreateMqttClient();
+        await Assert.ThrowsAnyAsync<Exception>(() => client.ConnectAsync(SecureMqtt(password: "wrong").Build("test")));
+
+        // fără certificatul CA propriu, certificatul brokerului nu e de încredere
+        var untrusted = SecureMqtt();
+        untrusted.CaCertificatePath = null;
+        await Assert.ThrowsAnyAsync<Exception>(() => client.ConnectAsync(untrusted.Build("test")));
+    }
+
+    [SecureKafkaFact]
+    public async Task Kafka_SaslSsl_ProducerAndConsumerWork_AndAWrongPasswordIsRefused()
+    {
+        var options = new TursibIngestion.KafkaOptions
+        {
+            BootstrapServers = Environment.GetEnvironmentVariable("TEST_KAFKA_SASL_BOOTSTRAP"),
+            SecurityProtocol = SecurityProtocol.SaslSsl,
+            SaslMechanism = SaslMechanism.Plain,
+            SaslUsername = Environment.GetEnvironmentVariable("TEST_SECURE_USER"),
+            SaslPassword = Environment.GetEnvironmentVariable("TEST_SECURE_PASS"),
+            SslCaLocation = Environment.GetEnvironmentVariable("TEST_MQTT_CA"),
+            Topic = $"test-secure-{Guid.NewGuid():N}"[..24], DeadLetterTopic = $"test-secure-dlq-{Guid.NewGuid():N}"[..28]
+        };
+        using var sink = new KafkaPositionSink(options);
+        await sink.EnsureTopicsAsync(NullLogger.Instance, default);
+        await sink.PublishAsync("route_1_bus_0", """{"id":"route_1_bus_0"}""", default);
+
+        var config = new ConsumerConfig { GroupId = $"g-{Guid.NewGuid():N}", AutoOffsetReset = AutoOffsetReset.Earliest };
+        options.Apply(config);
+        using var consumer = new ConsumerBuilder<string, string>(config).Build();
+        consumer.Subscribe(options.Topic);
+        var message = consumer.Consume(TimeSpan.FromSeconds(15));
+        Assert.Equal("route_1_bus_0", message?.Message.Key);
+
+        options.SaslPassword = "wrong";
+        using var wrong = new KafkaPositionSink(options);
+        await Assert.ThrowsAnyAsync<Exception>(() => wrong.PublishAsync("route_1_bus_0", "{}", new CancellationTokenSource(TimeSpan.FromSeconds(10)).Token));
     }
 }

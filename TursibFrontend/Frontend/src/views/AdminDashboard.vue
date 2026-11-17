@@ -42,13 +42,14 @@
 </template>
 
 <script setup lang="ts">
-import { BarChart3, BusFront, LogOut, MapPin, Route, Ticket, Users } from 'lucide-vue-next'
+import { BarChart3, BusFront, History, LogOut, MapPin, Route, Ticket, Users } from 'lucide-vue-next'
 
 const navItems = [
   { to: '/admin/analytics', icon: BarChart3, labelKey: 'analytics' },
   { to: '/admin/routes', icon: Route, labelKey: 'routes' },
   { to: '/admin/stations', icon: MapPin, labelKey: 'stationsSection' },
   { to: '/admin/buses', icon: BusFront, labelKey: 'busFleet' },
+  { to: '/admin/replay', icon: History, labelKey: 'replayNav' },
   { to: '/admin/users', icon: Users, labelKey: 'users' },
   { to: '/admin/tickets', icon: Ticket, labelKey: 'ticketsAndRevenue' }
 ]

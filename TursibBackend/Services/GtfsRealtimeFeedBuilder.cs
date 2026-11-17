@@ -8,7 +8,9 @@ public static class GtfsRealtimeFeedBuilder
     public const string Version = "2.0";
 
     /// <param name="maxAgeSeconds">pozițiile mai vechi nu intră în feed (un vehicul care nu mai raportează dispare)</param>
-    public static FeedMessage Build(IEnumerable<BusPosition> positions, DateTimeOffset now, int maxAgeSeconds = 120)
+    /// <param name="trips">cursele potrivite cu vehiculele (vezi <see cref="TripMatcher"/>); vehiculele fără cursă rămân UNSCHEDULED</param>
+    public static FeedMessage Build(IEnumerable<BusPosition> positions, DateTimeOffset now, int maxAgeSeconds = 120,
+        IReadOnlyDictionary<string, TripAssignment>? trips = null)
     {
         var oldest = now.ToUnixTimeSeconds() - maxAgeSeconds;
         var feed = new FeedMessage
@@ -25,12 +27,7 @@ public static class GtfsRealtimeFeedBuilder
         {
             var vehicle = new VehiclePosition
             {
-                // Nu avem trip_id (simulatorul nu urmează o cursă concretă): GTFS-RT permite UNSCHEDULED cu route_id.
-                Trip = new TripDescriptor
-                {
-                    RouteId = p.RouteId.ToString(),
-                    ScheduleRelationship = TripDescriptor.Types.ScheduleRelationship.Unscheduled
-                },
+                Trip = new TripDescriptor { RouteId = p.RouteId.ToString() },
                 Vehicle = new VehicleDescriptor { Id = p.Id, Label = p.RouteNumber is { Length: > 0 } n ? $"{n} · {p.Id}" : p.Id },
                 Position = new Position
                 {
@@ -42,6 +39,18 @@ public static class GtfsRealtimeFeedBuilder
                 Timestamp = (ulong)p.Timestamp,
                 CurrentStatus = StopStatus(p.Status)
             };
+            if (trips != null && trips.TryGetValue(p.Id, out var assignment))
+            {
+                vehicle.Trip.TripId = assignment.TripId;
+                vehicle.Trip.StartTime = assignment.StartTime;
+                vehicle.Trip.StartDate = assignment.StartDate;
+                vehicle.Trip.ScheduleRelationship = TripDescriptor.Types.ScheduleRelationship.Scheduled;
+            }
+            else
+            {
+                // fără cursă potrivită (orar lipsă sau în afara programului): GTFS-RT permite UNSCHEDULED cu route_id
+                vehicle.Trip.ScheduleRelationship = TripDescriptor.Types.ScheduleRelationship.Unscheduled;
+            }
             if (p.DirectionId is { } d) vehicle.Trip.DirectionId = (uint)d;
             if (p.NextStationId is { } stop) vehicle.StopId = stop.ToString();
             if (p.Occupancy is { } occupancy) vehicle.OccupancyStatus = Occupancy(occupancy);

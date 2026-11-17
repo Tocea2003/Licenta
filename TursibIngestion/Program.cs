@@ -1,4 +1,5 @@
 using TursibIngestion;
+using TursibMessaging;
 
 // Serviciul de ingestie: MQTT (dispozitive din autobuze) -> validare -> Kafka, topicul vehicle-positions.
 // Configurare prin variabile de mediu (Mqtt__Host, Kafka__BootstrapServers, ...) sau appsettings.json.
@@ -7,6 +8,7 @@ var builder = Host.CreateApplicationBuilder(args);
 
 var mqtt = builder.Configuration.GetSection("Mqtt").Get<MqttOptions>() ?? new MqttOptions();
 var kafka = builder.Configuration.GetSection("Kafka").Get<KafkaOptions>() ?? new KafkaOptions();
+kafka.BootstrapServers ??= "localhost:9092";
 
 builder.Services.AddSingleton(mqtt);
 builder.Services.AddSingleton(kafka);
@@ -15,7 +17,11 @@ builder.Services.AddSingleton<IPositionSink>(sp => sp.GetRequiredService<KafkaPo
 builder.Services.AddSingleton<IngestionMetrics>();
 builder.Services.AddSingleton<PositionIngestor>();
 builder.Services.AddHostedService<TopicBootstrapper>();
-builder.Services.AddHostedService<MqttSubscriber>();
+builder.Services.AddHostedService(sp => new MqttSubscriber(
+    sp.GetRequiredService<MqttOptions>(),
+    sp.GetRequiredService<PositionIngestor>().HandleAsync,
+    sp.GetRequiredService<ILogger<MqttSubscriber>>(),
+    "tursib-ingestion"));
 builder.Services.AddHostedService<MetricsLogger>();
 
 await builder.Build().RunAsync();

@@ -9,6 +9,7 @@ const AdminAnalytics = () => import('../views/AdminAnalytics.vue')
 const AdminRoutes = () => import('../views/AdminRoutes.vue')
 const AdminStations = () => import('../views/AdminStations.vue')
 const AdminBuses = () => import('../views/AdminBuses.vue')
+const AdminReplay = () => import('../views/AdminReplay.vue')
 const AdminUsers = () => import('../views/AdminUsers.vue')
 const AdminTickets = () => import('../views/AdminTickets.vue')
 
@@ -100,6 +101,11 @@ const router = createRouter({
           path: 'buses',
           name: 'admin-buses',
           component: AdminBuses,
+        },
+        {
+          path: 'replay',
+          name: 'admin-replay',
+          component: AdminReplay,
         },
         {
           path: 'users',

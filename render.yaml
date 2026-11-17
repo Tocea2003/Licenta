@@ -3,7 +3,7 @@ services:
     name: tursib-backend
     runtime: docker
     dockerfilePath: ./TursibBackend/Dockerfile
-    dockerContext: ./TursibBackend
+    dockerContext: .
     plan: free
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
@@ -24,6 +24,20 @@ services:
         sync: false
       - key: INGEST_API_KEY
         sync: false
+      # Ingestia MQTT integrată în backend (fără worker și fără Kafka, ca să încapă în planul gratuit): simulator -> broker
+      # MQTT gestionat (ex. HiveMQ Cloud, gratuit, TLS pe 8883) -> backend. Ingestia e activă doar dacă Mqtt__Host e setat.
+      - key: Ingestion__EmbeddedMqtt
+        value: "true"
+      - key: Mqtt__Host
+        sync: false
+      - key: Mqtt__Port
+        value: "8883"
+      - key: Mqtt__UseTls
+        value: "true"
+      - key: Mqtt__Username
+        sync: false
+      - key: Mqtt__Password
+        sync: false
     healthCheckPath: /api/routes
 
   - type: web
@@ -39,6 +53,17 @@ services:
         value: https://licenta-ulbs-default-rtdb.europe-west1.firebasedatabase.app/
       # aceeași valoare ca INGEST_API_KEY de pe backend; simulatorul publică pozițiile prin backend (SignalR)
       - key: INGEST_API_KEY
+        sync: false
+      # Publică pe brokerul MQTT gestionat (aceleași credențiale ca pe backend); fără MQTT_HOST rămâne ingestul HTTP (INGEST_API_KEY).
+      - key: MQTT_HOST
+        sync: false
+      - key: MQTT_PORT
+        value: "8883"
+      - key: MQTT_TLS
+        value: "true"
+      - key: MQTT_USERNAME
+        sync: false
+      - key: MQTT_PASSWORD
         sync: false
       # true = simulatorul aplică recomandările de holding ale backend-ului (control bunching în buclă închisă)
       - key: APPLY_HOLDS

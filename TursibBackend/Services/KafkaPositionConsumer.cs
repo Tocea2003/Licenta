@@ -1,12 +1,12 @@
 using System.Text.Json;
 using Confluent.Kafka;
+using TursibMessaging;
 
 namespace TursibBackend.Services;
 
 /// <summary>Secțiunea de configurare „Kafka”. Fără <see cref="BootstrapServers"/> consumer-ul e oprit (rămâne ingestul HTTP).</summary>
-public class KafkaOptions
+public class KafkaOptions : KafkaConnectionOptions
 {
-    public string? BootstrapServers { get; set; }
     public string Topic { get; set; } = "vehicle-positions";
     public string GroupId { get; set; } = "tursib-backend";
     public int MaxBatchSize { get; set; } = 500;
@@ -54,13 +54,13 @@ public class KafkaPositionConsumer : BackgroundService
     {
         var config = new ConsumerConfig
         {
-            BootstrapServers = _options.BootstrapServers,
             GroupId = _options.GroupId,
             ClientId = $"tursib-backend-{Environment.MachineName}",
             EnableAutoCommit = false,
             // Date live: un grup nou pornește de la „acum”; istoricul pentru replay e în PostgreSQL, nu în Kafka.
             AutoOffsetReset = AutoOffsetReset.Latest
         };
+        _options.Apply(config);                // adresa brokerului + securitatea (SASL/SSL) din configurare
 
         using var consumer = new ConsumerBuilder<string, string>(config)
             .SetErrorHandler((_, e) => _logger.LogWarning("Kafka: {Reason}", e.Reason))

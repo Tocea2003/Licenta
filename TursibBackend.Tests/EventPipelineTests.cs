@@ -11,6 +11,9 @@ using TursibBackend.Data;
 using TursibBackend.Models;
 using TursibBackend.Services;
 using TursibIngestion;
+using TursibMessaging;
+using Confluent.Kafka;
+using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace TursibBackend.Tests;
@@ -325,6 +328,35 @@ public class PositionHistoryEndpointTests : IClassFixture<PositionHistoryEndpoin
     }
 
     [Fact]
+    public async Task HistoryBounds_ReportTheFirstAndLastRecordedMoment_Or204WhenEmpty()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Ingest-Key", "test-key");
+        var t0 = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 60;
+        foreach (var i in new[] { 0, 1, 2 })
+            await client.PostAsJsonAsync("/api/live/positions", new[]
+            {
+                new { id = "route_14_bus_0", routeId = 14, latitude = 45.7, longitude = 24.1, timestamp = t0 + i * 10, directionId = 0 }
+            });
+
+        JsonElement bounds = default;
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            var response = await _factory.CreateClient().GetAsync("/api/live/history/bounds?routeId=14");
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                bounds = await response.Content.ReadFromJsonAsync<JsonElement>();
+                if (bounds.GetProperty("last").GetInt64() == t0 + 20) break;
+            }
+            await Task.Delay(100);
+        }
+
+        Assert.Equal(t0, bounds.GetProperty("first").GetInt64());
+        Assert.Equal(t0 + 20, bounds.GetProperty("last").GetInt64());
+        Assert.Equal(HttpStatusCode.NoContent, (await _factory.CreateClient().GetAsync("/api/live/history/bounds?routeId=987")).StatusCode);
+    }
+
+    [Fact]
     public async Task History_RequiresARouteOrVehicle_AndABoundedWindow()
     {
         var client = _factory.CreateClient();
@@ -341,10 +373,11 @@ public class HistoryDisabledTests : IClassFixture<AuthWebAppFactory>
     private readonly AuthWebAppFactory _factory;
     public HistoryDisabledTests(AuthWebAppFactory factory) => _factory = factory;
 
-    [Fact]
-    public async Task History_Returns503_WhenNotEnabled() =>
-        Assert.Equal(HttpStatusCode.ServiceUnavailable,
-            (await _factory.CreateClient().GetAsync("/api/live/history?routeId=1")).StatusCode);
+    [Theory]
+    [InlineData("/api/live/history?routeId=1")]
+    [InlineData("/api/live/history/bounds?routeId=1")]
+    public async Task History_Returns503_WhenNotEnabled(string url) =>
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await _factory.CreateClient().GetAsync(url)).StatusCode);
 }
 
 // ── GTFS-Realtime ──────────────────────────────────────────────────────────────────────────────────
@@ -449,5 +482,120 @@ public class GtfsRealtimeEndpointTests : IClassFixture<LiveEndpointsTests.LiveFa
         var json = await _factory.CreateClient().GetFromJsonAsync<JsonElement>("/api/gtfs-rt/vehicle-positions?format=json");
         Assert.Equal("2.0", json.GetProperty("header").GetProperty("gtfsRealtimeVersion").GetString());
         Assert.Contains(json.GetProperty("entity").EnumerateArray(), e => e.GetProperty("id").GetString() == "route_21_bus_0");
+    }
+}
+
+
+// ── Ingestia MQTT integrată în backend (fără broker, doar logica) ──────────────────────────────────
+
+public class EmbeddedMqttIngestTests
+{
+    private static (EmbeddedMqttIngest ingest, LiveBusState state, LiveEventBus bus) Create()
+    {
+        var state = new LiveBusState();
+        var bus = new LiveEventBus();
+        var ingest = new EmbeddedMqttIngest(new MqttOptions(), new LiveIngestService(state, bus),
+            NullLogger<EmbeddedMqttIngest>.Instance);
+        return (ingest, state, bus);
+    }
+
+    private static byte[] Json(string s) => Encoding.UTF8.GetBytes(s);
+    private const string Topic = "tursib/vehicles/route_3_bus_1/position";
+
+    [Fact]
+    public void ValidMessages_AreBatchedIntoOneEventAndReachTheState()
+    {
+        var (ingest, state, bus) = Create();
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        Assert.True(ingest.Handle(Topic, Json($$"""{"latitude":45.7,"longitude":24.1,"routeId":3,"timestamp":{{ts}}}""")));
+        Assert.True(ingest.Handle("tursib/vehicles/route_3_bus_2/position", Json($$"""{"latitude":45.8,"longitude":24.1,"routeId":3,"timestamp":{{ts}}}""")));
+
+        Assert.Equal(2, ingest.Flush());
+        Assert.Equal(2, state.Snapshot().Count);
+        Assert.True(bus.Reader.TryRead(out var batch));
+        Assert.Equal(2, batch!.Count);                       // un singur eveniment pentru tot lotul
+        Assert.False(bus.Reader.TryRead(out _));
+        Assert.Equal(0, ingest.Flush());
+    }
+
+    [Fact]
+    public void InvalidMessages_AreCountedAndNeverReachTheState()
+    {
+        var (ingest, state, _) = Create();
+        Assert.False(ingest.Handle(Topic, Json("garbage")));
+        Assert.False(ingest.Handle(Topic, Json("""{"id":"route_9_bus_9","latitude":45.7,"longitude":24.1,"routeId":3}""")));   // id fals
+        Assert.False(ingest.Handle("other/topic", Json("{}")));
+
+        ingest.Flush();
+        Assert.Empty(state.Snapshot());
+        Assert.Equal(3, ingest.Received);
+        Assert.Equal(3, ingest.Rejected);
+    }
+
+    [Fact]
+    public void MapsEveryFieldOfTheMessageToABusPosition()
+    {
+        var message = new VehiclePositionMessage
+        {
+            Id = "route_1_bus_0", Latitude = 1, Longitude = 2, RouteId = 3, RouteNumber = "n", RouteName = "r", Timestamp = 4, Speed = 5,
+            Heading = 6, Occupancy = 7, Status = "s", DirectionId = 1, NextStationId = 8, NextStationName = "ns", NextStationEta = 9
+        };
+        var p = EmbeddedMqttIngest.ToBusPosition(message);
+        Assert.Equal((message.Id, 1d, 2d, 3, "n", "r", 4L, 5d, 6d, 7, "s", 1, 8, "ns", 9),
+            (p.Id, p.Latitude, p.Longitude, p.RouteId, p.RouteNumber, p.RouteName, p.Timestamp, p.Speed, p.Heading, p.Occupancy,
+             p.Status, p.DirectionId, p.NextStationId, p.NextStationName, p.NextStationEta));
+    }
+}
+
+public class BrokerSecurityOptionsTests
+{
+    [Fact]
+    public void MqttOptions_BuildTlsAndCredentials_AndSharedSubscriptions()
+    {
+        var plain = new MqttOptions { Host = "h", Port = 1883 }.Build("t");
+        Assert.False(plain.ChannelOptions.TlsOptions.UseTls);
+
+        var secure = new MqttOptions { Host = "broker.example", Port = 8883, UseTls = true, Username = "u", Password = "p" }.Build("t");
+        Assert.True(secure.ChannelOptions.TlsOptions.UseTls);
+        Assert.Equal("u", secure.Credentials.GetUserName(secure));
+
+        Assert.Equal("tursib/vehicles/+/position", new MqttOptions().SubscriptionFilter);
+        Assert.Equal("$share/ingest/tursib/vehicles/+/position", new MqttOptions { SharedGroup = "ingest" }.SubscriptionFilter);
+    }
+
+    [Fact]
+    public void KafkaConnectionOptions_ApplyTheSecuritySettingsToAClientConfig()
+    {
+        var options = new KafkaConnectionOptions
+        {
+            BootstrapServers = "broker:9092", SecurityProtocol = SecurityProtocol.SaslSsl, SaslMechanism = SaslMechanism.ScramSha256,
+            SaslUsername = "u", SaslPassword = "p", SslCaLocation = "/ca.pem"
+        };
+        var config = new ConsumerConfig();
+        options.Apply(config);
+
+        Assert.Equal("broker:9092", config.BootstrapServers);
+        Assert.Equal(SecurityProtocol.SaslSsl, config.SecurityProtocol);
+        Assert.Equal(SaslMechanism.ScramSha256, config.SaslMechanism);
+        Assert.Equal(("u", "p", "/ca.pem"), (config.SaslUsername, config.SaslPassword, config.SslCaLocation));
+
+        var local = new ConsumerConfig();
+        new KafkaConnectionOptions { BootstrapServers = "localhost:9092" }.Apply(local);
+        Assert.Null(local.SecurityProtocol);                // local: fără securitate
+    }
+
+    [Fact]
+    public void KafkaOptions_BindFromEnvironmentStyleConfiguration()
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Kafka:BootstrapServers"] = "x.upstash.io:9092", ["Kafka:SecurityProtocol"] = "SaslSsl", ["Kafka:SaslMechanism"] = "ScramSha256",
+            ["Kafka:SaslUsername"] = "user", ["Kafka:SaslPassword"] = "pw", ["Kafka:Topic"] = "positions", ["Kafka:GroupId"] = "g"
+        }).Build();
+
+        var options = config.GetSection("Kafka").Get<TursibBackend.Services.KafkaOptions>()!;
+        Assert.Equal(SecurityProtocol.SaslSsl, options.SecurityProtocol);
+        Assert.Equal(SaslMechanism.ScramSha256, options.SaslMechanism);
+        Assert.Equal(("positions", "g"), (options.Topic, options.GroupId));
     }
 }

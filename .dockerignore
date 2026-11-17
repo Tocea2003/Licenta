@@ -1,0 +1,15 @@
+# Contextul de build al backend-ului și al serviciului de ingestie e rădăcina repo-ului
+# (partajează TursibMessaging), deci excludem tot ce nu le trebuie.
+.git
+.github
+**/bin
+**/obj
+**/.vs
+**/*.user
+**/*.db
+**/*.db-shm
+**/*.db-wal
+TursibFrontend
+BusSimulator
+TursibBackend.Tests
+docs

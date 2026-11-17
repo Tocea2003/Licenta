@@ -10,19 +10,38 @@ namespace TursibBackend.Controllers;
 public class GtfsRealtimeController : ControllerBase
 {
     private readonly LiveBusState _state;
+    private readonly TripMatcher _trips;
+    private readonly ILogger<GtfsRealtimeController> _logger;
     private readonly TimeProvider _time;
 
-    public GtfsRealtimeController(LiveBusState state, TimeProvider? time = null)
+    public GtfsRealtimeController(LiveBusState state, TripMatcher trips, ILogger<GtfsRealtimeController> logger, TimeProvider? time = null)
     {
         _state = state;
+        _trips = trips;
+        _logger = logger;
         _time = time ?? TimeProvider.System;
     }
 
     /// <summary>VehiclePositions în format protobuf; cu <c>?format=json</c> aceeași structură ca JSON, pentru depanare.</summary>
     [HttpGet("vehicle-positions")]
-    public IActionResult VehiclePositions([FromQuery] string? format = null)
+    public async Task<IActionResult> VehiclePositions([FromQuery] string? format = null, CancellationToken ct = default)
     {
-        var feed = GtfsRealtimeFeedBuilder.Build(_state.Snapshot(), _time.GetUtcNow());
+        var now = _time.GetUtcNow();
+        var positions = _state.Snapshot();
+
+        // trip_id-ul se deduce din orar; dacă nu se poate (fără orar), feed-ul rămâne valid, cu vehicule UNSCHEDULED
+        IReadOnlyDictionary<string, TripAssignment>? trips = null;
+        try
+        {
+            var fresh = positions.Where(p => p.Timestamp >= now.ToUnixTimeSeconds() - 120);
+            trips = await _trips.AssignAsync(fresh, now, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Potrivirea curselor a eșuat; feed fără trip_id");
+        }
+
+        var feed = GtfsRealtimeFeedBuilder.Build(positions, now, trips: trips);
         Response.Headers.CacheControl = "public, max-age=5";
 
         return string.Equals(format, "json", StringComparison.OrdinalIgnoreCase)

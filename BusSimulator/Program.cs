@@ -704,6 +704,22 @@ namespace BusSimulator
             var user = Environment.GetEnvironmentVariable("MQTT_USERNAME");
             if (!string.IsNullOrEmpty(user))
                 builder.WithCredentials(user, Environment.GetEnvironmentVariable("MQTT_PASSWORD"));
+            // Brokerele gestionate (HiveMQ Cloud, EMQX Cloud) cer TLS, de obicei pe portul 8883.
+            // MQTT_CA = certificat CA (PEM) pentru un broker cu certificat propriu.
+            if (string.Equals(Environment.GetEnvironmentVariable("MQTT_TLS"), "true", StringComparison.OrdinalIgnoreCase))
+            {
+                var caPath = Environment.GetEnvironmentVariable("MQTT_CA");
+                builder.WithTlsOptions(tls =>
+                {
+                    tls.UseTls();
+                    if (!string.IsNullOrEmpty(caPath))
+                    {
+                        var chain = new System.Security.Cryptography.X509Certificates.X509Certificate2Collection();
+                        chain.ImportFromPemFile(caPath);
+                        tls.WithTrustChain(chain);
+                    }
+                });
+            }
             options = builder.Build();
             qos = Environment.GetEnvironmentVariable("MQTT_QOS") == "1"
                 ? MqttQualityOfServiceLevel.AtLeastOnce

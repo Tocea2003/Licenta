@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using TursibBackend.Data;
 using TursibBackend.Services;
@@ -62,6 +63,7 @@ public class LiveController : ControllerBase
     /// Interval implicit: ultimele 10 minute; maximum 6 ore și 20 000 de poziții per cerere.
     /// </summary>
     [HttpGet("history")]
+    [EnableRateLimiting("general")]
     public async Task<IActionResult> GetHistory(
         [FromQuery] int? routeId, [FromQuery] string? vehicleId,
         [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int limit = 5000, CancellationToken ct = default)
@@ -88,6 +90,25 @@ public class LiveController : ControllerBase
             speed = r.Speed, heading = r.Heading, occupancy = r.Occupancy, status = r.Status, directionId = r.DirectionId,
             timestamp = new DateTimeOffset(DateTime.SpecifyKind(r.RecordedAt, DateTimeKind.Utc)).ToUnixTimeSeconds()
         }));
+    }
+
+    /// <summary>Intervalul pentru care există istoric (ca interfața de replay să propună o fereastră cu date).</summary>
+    [HttpGet("history/bounds")]
+    [EnableRateLimiting("general")]
+    public async Task<IActionResult> GetHistoryBounds([FromQuery] int? routeId, CancellationToken ct = default)
+    {
+        if (!_history.Enabled)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Istoricul nu este activat (History:Enabled)." });
+
+        var query = _db.VehiclePositionHistory.AsNoTracking().AsQueryable();
+        if (routeId != null) query = query.Where(r => r.RouteId == routeId);
+
+        var first = await query.OrderBy(r => r.RecordedAt).Select(r => (DateTime?)r.RecordedAt).FirstOrDefaultAsync(ct);
+        if (first == null) return NoContent();
+        var last = await query.OrderByDescending(r => r.RecordedAt).Select(r => r.RecordedAt).FirstAsync(ct);
+
+        long Unix(DateTime d) => new DateTimeOffset(DateTime.SpecifyKind(d, DateTimeKind.Utc)).ToUnixTimeSeconds();
+        return Ok(new { first = Unix(first.Value), last = Unix(last) });
     }
 
     private static bool KeysEqual(string a, string b)

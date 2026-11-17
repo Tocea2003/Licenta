@@ -58,6 +58,14 @@ builder.Services.AddSingleton(kafkaOptions);
 if (!string.IsNullOrWhiteSpace(kafkaOptions.BootstrapServers))
     builder.Services.AddHostedService<KafkaPositionConsumer>();
 
+// Ingestia MQTT integrată (fără worker/Kafka): doar cu Ingestion:EmbeddedMqtt=true și Mqtt:Host setat
+if (builder.Configuration.GetValue<bool>("Ingestion:EmbeddedMqtt") && !string.IsNullOrWhiteSpace(builder.Configuration["Mqtt:Host"]))
+{
+    var mqttOptions = builder.Configuration.GetSection("Mqtt").Get<TursibMessaging.MqttOptions>() ?? new TursibMessaging.MqttOptions();
+    builder.Services.AddSingleton(mqttOptions);
+    builder.Services.AddHostedService<EmbeddedMqttIngest>();
+}
+
 var historyOptions = builder.Configuration.GetSection("History").Get<HistoryOptions>() ?? new HistoryOptions();
 builder.Services.AddSingleton(historyOptions);
 if (historyOptions.Enabled)
@@ -72,6 +80,10 @@ builder.Services.AddSingleton(builder.Configuration.GetSection("Bunching").Get<B
 builder.Services.AddSingleton(builder.Configuration.GetSection("Holding").Get<HoldOptions>() ?? new HoldOptions());
 builder.Services.AddSingleton<IRouteGeometryProvider, DbRouteGeometryProvider>();
 builder.Services.AddSingleton<BunchingDetector>();
+
+// trip_id pentru feed-ul GTFS-RT: vehiculele se potrivesc cu cursele programate azi
+builder.Services.AddSingleton(builder.Configuration.GetSection("TripMatching").Get<TripMatchOptions>() ?? new TripMatchOptions());
+builder.Services.AddSingleton<TripMatcher>();
 
 // Stage 3: digital twin (simulare accelerată a liniilor, independentă de fluxul live)
 builder.Services.AddSingleton<TwinService>();

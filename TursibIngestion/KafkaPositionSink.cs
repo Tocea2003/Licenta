@@ -1,12 +1,12 @@
 using System.Text;
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
+using TursibMessaging;
 
 namespace TursibIngestion;
 
-public class KafkaOptions
+public class KafkaOptions : KafkaConnectionOptions
 {
-    public string BootstrapServers { get; set; } = "localhost:9092";
     public string Topic { get; set; } = "vehicle-positions";
     public string DeadLetterTopic { get; set; } = "vehicle-positions.dlq";
     public int Partitions { get; set; } = 3;
@@ -26,12 +26,12 @@ public sealed class KafkaPositionSink : IPositionSink, IDisposable
         _options = options;
         var config = new ProducerConfig
         {
-            BootstrapServers = options.BootstrapServers,
             ClientId = "tursib-ingestion",
             EnableIdempotence = true,       // fără dubluri la retrimiteri, ordine păstrată pe partiție
             LingerMs = 20,                  // grupează mesajele apropiate în același lot
             CompressionType = CompressionType.Lz4
         };
+        options.Apply(config);                 // adresa brokerului + securitatea (SASL/SSL) din configurare
         _producer = new ProducerBuilder<string, string>(config).Build();
         _dlqProducer = new ProducerBuilder<string, byte[]>(config).Build();
     }
@@ -39,7 +39,9 @@ public sealed class KafkaPositionSink : IPositionSink, IDisposable
     /// <summary>Creează topicurile dacă lipsesc (idempotent), ca mediul local să pornească fără pași manuali.</summary>
     public async Task EnsureTopicsAsync(ILogger logger, CancellationToken ct)
     {
-        using var admin = new AdminClientBuilder(new AdminClientConfig { BootstrapServers = _options.BootstrapServers }).Build();
+        var adminConfig = new AdminClientConfig();
+        _options.Apply(adminConfig);
+        using var admin = new AdminClientBuilder(adminConfig).Build();
         var retention = new Dictionary<string, string> { ["retention.ms"] = _options.RetentionMs.ToString() };
         try
         {

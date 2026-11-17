@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using TursibMessaging;
 
 namespace TursibIngestion;
 

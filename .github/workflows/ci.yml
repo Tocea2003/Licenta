@@ -117,13 +117,17 @@ jobs:
       matrix:
         include:
           - name: backend
-            context: TursibBackend
+            context: .
+            file: TursibBackend/Dockerfile
           - name: ingestion
-            context: TursibIngestion
+            context: .
+            file: TursibIngestion/Dockerfile
           - name: bus-simulator
             context: BusSimulator
+            file: BusSimulator/Dockerfile
           - name: frontend
             context: TursibFrontend/Frontend
+            file: TursibFrontend/Frontend/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -131,6 +135,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: false
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
