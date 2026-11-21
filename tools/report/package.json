@@ -1,0 +1,14 @@
+{
+  "name": "tursib-report",
+  "private": true,
+  "description": "Generează documentul proiectului (PDF) din docs/results și din modelul de arhitectură.",
+  "type": "module",
+  "scripts": {
+    "build": "python3 build_report.py && node render-pdf.mjs"
+  },
+  "dependencies": {
+    "@fontsource/archivo": "5.1.0",
+    "@fontsource/public-sans": "5.1.0",
+    "mermaid": "11.4.1"
+  }
+}

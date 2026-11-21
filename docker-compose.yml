@@ -84,6 +84,7 @@ services:
       - Mqtt__SharedGroup=ingestion
       - Kafka__BootstrapServers=redpanda:9092
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_TRACES_SAMPLER_ARG=0.2
     depends_on:
       mosquitto:
         condition: service_started
@@ -111,6 +112,7 @@ services:
       - Kafka__BootstrapServers=redpanda:9092
       - History__Enabled=true
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_TRACES_SAMPLER_ARG=0.2
     depends_on:
       db:
         condition: service_healthy

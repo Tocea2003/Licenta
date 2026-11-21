@@ -114,10 +114,15 @@ public sealed class Runner
                 }
                 else
                 {
-                    using var request = new HttpRequestMessage(HttpMethod.Post, $"{_o.Api}/live/positions") { Content = JsonContent.Create(positions, options: Json) };
-                    if (_o.IngestKey != null) request.Headers.Add("X-Ingest-Key", _o.IngestKey);
-                    using var response = await _http.SendAsync(request, ct);
-                    if (!response.IsSuccessStatusCode) errors++;
+                    // serverul acceptă cel mult 2000 de poziții într-o cerere (LiveBusState.MaxBatchSize): loturi trimise în paralel
+                    var responses = await Task.WhenAll(positions.Chunk(MaxBatch).Select(async chunk =>
+                    {
+                        using var request = new HttpRequestMessage(HttpMethod.Post, $"{_o.Api}/live/positions") { Content = JsonContent.Create(chunk, options: Json) };
+                        if (_o.IngestKey != null) request.Headers.Add("X-Ingest-Key", _o.IngestKey);
+                        using var response = await _http.SendAsync(request, ct);
+                        return response.IsSuccessStatusCode;
+                    }));
+                    errors += responses.Count(ok => !ok);
                 }
                 sent += positions.Count;
                 perSecondSent.AddOrUpdate(second, positions.Count, (_, n) => n + positions.Count);
@@ -163,4 +168,5 @@ public sealed class Runner
     }
 
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    public const int MaxBatch = 2000;
 }

@@ -15,7 +15,18 @@ kafka.BootstrapServers ??= "localhost:9092";
 
 builder.Services.AddSingleton(mqtt);
 builder.Services.AddSingleton(kafka);
-builder.Services.AddSingleton<KafkaPositionSink>();
+builder.Services.AddSingleton(sp =>
+{
+    var sink = new KafkaPositionSink(sp.GetRequiredService<KafkaOptions>());
+    var metrics = sp.GetRequiredService<IngestionMetrics>();
+    var log = sp.GetRequiredService<ILoggerFactory>().CreateLogger("KafkaDelivery");
+    sink.DeliveryFailed += (vehicle, error) =>
+    {
+        metrics.OnFailed();
+        log.LogDebug("Livrare eșuată pentru {Vehicle}: {Reason}", vehicle, error.Reason);
+    };
+    return sink;
+});
 builder.Services.AddSingleton<IPositionSink>(sp => sp.GetRequiredService<KafkaPositionSink>());
 builder.Services.AddSingleton<IngestionMetrics>();
 builder.Services.AddSingleton<PositionIngestor>();
@@ -32,7 +43,8 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOIN
 {
     builder.Services.AddOpenTelemetry()
         .ConfigureResource(r => r.AddService("tursib-ingestion"))
-        .WithTracing(t => t.AddSource(PipelineTelemetry.Name).AddOtlpExporter())
+        .WithTracing(t => t.SetSampler(PipelineTelemetry.Sampler(builder.Configuration["OTEL_TRACES_SAMPLER_ARG"]))
+            .AddSource(PipelineTelemetry.Name).AddOtlpExporter())
         .WithMetrics(m => m.AddMeter(PipelineTelemetry.Name).AddRuntimeInstrumentation().AddOtlpExporter());
 }
 

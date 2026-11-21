@@ -19,6 +19,7 @@ public static class TelemetrySetup
         services.AddOpenTelemetry()
             .ConfigureResource(r => r.AddService(serviceName, serviceVersion: typeof(TelemetrySetup).Assembly.GetName().Version?.ToString()))
             .WithTracing(t => t
+                .SetSampler(PipelineTelemetry.Sampler(config["OTEL_TRACES_SAMPLER_ARG"]))
                 .AddSource(PipelineTelemetry.Name)
                 .AddAspNetCoreInstrumentation(o => o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/hubs"))
                 .AddHttpClientInstrumentation()

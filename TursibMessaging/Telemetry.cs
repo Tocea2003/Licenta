@@ -46,6 +46,16 @@ public static class PipelineTelemetry
             : default;
     }
 
+    /// <summary>
+    /// Eșantionarea urmelor: la mii de poziții pe secundă, urmărirea fiecăreia costă (măsurat: Jaeger ajunge la ~4 GB).
+    /// Raportul vine din <c>OTEL_TRACES_SAMPLER_ARG</c> (0–1, implicit 1). Decizia e luată la începutul urmei și respectată
+    /// de toți (ParentBased), deci o urmă e fie completă, fie lipsește cu totul.
+    /// </summary>
+    public static OpenTelemetry.Trace.Sampler Sampler(string? ratio) =>
+        new OpenTelemetry.Trace.ParentBasedSampler(new OpenTelemetry.Trace.TraceIdRatioBasedSampler(
+            double.TryParse(ratio, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var r)
+                ? Math.Clamp(r, 0, 1) : 1.0));
+
     /// <summary>Vârsta unei poziții cu timestamp-ul dat (secunde Unix).</summary>
     public static void RecordAge(long timestampSeconds, string stage, DateTimeOffset now)
     {

@@ -58,6 +58,7 @@ public class MqttToKafkaIntegrationTests
     [EventInfraFact]
     public async Task ValidMqttMessages_ReachKafka_AndInvalidOnesTheDeadLetterTopic()
     {
+        using var telemetry = new PipelineListener();   // ca în producție cu OpenTelemetry activ: span-urile există
         var suffix = Guid.NewGuid().ToString("N")[..8];
         var kafka = new TursibIngestion.KafkaOptions { BootstrapServers = Kafka, Topic = $"test-positions-{suffix}", DeadLetterTopic = $"test-dlq-{suffix}", Partitions = 2 };
         using var sink = new KafkaPositionSink(kafka);
@@ -256,6 +257,8 @@ public class SecureBrokerIntegrationTests
         using var sink = new KafkaPositionSink(options);
         await sink.EnsureTopicsAsync(NullLogger.Instance, default);
         await sink.PublishAsync("route_1_bus_0", """{"id":"route_1_bus_0"}""", default);
+        sink.Flush(TimeSpan.FromSeconds(10));
+        Assert.Equal(1, sink.Delivered);
 
         var config = new ConsumerConfig { GroupId = $"g-{Guid.NewGuid():N}", AutoOffsetReset = AutoOffsetReset.Earliest };
         options.Apply(config);
@@ -265,7 +268,14 @@ public class SecureBrokerIntegrationTests
         Assert.Equal("route_1_bus_0", message?.Message.Key);
 
         options.SaslPassword = "wrong";
+        options.MessageTimeoutMs = 5000;
         using var wrong = new KafkaPositionSink(options);
-        await Assert.ThrowsAnyAsync<Exception>(() => wrong.PublishAsync("route_1_bus_0", "{}", new CancellationTokenSource(TimeSpan.FromSeconds(10)).Token));
+        await Assert.ThrowsAnyAsync<Exception>(() => wrong.EnsureTopicsAsync(NullLogger.Instance, default));
+        var failures = 0;
+        wrong.DeliveryFailed += (_, _) => Interlocked.Increment(ref failures);
+        await wrong.PublishAsync("route_1_bus_0", "{}", default);
+        wrong.Flush(TimeSpan.FromSeconds(10));
+        Assert.Equal(1, failures);
+        Assert.Equal(0, wrong.Delivered);
     }
 }

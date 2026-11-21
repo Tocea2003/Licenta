@@ -45,7 +45,7 @@ if (outDir != null)
     Directory.CreateDirectory(outDir);
     name ??= $"load-{options.Target}";
     File.WriteAllText(Path.Combine(outDir, name + ".json"),
-        JsonSerializer.Serialize(results, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
+        JsonSerializer.Serialize(results, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true, NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals }));
     File.WriteAllText(Path.Combine(outDir, name + ".md"), Report.Markdown(options, results));
     Console.WriteLine($"✅ Rezultate în {outDir}/{name}.md");
 }
