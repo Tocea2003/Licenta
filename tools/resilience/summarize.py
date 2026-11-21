@@ -21,7 +21,8 @@ def analyse(step, fault_at=30):
         last_bad = max(s["second"] for s in outage)
         good = [s for s in tl if s["second"] > last_bad and s["received"] >= 0.8 * expected]
         recovered = good[0]["second"] - fault_at if good else None
-    p95s = [s["p95Ms"] for s in tl if s["p95Ms"] == s["p95Ms"]]  # fără NaN
+    # secundele fără mesaje au p95 = NaN, scris în JSON ca text ("NaN")
+    p95s = [s["p95Ms"] for s in tl if isinstance(s["p95Ms"], (int, float)) and s["p95Ms"] == s["p95Ms"]]
     return outage_s, recovered, max(p95s) if p95s else float("nan")
 
 def main(folder):
@@ -45,6 +46,12 @@ def main(folder):
         desc = DESCRIPTIONS.get(name, name)
         rec = f"{recovered} s" if recovered is not None else ("—" if outage == 0 else "nu a revenit")
         print(f"| {desc} | {s['sent']} | {s['received']} | {s['lossPercent']}% | {outage} s | {rec} | {p95/1000:.1f} s | {s['publishErrors']} |")
+
+    print("\nInterpretarea (în engleză) e în documentul proiectului, secțiunea „Fault-tolerance testing”"
+          " (`tools/report`). Pe scurt: Kafka oprit nu pierde nimic (producătorul păstrează mesajele până la 120 s);"
+          " cu QoS 0 se pierde ce se publică cât brokerul sau singura instanță de ingestie lipsesc; două instanțe"
+          " în abonament partajat elimină întreruperea.")
+
 
 if __name__ == "__main__":
     main(sys.argv[1])

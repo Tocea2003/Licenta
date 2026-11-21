@@ -1,0 +1,868 @@
+[
+  {
+    "target": "mqtt",
+    "buses": 170,
+    "intervalMs": 500,
+    "durationSeconds": 120,
+    "sent": 40800,
+    "received": 40800,
+    "lossPercent": 0,
+    "sentPerSecond": 340,
+    "receivedPerSecond": 340,
+    "p50Ms": 126.6,
+    "p95Ms": 130.7,
+    "p99Ms": 211.7,
+    "maxMs": 1139.8,
+    "serverAccepted": 40800,
+    "publishErrors": 0,
+    "timeline": [
+      {
+        "second": 0,
+        "sent": 340,
+        "received": 0,
+        "p95Ms": "NaN",
+        "errors": 0
+      },
+      {
+        "second": 1,
+        "sent": 340,
+        "received": 680,
+        "p95Ms": 1134.8,
+        "errors": 0
+      },
+      {
+        "second": 2,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 134.2,
+        "errors": 0
+      },
+      {
+        "second": 3,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 129.6,
+        "errors": 0
+      },
+      {
+        "second": 4,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 129,
+        "errors": 0
+      },
+      {
+        "second": 5,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128.5,
+        "errors": 0
+      },
+      {
+        "second": 6,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 129.2,
+        "errors": 0
+      },
+      {
+        "second": 7,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 131.3,
+        "errors": 0
+      },
+      {
+        "second": 8,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 130.4,
+        "errors": 0
+      },
+      {
+        "second": 9,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.8,
+        "errors": 0
+      },
+      {
+        "second": 10,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.3,
+        "errors": 0
+      },
+      {
+        "second": 11,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 130.4,
+        "errors": 0
+      },
+      {
+        "second": 12,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.3,
+        "errors": 0
+      },
+      {
+        "second": 13,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.9,
+        "errors": 0
+      },
+      {
+        "second": 14,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 129.8,
+        "errors": 0
+      },
+      {
+        "second": 15,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 133,
+        "errors": 0
+      },
+      {
+        "second": 16,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 129.9,
+        "errors": 0
+      },
+      {
+        "second": 17,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.6,
+        "errors": 0
+      },
+      {
+        "second": 18,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128.7,
+        "errors": 0
+      },
+      {
+        "second": 19,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.1,
+        "errors": 0
+      },
+      {
+        "second": 20,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.7,
+        "errors": 0
+      },
+      {
+        "second": 21,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127,
+        "errors": 0
+      },
+      {
+        "second": 22,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.9,
+        "errors": 0
+      },
+      {
+        "second": 23,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.3,
+        "errors": 0
+      },
+      {
+        "second": 24,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.2,
+        "errors": 0
+      },
+      {
+        "second": 25,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 125.5,
+        "errors": 0
+      },
+      {
+        "second": 26,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128.4,
+        "errors": 0
+      },
+      {
+        "second": 27,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.2,
+        "errors": 0
+      },
+      {
+        "second": 28,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.2,
+        "errors": 0
+      },
+      {
+        "second": 29,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 125.9,
+        "errors": 0
+      },
+      {
+        "second": 30,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 132.1,
+        "errors": 0
+      },
+      {
+        "second": 31,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.6,
+        "errors": 0
+      },
+      {
+        "second": 32,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.1,
+        "errors": 0
+      },
+      {
+        "second": 33,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127,
+        "errors": 0
+      },
+      {
+        "second": 34,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.4,
+        "errors": 0
+      },
+      {
+        "second": 35,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 130,
+        "errors": 0
+      },
+      {
+        "second": 36,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 125.6,
+        "errors": 0
+      },
+      {
+        "second": 37,
+        "sent": 340,
+        "received": 171,
+        "p95Ms": 125.1,
+        "errors": 0
+      },
+      {
+        "second": 38,
+        "sent": 340,
+        "received": 509,
+        "p95Ms": 127.1,
+        "errors": 0
+      },
+      {
+        "second": 39,
+        "sent": 340,
+        "received": 171,
+        "p95Ms": 126.9,
+        "errors": 0
+      },
+      {
+        "second": 40,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.3,
+        "errors": 0
+      },
+      {
+        "second": 41,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.9,
+        "errors": 0
+      },
+      {
+        "second": 42,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128.3,
+        "errors": 0
+      },
+      {
+        "second": 43,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 130.6,
+        "errors": 0
+      },
+      {
+        "second": 44,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 130.2,
+        "errors": 0
+      },
+      {
+        "second": 45,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.5,
+        "errors": 0
+      },
+      {
+        "second": 46,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127,
+        "errors": 0
+      },
+      {
+        "second": 47,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.6,
+        "errors": 0
+      },
+      {
+        "second": 48,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.8,
+        "errors": 0
+      },
+      {
+        "second": 49,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 136.8,
+        "errors": 0
+      },
+      {
+        "second": 50,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128.2,
+        "errors": 0
+      },
+      {
+        "second": 51,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.8,
+        "errors": 0
+      },
+      {
+        "second": 52,
+        "sent": 340,
+        "received": 509,
+        "p95Ms": 128.2,
+        "errors": 0
+      },
+      {
+        "second": 53,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 130.7,
+        "errors": 0
+      },
+      {
+        "second": 54,
+        "sent": 340,
+        "received": 171,
+        "p95Ms": 130.9,
+        "errors": 0
+      },
+      {
+        "second": 55,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127,
+        "errors": 0
+      },
+      {
+        "second": 56,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 129.6,
+        "errors": 0
+      },
+      {
+        "second": 57,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.4,
+        "errors": 0
+      },
+      {
+        "second": 58,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.2,
+        "errors": 0
+      },
+      {
+        "second": 59,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 133.9,
+        "errors": 0
+      },
+      {
+        "second": 60,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128.1,
+        "errors": 0
+      },
+      {
+        "second": 61,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.9,
+        "errors": 0
+      },
+      {
+        "second": 62,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127,
+        "errors": 0
+      },
+      {
+        "second": 63,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126,
+        "errors": 0
+      },
+      {
+        "second": 64,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.6,
+        "errors": 0
+      },
+      {
+        "second": 65,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.5,
+        "errors": 0
+      },
+      {
+        "second": 66,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.2,
+        "errors": 0
+      },
+      {
+        "second": 67,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126,
+        "errors": 0
+      },
+      {
+        "second": 68,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.7,
+        "errors": 0
+      },
+      {
+        "second": 69,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 125.7,
+        "errors": 0
+      },
+      {
+        "second": 70,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 129.2,
+        "errors": 0
+      },
+      {
+        "second": 71,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 129.1,
+        "errors": 0
+      },
+      {
+        "second": 72,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128.1,
+        "errors": 0
+      },
+      {
+        "second": 73,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128.8,
+        "errors": 0
+      },
+      {
+        "second": 74,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.1,
+        "errors": 0
+      },
+      {
+        "second": 75,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127,
+        "errors": 0
+      },
+      {
+        "second": 76,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.1,
+        "errors": 0
+      },
+      {
+        "second": 77,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 148.4,
+        "errors": 0
+      },
+      {
+        "second": 78,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128.7,
+        "errors": 0
+      },
+      {
+        "second": 79,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.6,
+        "errors": 0
+      },
+      {
+        "second": 80,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.9,
+        "errors": 0
+      },
+      {
+        "second": 81,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.8,
+        "errors": 0
+      },
+      {
+        "second": 82,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.4,
+        "errors": 0
+      },
+      {
+        "second": 83,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.5,
+        "errors": 0
+      },
+      {
+        "second": 84,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 125.8,
+        "errors": 0
+      },
+      {
+        "second": 85,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.4,
+        "errors": 0
+      },
+      {
+        "second": 86,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128,
+        "errors": 0
+      },
+      {
+        "second": 87,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.5,
+        "errors": 0
+      },
+      {
+        "second": 88,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.1,
+        "errors": 0
+      },
+      {
+        "second": 89,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128.9,
+        "errors": 0
+      },
+      {
+        "second": 90,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.4,
+        "errors": 0
+      },
+      {
+        "second": 91,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127,
+        "errors": 0
+      },
+      {
+        "second": 92,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.9,
+        "errors": 0
+      },
+      {
+        "second": 93,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 125.5,
+        "errors": 0
+      },
+      {
+        "second": 94,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.9,
+        "errors": 0
+      },
+      {
+        "second": 95,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.5,
+        "errors": 0
+      },
+      {
+        "second": 96,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127,
+        "errors": 0
+      },
+      {
+        "second": 97,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126,
+        "errors": 0
+      },
+      {
+        "second": 98,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.1,
+        "errors": 0
+      },
+      {
+        "second": 99,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.7,
+        "errors": 0
+      },
+      {
+        "second": 100,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126,
+        "errors": 0
+      },
+      {
+        "second": 101,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.4,
+        "errors": 0
+      },
+      {
+        "second": 102,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.2,
+        "errors": 0
+      },
+      {
+        "second": 103,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.8,
+        "errors": 0
+      },
+      {
+        "second": 104,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.4,
+        "errors": 0
+      },
+      {
+        "second": 105,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128.1,
+        "errors": 0
+      },
+      {
+        "second": 106,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 211.7,
+        "errors": 0
+      },
+      {
+        "second": 107,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128.2,
+        "errors": 0
+      },
+      {
+        "second": 108,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 128.2,
+        "errors": 0
+      },
+      {
+        "second": 109,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.4,
+        "errors": 0
+      },
+      {
+        "second": 110,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.6,
+        "errors": 0
+      },
+      {
+        "second": 111,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.2,
+        "errors": 0
+      },
+      {
+        "second": 112,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.5,
+        "errors": 0
+      },
+      {
+        "second": 113,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 125.6,
+        "errors": 0
+      },
+      {
+        "second": 114,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 129,
+        "errors": 0
+      },
+      {
+        "second": 115,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 129,
+        "errors": 0
+      },
+      {
+        "second": 116,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 126.4,
+        "errors": 0
+      },
+      {
+        "second": 117,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.1,
+        "errors": 0
+      },
+      {
+        "second": 118,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 125.4,
+        "errors": 0
+      },
+      {
+        "second": 119,
+        "sent": 340,
+        "received": 340,
+        "p95Ms": 127.5,
+        "errors": 0
+      },
+      {
+        "second": 120,
+        "sent": 0,
+        "received": 169,
+        "p95Ms": 125.7,
+        "errors": 0
+      }
+    ]
+  }
+]

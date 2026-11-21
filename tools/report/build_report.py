@@ -266,9 +266,12 @@ def fault_discussion():
         s = f("ingestion-down-2-instances")
         o, r, _ = fault_analysis(s)
         items.append(f"<li><b>Two ingestion instances, one killed: {s['lossPercent']}% lost.</b> The instances share the MQTT "
-                     "subscription (<code>$share/ingestion/…</code>), so the broker splits the devices between them and, when one "
-                     f"disappears, sends everything to the survivor ({o} s with less than half of the expected rate). Redundancy "
-                     "turns the outage of the previous experiment into a short dip.</li>")
+                     "subscription (<code>$share/ingestion/…</code>), so the broker splits the messages between them and, when one "
+                     "disappears, sends everything to the survivor"
+                     + (" without a visible gap: no second fell below half of the expected rate. Only messages in flight to the killed "
+                        "instance at that instant can be lost, and in this run there were none."
+                        if o == 0 else f" ({o} s with less than half of the expected rate).")
+                     + " Redundancy removes the outage of the previous experiment.</li>")
     return "<ul>" + "".join(items) + "</ul>" if items else ""
 
 
