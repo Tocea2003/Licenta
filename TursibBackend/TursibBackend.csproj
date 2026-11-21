@@ -37,6 +37,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- politica RL antrenată în digital twin; regenerare cu comanda train-rl (vezi Program.cs) -->
+    <EmbeddedResource Include="Resources\rl-hold-policy.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Protobuf Include="Protos\gtfs-realtime.proto" GrpcServices="None" />
   </ItemGroup>
 

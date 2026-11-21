@@ -34,6 +34,36 @@ describe('buildScenario', () => {
   })
 })
 
+describe('buildScenario what-if', () => {
+  it('uses the frequency instead of the bus count', () => {
+    const s = buildScenario(form({ fleetMode: 'headway', headwayMinutes: 8 }))!
+    expect(s.busCount).toBeUndefined()
+    expect(s.headwayMinutes).toBe(8)
+    expect(buildScenario(form({ fleetMode: 'headway', headwayMinutes: 1 }))).toBeNull()
+  })
+
+  it('adds extra buses and a closed street in backend units', () => {
+    const s = buildScenario(form({
+      extraBuses: true, extraBusesCount: 2, extraBusesAtMinute: 30,
+      closure: true, closureFromKm: 1.2, closureToKm: 1.8, closureDetourKm: 0.9, closureFromMinute: 10, closureToMinute: 70
+    }))!
+    expect(s.extraBuses).toEqual([{ atSecond: 1800, count: 2 }])
+    expect(s.closures).toEqual([{ fromMeters: 1200, toMeters: 1800, detourMeters: 900, fromSecond: 600, toSecond: 4200 }])
+  })
+
+  it('keeps a closure open-ended when no end minute is given, and rejects inverted ranges', () => {
+    expect(buildScenario(form({ closure: true, closureFromKm: 1, closureToKm: 2, closureDetourKm: 0.5 }))!.closures![0])
+      .not.toHaveProperty('toSecond')
+    expect(buildScenario(form({ closure: true, closureFromKm: 2, closureToKm: 1, closureDetourKm: 0.5 }))).toBeNull()
+    expect(buildScenario(form({ extraBuses: true, extraBusesCount: 0, extraBusesAtMinute: 5 }))).toBeNull()
+  })
+
+  it('describes the what-if in the run label', () => {
+    expect(runLabel(form({ fleetMode: 'headway', headwayMinutes: 8, closure: true, closureFromKm: 1, closureToKm: 2 }), result([])))
+      .toBe('fără perturbare · la 8 min (3 autobuze) · stradă închisă km 1–2')
+  })
+})
+
 describe('linePoints', () => {
   it('scales time to x and ratio to y (inverted)', () => {
     expect(linePoints([sample(0, 1), sample(3600, 0.5), sample(7200, 0)], 7200, 600, 100, 1))
@@ -63,7 +93,7 @@ describe('runLabel', () => {
 describe('buildCompareRequest', () => {
   it('reuses the scenario and asks for all strategies with several replications', () => {
     expect(buildCompareRequest(form({ disturbance: true }))).toMatchObject({
-      routeId: 9, durationSeconds: 7200, strategies: ['none', 'headway', 'equalize'], replications: 5,
+      routeId: 9, durationSeconds: 7200, strategies: ['none', 'headway', 'equalize', 'rl'], replications: 5,
       disturbances: [{ atSecond: 600, busIndex: 0, holdSeconds: 240 }]
     })
   })

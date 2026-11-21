@@ -1,0 +1,1044 @@
+{
+  "replications": 20,
+  "durationSeconds": 14400,
+  "routeLengthMeters": 5000,
+  "testSeeds": "1\u201320",
+  "note": "Politica RL a fost antrenat\u0103 pe alte seed-uri \u0219i scenarii (vezi RlTrainer) \u0219i aleas\u0103 pe un set de validare separat.",
+  "scenarios": [
+    {
+      "scenario": {
+        "name": "3 autobuze, doar zgomot",
+        "buses": 3,
+        "disturbed": false
+      },
+      "strategies": [
+        {
+          "strategy": "none",
+          "totalDelay": {
+            "mean": 399.125,
+            "std": 55.75
+          },
+          "meanWait": {
+            "mean": 399.125,
+            "std": 55.75
+          },
+          "excessWait": {
+            "mean": 99.495,
+            "std": 55.797
+          },
+          "headwayCv": {
+            "mean": 0.552,
+            "std": 0.17
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 0,
+            "std": 0
+          },
+          "bunchedPercent": {
+            "mean": 32.925,
+            "std": 15.902
+          }
+        },
+        {
+          "strategy": "headway",
+          "totalDelay": {
+            "mean": 319.495,
+            "std": 4.815
+          },
+          "meanWait": {
+            "mean": 312.25,
+            "std": 2.302
+          },
+          "excessWait": {
+            "mean": 3.29,
+            "std": 0.946
+          },
+          "headwayCv": {
+            "mean": 0.102,
+            "std": 0.016
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 46.31,
+            "std": 16.333
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        },
+        {
+          "strategy": "equalize",
+          "totalDelay": {
+            "mean": 321.745,
+            "std": 6.105
+          },
+          "meanWait": {
+            "mean": 313.475,
+            "std": 2.986
+          },
+          "excessWait": {
+            "mean": 4,
+            "std": 1.136
+          },
+          "headwayCv": {
+            "mean": 0.112,
+            "std": 0.018
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 53.02,
+            "std": 20.075
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        },
+        {
+          "strategy": "rl",
+          "totalDelay": {
+            "mean": 313.175,
+            "std": 3.147
+          },
+          "meanWait": {
+            "mean": 308.77,
+            "std": 1.261
+          },
+          "excessWait": {
+            "mean": 1.345,
+            "std": 0.235
+          },
+          "headwayCv": {
+            "mean": 0.066,
+            "std": 0.006
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 27.255,
+            "std": 11.763
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        }
+      ],
+      "versusHeadway": [
+        {
+          "strategy": "none",
+          "meanDifference": 79.63,
+          "ciLow": 54.83,
+          "ciHigh": 104.43,
+          "better": 0,
+          "worse": 20
+        },
+        {
+          "strategy": "equalize",
+          "meanDifference": 2.25,
+          "ciLow": 0.39,
+          "ciHigh": 4.11,
+          "better": 6,
+          "worse": 13
+        },
+        {
+          "strategy": "rl",
+          "meanDifference": -6.32,
+          "ciLow": -8.76,
+          "ciHigh": -3.88,
+          "better": 17,
+          "worse": 3
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "3 autobuze, un autobuz oprit 5 min",
+        "buses": 3,
+        "disturbed": true
+      },
+      "strategies": [
+        {
+          "strategy": "none",
+          "totalDelay": {
+            "mean": 737.23,
+            "std": 58.149
+          },
+          "meanWait": {
+            "mean": 737.23,
+            "std": 58.149
+          },
+          "excessWait": {
+            "mean": 406.84,
+            "std": 53.004
+          },
+          "headwayCv": {
+            "mean": 1.107,
+            "std": 0.07
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 0,
+            "std": 0
+          },
+          "bunchedPercent": {
+            "mean": 86.34,
+            "std": 1.147
+          }
+        },
+        {
+          "strategy": "headway",
+          "totalDelay": {
+            "mean": 342.62,
+            "std": 4.034
+          },
+          "meanWait": {
+            "mean": 324.94,
+            "std": 1.903
+          },
+          "excessWait": {
+            "mean": 7.01,
+            "std": 0.557
+          },
+          "headwayCv": {
+            "mean": 0.148,
+            "std": 0.006
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 115.69,
+            "std": 13.936
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        },
+        {
+          "strategy": "equalize",
+          "totalDelay": {
+            "mean": 344.37,
+            "std": 3.049
+          },
+          "meanWait": {
+            "mean": 326.205,
+            "std": 1.418
+          },
+          "excessWait": {
+            "mean": 8.015,
+            "std": 0.422
+          },
+          "headwayCv": {
+            "mean": 0.159,
+            "std": 0.004
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 118.805,
+            "std": 11.078
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        },
+        {
+          "strategy": "rl",
+          "totalDelay": {
+            "mean": 335.58,
+            "std": 3.936
+          },
+          "meanWait": {
+            "mean": 320.865,
+            "std": 1.827
+          },
+          "excessWait": {
+            "mean": 4.965,
+            "std": 0.482
+          },
+          "headwayCv": {
+            "mean": 0.125,
+            "std": 0.006
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 93.66,
+            "std": 13.55
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        }
+      ],
+      "versusHeadway": [
+        {
+          "strategy": "none",
+          "meanDifference": 394.61,
+          "ciLow": 367.95,
+          "ciHigh": 421.27,
+          "better": 0,
+          "worse": 20
+        },
+        {
+          "strategy": "equalize",
+          "meanDifference": 1.75,
+          "ciLow": -0.97,
+          "ciHigh": 4.47,
+          "better": 10,
+          "worse": 9
+        },
+        {
+          "strategy": "rl",
+          "meanDifference": -7.04,
+          "ciLow": -8.85,
+          "ciHigh": -5.23,
+          "better": 19,
+          "worse": 1
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "5 autobuze, doar zgomot",
+        "buses": 5,
+        "disturbed": false
+      },
+      "strategies": [
+        {
+          "strategy": "none",
+          "totalDelay": {
+            "mean": 249.945,
+            "std": 38.604
+          },
+          "meanWait": {
+            "mean": 249.945,
+            "std": 38.604
+          },
+          "excessWait": {
+            "mean": 79.315,
+            "std": 38.388
+          },
+          "headwayCv": {
+            "mean": 0.659,
+            "std": 0.179
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 0,
+            "std": 0
+          },
+          "bunchedPercent": {
+            "mean": 41.775,
+            "std": 14.437
+          }
+        },
+        {
+          "strategy": "headway",
+          "totalDelay": {
+            "mean": 177.57,
+            "std": 2.052
+          },
+          "meanWait": {
+            "mean": 173.365,
+            "std": 0.664
+          },
+          "excessWait": {
+            "mean": 0.95,
+            "std": 0.293
+          },
+          "headwayCv": {
+            "mean": 0.074,
+            "std": 0.011
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 28,
+            "std": 9.198
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        },
+        {
+          "strategy": "equalize",
+          "totalDelay": {
+            "mean": 182.625,
+            "std": 4.171
+          },
+          "meanWait": {
+            "mean": 175.845,
+            "std": 1.715
+          },
+          "excessWait": {
+            "mean": 2.755,
+            "std": 0.981
+          },
+          "headwayCv": {
+            "mean": 0.124,
+            "std": 0.024
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 45.85,
+            "std": 16.637
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        },
+        {
+          "strategy": "rl",
+          "totalDelay": {
+            "mean": 175.53,
+            "std": 1.145
+          },
+          "meanWait": {
+            "mean": 172.505,
+            "std": 0.314
+          },
+          "excessWait": {
+            "mean": 0.465,
+            "std": 0.075
+          },
+          "headwayCv": {
+            "mean": 0.052,
+            "std": 0.003
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 19.59,
+            "std": 5.556
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        }
+      ],
+      "versusHeadway": [
+        {
+          "strategy": "none",
+          "meanDifference": 72.38,
+          "ciLow": 54.71,
+          "ciHigh": 90.04,
+          "better": 0,
+          "worse": 20
+        },
+        {
+          "strategy": "equalize",
+          "meanDifference": 5.05,
+          "ciLow": 3.25,
+          "ciHigh": 6.86,
+          "better": 3,
+          "worse": 17
+        },
+        {
+          "strategy": "rl",
+          "meanDifference": -2.04,
+          "ciLow": -3.17,
+          "ciHigh": -0.91,
+          "better": 16,
+          "worse": 3
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "5 autobuze, un autobuz oprit 5 min",
+        "buses": 5,
+        "disturbed": true
+      },
+      "strategies": [
+        {
+          "strategy": "none",
+          "totalDelay": {
+            "mean": 693.015,
+            "std": 62.608
+          },
+          "meanWait": {
+            "mean": 693.015,
+            "std": 62.608
+          },
+          "excessWait": {
+            "mean": 501.74,
+            "std": 59.572
+          },
+          "headwayCv": {
+            "mean": 1.616,
+            "std": 0.086
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 0,
+            "std": 0
+          },
+          "bunchedPercent": {
+            "mean": 94.205,
+            "std": 0.076
+          }
+        },
+        {
+          "strategy": "headway",
+          "totalDelay": {
+            "mean": 196.51,
+            "std": 2.219
+          },
+          "meanWait": {
+            "mean": 180.595,
+            "std": 0.758
+          },
+          "excessWait": {
+            "mean": 3.84,
+            "std": 0.406
+          },
+          "headwayCv": {
+            "mean": 0.147,
+            "std": 0.008
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 107.125,
+            "std": 9.688
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        },
+        {
+          "strategy": "equalize",
+          "totalDelay": {
+            "mean": 205.615,
+            "std": 2.536
+          },
+          "meanWait": {
+            "mean": 185.325,
+            "std": 0.89
+          },
+          "excessWait": {
+            "mean": 7.325,
+            "std": 0.427
+          },
+          "headwayCv": {
+            "mean": 0.203,
+            "std": 0.006
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 137.145,
+            "std": 11.271
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        },
+        {
+          "strategy": "rl",
+          "totalDelay": {
+            "mean": 195.73,
+            "std": 2.593
+          },
+          "meanWait": {
+            "mean": 180.345,
+            "std": 0.976
+          },
+          "excessWait": {
+            "mean": 3.785,
+            "std": 0.452
+          },
+          "headwayCv": {
+            "mean": 0.146,
+            "std": 0.008
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 103.215,
+            "std": 10.939
+          },
+          "bunchedPercent": {
+            "mean": 0.005,
+            "std": 0.022
+          }
+        }
+      ],
+      "versusHeadway": [
+        {
+          "strategy": "none",
+          "meanDifference": 496.51,
+          "ciLow": 467.33,
+          "ciHigh": 525.68,
+          "better": 0,
+          "worse": 20
+        },
+        {
+          "strategy": "equalize",
+          "meanDifference": 9.1,
+          "ciLow": 7.53,
+          "ciHigh": 10.68,
+          "better": 0,
+          "worse": 20
+        },
+        {
+          "strategy": "rl",
+          "meanDifference": -0.78,
+          "ciLow": -2.39,
+          "ciHigh": 0.83,
+          "better": 11,
+          "worse": 9
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "8 autobuze, doar zgomot",
+        "buses": 8,
+        "disturbed": false
+      },
+      "strategies": [
+        {
+          "strategy": "none",
+          "totalDelay": {
+            "mean": 194.115,
+            "std": 32.925
+          },
+          "meanWait": {
+            "mean": 194.115,
+            "std": 32.925
+          },
+          "excessWait": {
+            "mean": 91.84,
+            "std": 32.885
+          },
+          "headwayCv": {
+            "mean": 0.933,
+            "std": 0.168
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 0,
+            "std": 0
+          },
+          "bunchedPercent": {
+            "mean": 60.12,
+            "std": 8.081
+          }
+        },
+        {
+          "strategy": "headway",
+          "totalDelay": {
+            "mean": 108.155,
+            "std": 1.912
+          },
+          "meanWait": {
+            "mean": 103.555,
+            "std": 0.438
+          },
+          "excessWait": {
+            "mean": 0.895,
+            "std": 0.252
+          },
+          "headwayCv": {
+            "mean": 0.093,
+            "std": 0.012
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 31.77,
+            "std": 10.018
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        },
+        {
+          "strategy": "equalize",
+          "totalDelay": {
+            "mean": 111.95,
+            "std": 4.553
+          },
+          "meanWait": {
+            "mean": 105.86,
+            "std": 1.846
+          },
+          "excessWait": {
+            "mean": 2.98,
+            "std": 1.485
+          },
+          "headwayCv": {
+            "mean": 0.164,
+            "std": 0.045
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 43.36,
+            "std": 19.373
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        },
+        {
+          "strategy": "rl",
+          "totalDelay": {
+            "mean": 106.885,
+            "std": 0.789
+          },
+          "meanWait": {
+            "mean": 102.825,
+            "std": 0.121
+          },
+          "excessWait": {
+            "mean": 0.27,
+            "std": 0.047
+          },
+          "headwayCv": {
+            "mean": 0.05,
+            "std": 0.002
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 27.13,
+            "std": 4.4
+          },
+          "bunchedPercent": {
+            "mean": 0,
+            "std": 0
+          }
+        }
+      ],
+      "versusHeadway": [
+        {
+          "strategy": "none",
+          "meanDifference": 85.96,
+          "ciLow": 70.87,
+          "ciHigh": 101.05,
+          "better": 0,
+          "worse": 20
+        },
+        {
+          "strategy": "equalize",
+          "meanDifference": 3.79,
+          "ciLow": 1.78,
+          "ciHigh": 5.81,
+          "better": 4,
+          "worse": 16
+        },
+        {
+          "strategy": "rl",
+          "meanDifference": -1.27,
+          "ciLow": -2.27,
+          "ciHigh": -0.27,
+          "better": 15,
+          "worse": 4
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "8 autobuze, un autobuz oprit 5 min",
+        "buses": 8,
+        "disturbed": true
+      },
+      "strategies": [
+        {
+          "strategy": "none",
+          "totalDelay": {
+            "mean": 590.7,
+            "std": 61.382
+          },
+          "meanWait": {
+            "mean": 590.7,
+            "std": 61.382
+          },
+          "excessWait": {
+            "mean": 477.37,
+            "std": 59.457
+          },
+          "headwayCv": {
+            "mean": 2.048,
+            "std": 0.112
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 0,
+            "std": 0
+          },
+          "bunchedPercent": {
+            "mean": 94.73,
+            "std": 0.066
+          }
+        },
+        {
+          "strategy": "headway",
+          "totalDelay": {
+            "mean": 123.62,
+            "std": 1.678
+          },
+          "meanWait": {
+            "mean": 107.965,
+            "std": 0.493
+          },
+          "excessWait": {
+            "mean": 3.315,
+            "std": 0.313
+          },
+          "headwayCv": {
+            "mean": 0.178,
+            "std": 0.008
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 108.175,
+            "std": 8.093
+          },
+          "bunchedPercent": {
+            "mean": 1.995,
+            "std": 0.147
+          }
+        },
+        {
+          "strategy": "equalize",
+          "totalDelay": {
+            "mean": 142.755,
+            "std": 2.287
+          },
+          "meanWait": {
+            "mean": 117.8,
+            "std": 0.706
+          },
+          "excessWait": {
+            "mean": 11.635,
+            "std": 0.478
+          },
+          "headwayCv": {
+            "mean": 0.331,
+            "std": 0.006
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 178.005,
+            "std": 11.409
+          },
+          "bunchedPercent": {
+            "mean": 2.085,
+            "std": 0.16
+          }
+        },
+        {
+          "strategy": "rl",
+          "totalDelay": {
+            "mean": 135.31,
+            "std": 2.288
+          },
+          "meanWait": {
+            "mean": 112.025,
+            "std": 0.547
+          },
+          "excessWait": {
+            "mean": 6.245,
+            "std": 0.287
+          },
+          "headwayCv": {
+            "mean": 0.243,
+            "std": 0.005
+          },
+          "holdSecondsPerBusHour": {
+            "mean": 159.1,
+            "std": 11.484
+          },
+          "bunchedPercent": {
+            "mean": 2.22,
+            "std": 0.289
+          }
+        }
+      ],
+      "versusHeadway": [
+        {
+          "strategy": "none",
+          "meanDifference": 467.08,
+          "ciLow": 438.39,
+          "ciHigh": 495.77,
+          "better": 0,
+          "worse": 20
+        },
+        {
+          "strategy": "equalize",
+          "meanDifference": 19.14,
+          "ciLow": 17.65,
+          "ciHigh": 20.62,
+          "better": 0,
+          "worse": 20
+        },
+        {
+          "strategy": "rl",
+          "meanDifference": 11.69,
+          "ciLow": 10.4,
+          "ciHigh": 12.98,
+          "better": 0,
+          "worse": 20
+        }
+      ]
+    }
+  ],
+  "whatIf": [
+    {
+      "name": "baz\u0103: 5 autobuze",
+      "busesAtStart": 5,
+      "busesAtEnd": 5,
+      "meanHeadway": {
+        "mean": 344.82,
+        "std": 0.819
+      },
+      "meanWait": {
+        "mean": 173.365,
+        "std": 0.664
+      },
+      "totalDelay": {
+        "mean": 177.57,
+        "std": 2.052
+      },
+      "headwayCv": {
+        "mean": 0.074,
+        "std": 0.011
+      },
+      "skippedStops": {
+        "mean": 0,
+        "std": 0
+      }
+    },
+    {
+      "name": "\u002B1 autobuz de la \u00EEnceput",
+      "busesAtStart": 5,
+      "busesAtEnd": 6,
+      "meanHeadway": {
+        "mean": 284.69,
+        "std": 0.799
+      },
+      "meanWait": {
+        "mean": 144,
+        "std": 0.662
+      },
+      "totalDelay": {
+        "mean": 152.08,
+        "std": 2.169
+      },
+      "headwayCv": {
+        "mean": 0.108,
+        "std": 0.01
+      },
+      "skippedStops": {
+        "mean": 0,
+        "std": 0
+      }
+    },
+    {
+      "name": "\u002B2 autobuze dup\u0103 1 h",
+      "busesAtStart": 5,
+      "busesAtEnd": 7,
+      "meanHeadway": {
+        "mean": 260.63,
+        "std": 0.702
+      },
+      "meanWait": {
+        "mean": 134.24,
+        "std": 0.407
+      },
+      "totalDelay": {
+        "mean": 143.58,
+        "std": 2.073
+      },
+      "headwayCv": {
+        "mean": 0.173,
+        "std": 0.002
+      },
+      "skippedStops": {
+        "mean": 0,
+        "std": 0
+      }
+    },
+    {
+      "name": "frecven\u021B\u0103: un autobuz la 6 min",
+      "busesAtStart": 5,
+      "busesAtEnd": 5,
+      "meanHeadway": {
+        "mean": 344.82,
+        "std": 0.819
+      },
+      "meanWait": {
+        "mean": 173.365,
+        "std": 0.664
+      },
+      "totalDelay": {
+        "mean": 177.57,
+        "std": 2.052
+      },
+      "headwayCv": {
+        "mean": 0.074,
+        "std": 0.011
+      },
+      "skippedStops": {
+        "mean": 0,
+        "std": 0
+      }
+    },
+    {
+      "name": "frecven\u021B\u0103: un autobuz la 10 min",
+      "busesAtStart": 4,
+      "busesAtEnd": 4,
+      "meanHeadway": {
+        "mean": 444.21,
+        "std": 1.956
+      },
+      "meanWait": {
+        "mean": 224.62,
+        "std": 1.732
+      },
+      "totalDelay": {
+        "mean": 231.225,
+        "std": 4.11
+      },
+      "headwayCv": {
+        "mean": 0.105,
+        "std": 0.017
+      },
+      "skippedStops": {
+        "mean": 0,
+        "std": 0
+      }
+    },
+    {
+      "name": "strad\u0103 \u00EEnchis\u0103 km 1,5\u20132,5, ocol \u002B1,2 km",
+      "busesAtStart": 5,
+      "busesAtEnd": 5,
+      "meanHeadway": {
+        "mean": 452.195,
+        "std": 1.961
+      },
+      "meanWait": {
+        "mean": 226.81,
+        "std": 1.061
+      },
+      "totalDelay": {
+        "mean": 352.125,
+        "std": 5.095
+      },
+      "headwayCv": {
+        "mean": 0.075,
+        "std": 0.001
+      },
+      "skippedStops": {
+        "mean": 174.9,
+        "std": 1.071
+      }
+    },
+    {
+      "name": "strad\u0103 \u00EEnchis\u0103 1 h (de la 1 h), ocol \u002B1,2 km",
+      "busesAtStart": 5,
+      "busesAtEnd": 5,
+      "meanHeadway": {
+        "mean": 391.34,
+        "std": 1.139
+      },
+      "meanWait": {
+        "mean": 309.96,
+        "std": 2.456
+      },
+      "totalDelay": {
+        "mean": 346.47,
+        "std": 4.141
+      },
+      "headwayCv": {
+        "mean": 0.781,
+        "std": 0.007
+      },
+      "skippedStops": {
+        "mean": 44,
+        "std": 0.562
+      }
+    }
+  ]
+}

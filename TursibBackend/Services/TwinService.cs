@@ -15,6 +15,15 @@ public class TwinScenario
     /// <summary>Strategia de control: <c>none</c>, <c>headway</c> sau <c>equalize</c> (vezi <see cref="HoldPolicy"/>).</summary>
     public string Strategy { get; set; } = HoldPolicy.None;
     public List<TwinDisturbance> Disturbances { get; set; } = new();
+    /// <summary>What-if: frecvența dorită (un autobuz la N minute); numărul de autobuze se calculează din ea.</summary>
+    public double? HeadwayMinutes { get; set; }
+    /// <summary>What-if: autobuze suplimentare introduse în timpul simulării.</summary>
+    public List<TwinBusInjection> ExtraBuses { get; set; } = new();
+    /// <summary>What-if: străzi închise, cu ocol.</summary>
+    public List<TwinClosure> Closures { get; set; } = new();
+
+    public const int MaxExtraBusEvents = 5;
+    public const int MaxClosures = 3;
 
     public const int MaxDurationSeconds = 6 * 3600;
     public const int MinBuses = 2;
@@ -30,6 +39,13 @@ public class TwinScenario
         if (!HoldPolicy.IsKnown(Strategy)) return $"strategy trebuie să fie una dintre: {string.Join(", ", HoldPolicy.Strategies)}.";
         if (DemandFactor is < 0.1 or > 5) return "demandFactor trebuie să fie între 0,1 și 5.";
         if (Disturbances.Count > MaxDisturbances) return $"Cel mult {MaxDisturbances} perturbări.";
+        if (HeadwayMinutes is { } h && (h < 2 || h > 120)) return "headwayMinutes trebuie să fie între 2 și 120.";
+        if (HeadwayMinutes != null && BusCount != null) return "Alege fie busCount, fie headwayMinutes, nu ambele.";
+        if (ExtraBuses.Count > MaxExtraBusEvents || ExtraBuses.Any(x => x.Count is < 1 or > 10 || x.AtSecond < 0 || x.AtSecond > DurationSeconds))
+            return $"extraBuses: cel mult {MaxExtraBusEvents} evenimente, 1-10 autobuze, în durata rulării.";
+        if (Closures.Count > MaxClosures || Closures.Any(c => c.FromMeters < 0 || c.ToMeters <= c.FromMeters || c.DetourMeters is < 0 or > 20_000
+                                                             || c.FromSecond < 0 || (c.ToSecond is { } end && end <= c.FromSecond)))
+            return $"closures: cel mult {MaxClosures}, cu 0 ≤ fromMeters < toMeters, ocol 0-20 000 m și interval de timp valid.";
         if (Disturbances.Any(d => d.AtSecond < 0 || d.AtSecond > DurationSeconds || d.HoldSeconds is < 1 or > 3600 || d.BusIndex < 0))
             return "Perturbare invalidă (atSecond în durata rulării, holdSeconds 1..3600, busIndex ≥ 0).";
         return null;
@@ -68,7 +84,11 @@ public record TwinRunResult(
     double HeadwayCv = 0,
     double MeanHeadwaySeconds = 0,
     /// <summary>așteptare în stație + întârziere în autobuz din holding, pe pasager (s): metrica principală de comparație</summary>
-    double TotalDelayPerPassengerSeconds = 0);
+    double TotalDelayPerPassengerSeconds = 0,
+    /// <summary>numărul de autobuze la final (diferă de BusCount dacă scenariul adaugă autobuze)</summary>
+    int FinalBusCount = 0,
+    /// <summary>opriri sărite din cauza străzilor închise</summary>
+    long SkippedStopVisits = 0);
 
 public static class TwinRunner
 {
@@ -82,7 +102,8 @@ public static class TwinRunner
         string strategy = HoldPolicy.None)
     {
         options ??= new BunchingOptions();
-        var engine = new TwinEngine(config, initialLoopPositions, scenario.Seed, scenario.Disturbances, control);
+        var engine = new TwinEngine(config, initialLoopPositions, scenario.Seed, scenario.Disturbances, control,
+            new TwinWhatIf(scenario.ExtraBuses, scenario.Closures));
         var tracker = new BunchingTracker(options);
         var epoch = DateTimeOffset.FromUnixTimeSeconds(1_700_000_000);
         var loop = config.LoopLengthMeters;
@@ -115,7 +136,7 @@ public static class TwinRunner
         }
 
         return new TwinRunResult(
-            scenario.RouteId, initialisedFrom, engine.Buses.Count, scenario.DurationSeconds,
+            scenario.RouteId, initialisedFrom, initialLoopPositions.Count, scenario.DurationSeconds,
             Math.Round(config.RouteLengthMeters), Math.Round(100 * bunchedSamples / samples, 1),
             Math.Round(cvSum / samples, 3), Math.Round(maxCv, 3), Math.Round(minRatio, 3), episodes, series,
             engine.Buses.Select(b => Math.Round(engine.LoopPosition(b))).ToList(),
@@ -123,7 +144,8 @@ public static class TwinRunner
             Math.Round(engine.TotalControlHoldSeconds / engine.Buses.Count / (scenario.DurationSeconds / 3600.0), 1),
             Math.Round(engine.DistanceTravelledMeters / engine.Buses.Count / scenario.DurationSeconds * 3.6, 1),
             Math.Round(engine.MeanWaitSeconds, 1), Math.Round(engine.ExcessWaitSeconds, 1), Math.Round(engine.HeadwayCv, 3),
-            Math.Round(engine.MeanHeadwaySeconds, 1), Math.Round(engine.TotalDelayPerPassengerSeconds, 1));
+            Math.Round(engine.MeanHeadwaySeconds, 1), Math.Round(engine.TotalDelayPerPassengerSeconds, 1),
+            engine.Buses.Count, engine.SkippedStopVisits);
     }
 
     private static double Cv(IReadOnlyList<double> values)
@@ -132,6 +154,21 @@ public static class TwinRunner
         if (mean <= 0) return 0;
         var variance = values.Sum(v => (v - mean) * (v - mean)) / values.Count;
         return Math.Sqrt(variance) / mean;
+    }
+}
+
+public static class TwinPlanning
+{
+    /// <summary>
+    /// Câte autobuze trebuie pe linie pentru un headway dorit: timpul unei ture complete (mers + opriri, cu pasagerii
+    /// strânși într-un headway) împărțit la headway, rotunjit în sus (minim 2, maxim 30).
+    /// </summary>
+    public static int BusesForHeadway(TwinConfig config, double headwaySeconds)
+    {
+        var stops = Math.Max(2, Math.Round(config.LoopLengthMeters / config.StopSpacingMeters));
+        var dwell = config.BaseDwellSeconds + config.BoardingSecondsPerPassenger * config.PassengerArrivalRate * headwaySeconds;
+        var cycle = config.LoopLengthMeters / config.CruiseSpeedMs + stops * dwell;
+        return Math.Clamp((int)Math.Ceiling(cycle / headwaySeconds), TwinScenario.MinBuses, TwinScenario.MaxBuses);
     }
 }
 
@@ -218,7 +255,8 @@ public class TwinService
     private static TwinScenario Clone(TwinScenario s, int seed, string strategy) => new()
     {
         RouteId = s.RouteId, BusCount = s.BusCount, DurationSeconds = s.DurationSeconds, Seed = seed,
-        UseLiveState = s.UseLiveState, DemandFactor = s.DemandFactor, Disturbances = s.Disturbances, Strategy = strategy
+        UseLiveState = s.UseLiveState, DemandFactor = s.DemandFactor, Disturbances = s.Disturbances, Strategy = strategy,
+        HeadwayMinutes = s.HeadwayMinutes, ExtraBuses = s.ExtraBuses, Closures = s.Closures
     };
 
     private static TwinStrategySummary Summarize(string strategy, IReadOnlyList<TwinRunResult> runs)
@@ -259,7 +297,9 @@ public class TwinService
         var initial = scenario.UseLiveState ? LivePositions(scenario.RouteId, geometry) : null;
         if (initial is { Count: >= TwinScenario.MinBuses }) return new Prepared(config, initial, "live");
 
-        var n = scenario.BusCount ?? 3;
+        var n = scenario.HeadwayMinutes is { } headway
+            ? TwinPlanning.BusesForHeadway(config, headway * 60)
+            : scenario.BusCount ?? 3;
         return new Prepared(config, Enumerable.Range(0, n).Select(i => i * loop / n).ToList(), "even");
     }
 

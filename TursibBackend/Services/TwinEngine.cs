@@ -46,10 +46,27 @@ public class TwinBus
 /// <summary>O perturbare programată: autobuzul <see cref="BusIndex"/> stă pe loc <see cref="HoldSeconds"/> începând cu <see cref="AtSecond"/>.</summary>
 public record TwinDisturbance(int AtSecond, int BusIndex, int HoldSeconds);
 
+/// <summary>What-if: <paramref name="Count"/> autobuze noi intră în circulație la <paramref name="AtSecond"/>, în cele mai mari goluri.</summary>
+public record TwinBusInjection(int AtSecond, int Count);
+
+/// <summary>
+/// What-if: o stradă închisă pe porțiunea [<paramref name="FromMeters"/>, <paramref name="ToMeters"/>] a traseului (măsurată pe
+/// sensul dus; se aplică ambelor sensuri), cu un ocol de <paramref name="DetourMeters"/> în plus. Stațiile de pe porțiune nu
+/// sunt deservite; pasagerii lor merg la cea mai apropiată stație deschisă. Activă între secundele date (fără sfârșit = toată simularea).
+/// </summary>
+public record TwinClosure(double FromMeters, double ToMeters, double DetourMeters, int FromSecond = 0, int? ToSecond = null);
+
+/// <summary>Scenariile what-if aplicate unei simulări.</summary>
+public record TwinWhatIf(IReadOnlyList<TwinBusInjection>? Injections = null, IReadOnlyList<TwinClosure>? Closures = null);
+
 /// <summary>Ce vede o strategie de control când un autobuz ajunge la o stație.</summary>
 public record TwinStopContext(
     TwinBus Bus, int BusIndex, double GapAheadMeters, double GapBehindMeters, double IdealGapMeters,
-    double Time, TwinConfig Config);
+    double Time, TwinConfig Config,
+    /// <summary>headway-ul cu care a sosit autobuzul în stație: timpul de la plecarea autobuzului precedent (s)</summary>
+    double HeadwaySeconds = 0,
+    /// <summary>headway-ul mediu observat până acum în simulare (s); 0 la început</summary>
+    double MeanHeadwaySeconds = 0);
 
 /// <summary>Strategie de control: la sosirea într-o stație poate cere o oprire suplimentară (holding).</summary>
 public interface ITwinControl
@@ -69,10 +86,21 @@ public class TwinEngine
     private readonly Random _random;
     private readonly List<TwinDisturbance> _disturbances;
     private readonly double[] _lastDeparture;
-    private readonly double[] _initialPositions;
+    private readonly List<double> _initialPositions;
+    private readonly List<TwinBus> _buses;
+    private readonly List<TwinBusInjection> _injections;
+    private readonly IReadOnlyList<TwinClosure> _closures;
+    private readonly double[] _stopRate;
+    private readonly bool[] _stopClosed;
+    private string _closureState = "";
     private int _nextDisturbance;
+    private int _nextInjection;
 
-    public IReadOnlyList<TwinBus> Buses { get; }
+    public IReadOnlyList<TwinBus> Buses => _buses;
+    /// <summary>Câte stații sunt închise acum (what-if).</summary>
+    public int ClosedStops => _stopClosed.Count(c => c);
+    /// <summary>Câte opriri au fost sărite din cauza străzilor închise.</summary>
+    public long SkippedStopVisits { get; private set; }
     public double Time { get; private set; }
     public int StopCount { get; }
     public double StopSpacing { get; }
@@ -111,7 +139,7 @@ public class TwinEngine
 
     /// <param name="initialLoopPositions">poziția inițială a fiecărui autobuz pe buclă (0..2L), în ordinea indicilor</param>
     public TwinEngine(TwinConfig config, IReadOnlyList<double> initialLoopPositions, int seed,
-        IEnumerable<TwinDisturbance>? disturbances = null, ITwinControl? control = null)
+        IEnumerable<TwinDisturbance>? disturbances = null, ITwinControl? control = null, TwinWhatIf? whatIf = null)
     {
         if (config.RouteLengthMeters <= 0) throw new ArgumentException("Lungimea traseului trebuie să fie pozitivă.", nameof(config));
         if (initialLoopPositions.Count < 1) throw new ArgumentException("Cel puțin un autobuz.", nameof(initialLoopPositions));
@@ -125,7 +153,7 @@ public class TwinEngine
         StopCount = Math.Max(2, (int)Math.Round(loop / config.StopSpacingMeters));
         StopSpacing = loop / StopCount;
 
-        Buses = initialLoopPositions
+        _buses = initialLoopPositions
             .Select((p, i) =>
             {
                 var pos = ((p % loop) + loop) % loop;
@@ -139,7 +167,12 @@ public class TwinEngine
             })
             .ToList();
 
-        _initialPositions = Buses.Select(b => b.Position).ToArray();
+        _initialPositions = _buses.Select(b => b.Position).ToList();
+        _injections = (whatIf?.Injections ?? Array.Empty<TwinBusInjection>()).OrderBy(i => i.AtSecond).ToList();
+        _closures = whatIf?.Closures ?? Array.Empty<TwinClosure>();
+        _stopRate = Enumerable.Repeat(config.PassengerArrivalRate, StopCount).ToArray();
+        _stopClosed = new bool[StopCount];
+        UpdateClosures();
 
         // La început, la fiecare stație aștepta exact cât ar fi trecut de la ultimul autobuz care a depășit-o.
         _lastDeparture = new double[StopCount];
@@ -163,6 +196,12 @@ public class TwinEngine
             var d = _disturbances[_nextDisturbance++];
             if (d.BusIndex >= 0 && d.BusIndex < Buses.Count) Buses[d.BusIndex].HoldRemaining += d.HoldSeconds;
         }
+        while (_nextInjection < _injections.Count && _injections[_nextInjection].AtSecond <= Time)
+        {
+            for (var k = 0; k < _injections[_nextInjection].Count; k++) InjectBus();
+            _nextInjection++;
+        }
+        if (_closures.Count > 0) UpdateClosures();
 
         // golul față de autobuzul din față, calculat înainte de mișcare (nu se depășesc)
         var gapAhead = new double[Buses.Count];
@@ -197,7 +236,8 @@ public class TwinEngine
                 continue;
             }
 
-            var speed = _config.CruiseSpeedMs * (1 + (_random.NextDouble() * 2 - 1) * _config.SpeedJitter);
+            var speed = _config.CruiseSpeedMs * (1 + (_random.NextDouble() * 2 - 1) * _config.SpeedJitter)
+                * DetourSpeedFactor(LoopPosition(bus));
             var maxByLeader = Buses.Count > 1 ? Math.Max(0, gapAhead[i] - _config.MinGapMeters) : double.MaxValue;
             var distance = Math.Min(speed * dt, maxByLeader);
             bus.Speed = distance / dt;
@@ -205,7 +245,8 @@ public class TwinEngine
             if (bus.Position + distance >= bus.NextStopPosition)
             {
                 bus.Position = bus.NextStopPosition;
-                ArriveAtStop(bus, i, gapAhead[i], gapBehind[i]);
+                if (_stopClosed[StopIndex(bus.NextStopPosition)]) SkippedStopVisits++;   // stradă închisă: trece fără oprire
+                else ArriveAtStop(bus, i, gapAhead[i], gapBehind[i]);
                 bus.NextStopPosition += StopSpacing;
             }
             else
@@ -221,23 +262,104 @@ public class TwinEngine
     {
         var stop = StopIndex(bus.NextStopPosition);
         var headway = Math.Max(0, Time - _lastDeparture[stop]);
-        var waiting = _config.PassengerArrivalRate * headway;
+        var rate = _stopRate[stop];
+        var waiting = rate * headway;
 
         _headwaySum += headway;
         _headwaySumSq += headway * headway;
         _headwayCount++;
         PassengersServed += waiting;
-        PassengerWaitSeconds += _config.PassengerArrivalRate * headway * headway / 2;
+        PassengerWaitSeconds += rate * headway * headway / 2;
         bus.Load = bus.Load * (1 - _config.AlightingFraction) + waiting;
         var dwell = _config.BaseDwellSeconds + _config.BoardingSecondsPerPassenger * waiting;
         dwell *= 1 + (_random.NextDouble() * 2 - 1) * _config.DwellJitter;
         dwell = Math.Clamp(dwell, 0, _config.MaxDwellSeconds);
 
-        var extra = _control.ExtraHoldSeconds(new TwinStopContext(bus, index, gapAhead, gapBehind, IdealGapMeters, Time, _config));
+        var extra = _control.ExtraHoldSeconds(new TwinStopContext(
+            bus, index, gapAhead, gapBehind, IdealGapMeters, Time, _config, headway, MeanHeadwaySeconds));
         extra = Math.Max(0, extra);
         TotalControlHoldSeconds += extra;
         OnBoardHoldPassengerSeconds += bus.Load * extra;
         bus.DwellRemaining = dwell + extra;
+    }
+
+    /// <summary>What-if: un autobuz nou intră la jumătatea celui mai mare gol dintre autobuze.</summary>
+    private void InjectBus()
+    {
+        var loop = _config.LoopLengthMeters;
+        double start;
+        if (_buses.Count == 0) start = 0;
+        else
+        {
+            var ordered = _buses.Select(LoopPosition).OrderBy(p => p).ToList();
+            var bestGap = -1.0;
+            start = 0;
+            for (var k = 0; k < ordered.Count; k++)
+            {
+                var gap = CircularForward(ordered[k], ordered[(k + 1) % ordered.Count], loop);
+                if (ordered.Count == 1) gap = loop;
+                if (gap > bestGap) { bestGap = gap; start = (ordered[k] + gap / 2) % loop; }
+            }
+        }
+        _buses.Add(new TwinBus
+        {
+            Id = $"twin_bus_{_buses.Count}",
+            Position = start,
+            NextStopPosition = (Math.Floor(start / StopSpacing) + 1) * StopSpacing,
+            Speed = _config.CruiseSpeedMs
+        });
+        _initialPositions.Add(start);
+    }
+
+    /// <summary>Porțiunile închise acum, pe bucla dus-întors (fiecare închidere apare pe ambele sensuri).</summary>
+    private IEnumerable<(double From, double To, double Factor)> ActiveClosedIntervals()
+    {
+        var length = _config.RouteLengthMeters;
+        foreach (var c in _closures)
+        {
+            if (Time < c.FromSecond || (c.ToSecond is { } end && Time >= end)) continue;
+            var from = Math.Clamp(c.FromMeters, 0, length);
+            var to = Math.Clamp(c.ToMeters, 0, length);
+            if (to <= from) continue;
+            // ocolul se parcurge în timpul în care s-ar fi parcurs porțiunea închisă: viteza efectivă scade proporțional
+            var factor = (to - from) / (to - from + Math.Max(0, c.DetourMeters));
+            yield return (from, to, factor);
+            yield return (2 * length - to, 2 * length - from, factor);
+        }
+    }
+
+    private double DetourSpeedFactor(double loopPosition)
+    {
+        if (_closures.Count == 0) return 1;
+        foreach (var (from, to, factor) in ActiveClosedIntervals())
+            if (loopPosition >= from && loopPosition < to) return factor;
+        return 1;
+    }
+
+    /// <summary>Recalculează stațiile închise și mută cererea lor la cele mai apropiate stații deschise (jumătate în fiecare parte).</summary>
+    private void UpdateClosures()
+    {
+        var intervals = ActiveClosedIntervals().ToList();
+        var state = string.Join(";", intervals.Select(i => $"{i.From:F0}-{i.To:F0}"));
+        if (state == _closureState) return;
+        _closureState = state;
+
+        for (var k = 0; k < StopCount; k++)
+        {
+            var pos = k * StopSpacing;
+            _stopClosed[k] = intervals.Any(i => pos >= i.From && pos <= i.To);
+            _stopRate[k] = _stopClosed[k] ? 0 : _config.PassengerArrivalRate;
+        }
+        if (_stopClosed.All(c => c)) return;   // totul închis: nimeni nu mai e deservit
+        for (var k = 0; k < StopCount; k++)
+        {
+            if (!_stopClosed[k]) continue;
+            int before = k, after = k;
+            do before = (before - 1 + StopCount) % StopCount; while (_stopClosed[before]);
+            do after = (after + 1) % StopCount; while (_stopClosed[after]);
+            _stopRate[before] += _config.PassengerArrivalRate / 2;
+            _stopRate[after] += _config.PassengerArrivalRate / 2;
+        }
     }
 
     private int StopIndex(double stopPosition) =>

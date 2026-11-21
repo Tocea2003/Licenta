@@ -15,10 +15,16 @@ export interface TwinScenarioRequest {
   disturbances: TwinDisturbance[]
   /** strategia de control (implicit `none`) */
   strategy?: TwinStrategy
+  /** what-if: frecvența dorită (un autobuz la N minute), în loc de busCount */
+  headwayMinutes?: number
+  /** what-if: autobuze adăugate în timpul simulării */
+  extraBuses?: Array<{ atSecond: number; count: number }>
+  /** what-if: străzi închise (pe sensul dus, aplicate ambelor sensuri), cu ocol */
+  closures?: Array<{ fromMeters: number; toMeters: number; detourMeters: number; fromSecond?: number; toSecond?: number }>
 }
 
 /** Strategii de control a bunching-ului (holding la stație). */
-export type TwinStrategy = 'none' | 'headway' | 'equalize'
+export type TwinStrategy = 'none' | 'headway' | 'equalize' | 'rl'
 
 /** Corpul cererii POST /api/twin/compare: același scenariu, mai multe strategii, mai multe seed-uri. */
 export interface TwinCompareRequest extends TwinScenarioRequest {
@@ -91,6 +97,8 @@ export interface TwinRunResult {
   meanHeadwaySeconds?: number
   /** așteptare + întârziere în autobuz din holding, pe pasager (s) */
   totalDelayPerPassengerSeconds?: number
+  finalBusCount?: number
+  skippedStopVisits?: number
 }
 
 /** O rulare păstrată în istoricul panoului, ca să poată fi comparată cu altele. */

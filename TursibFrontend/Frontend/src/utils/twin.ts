@@ -13,6 +13,21 @@ export interface TwinForm {
   /** cât stă autobuzul #1 pe loc (minute) */
   disturbanceHoldMinutes: number
   seed: number
+  /** cum se stabilește flota: număr fix de autobuze sau frecvența dorită */
+  fleetMode?: 'buses' | 'headway'
+  headwayMinutes?: number
+  /** what-if: autobuze adăugate în timpul simulării */
+  extraBuses?: boolean
+  extraBusesCount?: number
+  extraBusesAtMinute?: number
+  /** what-if: o stradă închisă (km pe sensul dus) cu ocol */
+  closure?: boolean
+  closureFromKm?: number
+  closureToKm?: number
+  closureDetourKm?: number
+  closureFromMinute?: number
+  /** 0 sau gol = până la final */
+  closureToMinute?: number
 }
 
 export const MIN_BUSES = 2
@@ -34,13 +49,39 @@ export function buildScenario(form: TwinForm): TwinScenarioRequest | null {
     disturbances.push({ atSecond, busIndex: 0, holdSeconds })
   }
 
+  const byHeadway = !form.useLive && form.fleetMode === 'headway'
+  if (byHeadway && !(form.headwayMinutes != null && form.headwayMinutes >= 2 && form.headwayMinutes <= 120)) return null
+
+  const extraBuses = []
+  if (form.extraBuses) {
+    const atSecond = Math.round((form.extraBusesAtMinute ?? 0) * 60)
+    const count = Math.round(form.extraBusesCount ?? 0)
+    if (atSecond < 0 || atSecond > durationSeconds || count < 1 || count > 10) return null
+    extraBuses.push({ atSecond, count })
+  }
+
+  const closures = []
+  if (form.closure) {
+    const fromMeters = Math.round((form.closureFromKm ?? 0) * 1000)
+    const toMeters = Math.round((form.closureToKm ?? 0) * 1000)
+    const detourMeters = Math.round((form.closureDetourKm ?? 0) * 1000)
+    const fromSecond = Math.round((form.closureFromMinute ?? 0) * 60)
+    const toSecond = form.closureToMinute ? Math.round(form.closureToMinute * 60) : undefined
+    if (fromMeters < 0 || toMeters <= fromMeters || detourMeters < 0 || detourMeters > 20_000) return null
+    if (toSecond != null && toSecond <= fromSecond) return null
+    closures.push({ fromMeters, toMeters, detourMeters, fromSecond, ...(toSecond != null ? { toSecond } : {}) })
+  }
+
   return {
     routeId: form.routeId,
-    busCount: form.useLive ? undefined : Math.min(MAX_BUSES, Math.max(MIN_BUSES, Math.round(form.busCount))),
+    busCount: form.useLive || byHeadway ? undefined : Math.min(MAX_BUSES, Math.max(MIN_BUSES, Math.round(form.busCount))),
+    ...(byHeadway ? { headwayMinutes: form.headwayMinutes } : {}),
     durationSeconds,
     seed: form.seed,
     useLiveState: form.useLive,
-    disturbances
+    disturbances,
+    extraBuses,
+    closures
   }
 }
 
@@ -71,13 +112,17 @@ export function chartYMax(seriesList: TwinSample[][]): number {
 
 /** Eticheta unei rulări pentru istoric, ex. „4 min la min 10 · 3 autobuze”. */
 export function runLabel(form: TwinForm, result: TwinRunResult): string {
-  const base = form.disturbance
-    ? `${form.disturbanceHoldMinutes} min la min ${form.disturbanceAtMinute}`
-    : 'fără perturbare'
-  return `${base} · ${result.busCount} autobuze${result.initialisedFrom === 'live' ? ' · live' : ''}`
+  const parts = [form.disturbance ? `${form.disturbanceHoldMinutes} min la min ${form.disturbanceAtMinute}` : 'fără perturbare']
+  parts.push(form.fleetMode === 'headway' && !form.useLive
+    ? `la ${form.headwayMinutes} min (${result.busCount} autobuze)`
+    : `${result.busCount} autobuze`)
+  if (form.extraBuses) parts.push(`+${form.extraBusesCount} la min ${form.extraBusesAtMinute}`)
+  if (form.closure) parts.push(`stradă închisă km ${form.closureFromKm}–${form.closureToKm}`)
+  if (result.initialisedFrom === 'live') parts.push('live')
+  return parts.join(' · ')
 }
 
-export const STRATEGIES: TwinStrategy[] = ['none', 'headway', 'equalize']
+export const STRATEGIES: TwinStrategy[] = ['none', 'headway', 'equalize', 'rl']
 export const DEFAULT_REPLICATIONS = 5
 
 /** Cererea de comparare a strategiilor (același scenariu ca „Rulează”), sau null dacă formularul nu e valid. */

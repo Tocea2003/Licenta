@@ -20,8 +20,10 @@ public static class HoldPolicy
     public const string None = "none";
     public const string Headway = "headway";
     public const string Equalize = "equalize";
+    /// <summary>Q-learning antrenat în digital twin (vezi <see cref="RlHoldControl"/>).</summary>
+    public const string Reinforcement = "rl";
 
-    public static readonly IReadOnlyList<string> Strategies = new[] { None, Headway, Equalize };
+    public static readonly IReadOnlyList<string> Strategies = new[] { None, Headway, Equalize, Reinforcement };
 
     /// <summary>
     /// „Forward headway”: reține autobuzul cât să recupereze golul lipsă față de cel ideal.
@@ -57,6 +59,7 @@ public static class HoldPolicy
     {
         Headway => new HeadwayHoldControl(options),
         Equalize => new EqualizeHoldControl(options),
+        Reinforcement => RlHoldControl.Greedy(QPolicy.Default),
         _ => new NoControl()
     };
 }

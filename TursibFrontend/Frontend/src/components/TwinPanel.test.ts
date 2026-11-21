@@ -72,7 +72,7 @@ describe('TwinPanel', () => {
     await flushPromises()
 
     const post = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/twin/compare'))!
-    expect(JSON.parse(post[1].body)).toMatchObject({ routeId: 9, strategies: ['none', 'headway', 'equalize'], replications: 5 })
+    expect(JSON.parse(post[1].body)).toMatchObject({ routeId: 9, strategies: ['none', 'headway', 'equalize', 'rl'], replications: 5 })
 
     const rows = wrapper.findAll('.comparison tbody tr')
     expect(rows).toHaveLength(3)

@@ -339,12 +339,12 @@ public class TwinEndpointTests : IClassFixture<TwinEndpointTests.TwinFactory>
         Assert.Equal(3, body.GetProperty("replications").GetInt32());
         var results = body.GetProperty("results").EnumerateArray()
             .ToDictionary(r => r.GetProperty("strategy").GetString()!, r => r);
-        Assert.Equal(new[] { "equalize", "headway", "none" }, results.Keys.Order());
+        Assert.Equal(new[] { "equalize", "headway", "none", "rl" }, results.Keys.Order());
 
         var none = results["none"].GetProperty("bunchedPercent").GetDouble();
         Assert.True(none > 50, $"fără control {none}%");
         Assert.Equal(0, results["none"].GetProperty("holdSecondsPerBusHour").GetDouble());
-        foreach (var strategy in new[] { "headway", "equalize" })
+        foreach (var strategy in new[] { "headway", "equalize", "rl" })
         {
             Assert.True(results[strategy].GetProperty("bunchedPercent").GetDouble() < none / 4, strategy);
             Assert.True(results[strategy].GetProperty("holdSecondsPerBusHour").GetDouble() > 0, strategy);

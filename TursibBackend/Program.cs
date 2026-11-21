@@ -14,6 +14,34 @@ if (args.Length >= 3 && args[0] == "import-gtfs" && args[1] == "--dry-run")
     return;
 }
 
+// Antrenarea politicii RL de holding în digital twin (fără bază de date):
+//   dotnet run -- train-rl [episoade] [candidați] [fișier ieșire]
+if (args.Length >= 1 && args[0] == "train-rl")
+{
+    var episodes = args.Length >= 2 && int.TryParse(args[1], out var e) ? e : 3000;
+    var candidates = args.Length >= 3 && int.TryParse(args[2], out var c) ? c : 5;
+    var output = args.Length >= 4 ? args[3] : Path.Combine("Resources", "rl-hold-policy.json");
+    Console.WriteLine($"🧠 Antrenez {candidates} candidați × {episodes} episoade și îl aleg pe cel mai bun pe validare...");
+    var policy = RlTrainer.TrainSelected(candidates, episodes, log: Console.WriteLine);
+    File.WriteAllText(output, policy.ToJson());
+    Console.WriteLine($"✅ Politica RL scrisă în {output}");
+    return;
+}
+
+// Experimentul de comparare a strategiilor de control pe seed-urile de test (rezultatele din docs/results):
+//   dotnet run -- twin-experiment [folder ieșire] [replicări]
+if (args.Length >= 1 && args[0] == "twin-experiment")
+{
+    var outDir = args.Length >= 2 ? args[1] : Path.Combine("..", "docs", "results");
+    var reps = args.Length >= 3 && int.TryParse(args[2], out var r) ? r : 20;
+    Directory.CreateDirectory(outDir);
+    var report = TwinExperiment.Run(reps, Console.WriteLine);
+    File.WriteAllText(Path.Combine(outDir, "bunching-control.json"), report.ToJson());
+    File.WriteAllText(Path.Combine(outDir, "bunching-control.md"), report.ToMarkdown());
+    Console.WriteLine($"✅ Rezultate scrise în {outDir}");
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // --- JWT Key: prefer environment variable over appsettings ---

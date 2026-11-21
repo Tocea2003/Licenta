@@ -15,8 +15,20 @@
       </label>
 
       <label class="field">
+        <span>{{ t('twinFleetMode') }}</span>
+        <select v-model="form.fleetMode" :disabled="form.useLive">
+          <option value="buses">{{ t('twinFleetByBuses') }}</option>
+          <option value="headway">{{ t('twinFleetByHeadway') }}</option>
+        </select>
+      </label>
+
+      <label v-if="form.fleetMode !== 'headway'" class="field">
         <span>{{ t('twinBuses') }}</span>
         <input v-model.number="form.busCount" type="number" :min="MIN_BUSES" :max="MAX_BUSES" :disabled="form.useLive" />
+      </label>
+      <label v-else class="field">
+        <span>{{ t('twinHeadwayMinutes') }}</span>
+        <input v-model.number="form.headwayMinutes" type="number" min="2" max="120" :disabled="form.useLive" />
       </label>
 
       <label class="field">
@@ -46,6 +58,47 @@
         <label class="field">
           <span>{{ t('twinHoldMinutes') }}</span>
           <input v-model.number="form.disturbanceHoldMinutes" type="number" min="1" max="60" />
+        </label>
+      </div>
+
+      <label class="check">
+        <input v-model="form.extraBuses" type="checkbox" />
+        <span>{{ t('twinExtraBuses') }}</span>
+      </label>
+      <div v-if="form.extraBuses" class="inline">
+        <label class="field">
+          <span>{{ t('twinExtraCount') }}</span>
+          <input v-model.number="form.extraBusesCount" type="number" min="1" max="10" />
+        </label>
+        <label class="field">
+          <span>{{ t('twinAtMinute') }}</span>
+          <input v-model.number="form.extraBusesAtMinute" type="number" min="0" :max="form.durationMinutes" />
+        </label>
+      </div>
+
+      <label class="check">
+        <input v-model="form.closure" type="checkbox" />
+        <span>{{ t('twinClosure') }}</span>
+      </label>
+      <div v-if="form.closure" class="inline">
+        <label class="field">
+          <span>{{ t('twinClosureFromKm') }}</span>
+          <input v-model.number="form.closureFromKm" type="number" min="0" step="0.1" />
+        </label>
+        <label class="field">
+          <span>{{ t('twinClosureToKm') }}</span>
+          <input v-model.number="form.closureToKm" type="number" min="0" step="0.1" />
+        </label>
+        <label class="field">
+          <span>{{ t('twinClosureDetourKm') }}</span>
+          <input v-model.number="form.closureDetourKm" type="number" min="0" max="20" step="0.1" />
+        </label>
+        <label class="field">
+          <span>{{ t('twinClosureWindow') }}</span>
+          <span class="pair">
+            <input v-model.number="form.closureFromMinute" type="number" min="0" :aria-label="t('twinClosureFromMinute')" />
+            <input v-model.number="form.closureToMinute" type="number" min="0" :aria-label="t('twinClosureToMinute')" :placeholder="t('twinUntilEnd')" />
+          </span>
         </label>
       </div>
 
@@ -138,7 +191,7 @@ const { t } = useLanguage()
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5022/api'
 const MAX_RUNS = 5
 const COLORS = ['#2563eb', '#c2410c', '#0f766e', '#7c3aed', '#be123c']
-const STRATEGY_COLORS: Record<TwinStrategy, string> = { none: '#be123c', headway: '#2563eb', equalize: '#0f766e' }
+const STRATEGY_COLORS: Record<TwinStrategy, string> = { none: '#be123c', headway: '#2563eb', equalize: '#0f766e', rl: '#7c3aed' }
 const strategyColor = (s: TwinStrategy) => STRATEGY_COLORS[s]
 
 interface RouteOption { id: number; routeNumber: string; name: string }
@@ -160,7 +213,18 @@ const form = reactive<TwinForm>({
   disturbance: false,
   disturbanceAtMinute: 10,
   disturbanceHoldMinutes: 4,
-  seed: 1
+  seed: 1,
+  fleetMode: 'buses',
+  headwayMinutes: 10,
+  extraBuses: false,
+  extraBusesCount: 1,
+  extraBusesAtMinute: 60,
+  closure: false,
+  closureFromKm: 1,
+  closureToKm: 1.8,
+  closureDetourKm: 1.2,
+  closureFromMinute: 0,
+  closureToMinute: undefined
 })
 
 const scenario = computed(() => buildScenario(form))
@@ -267,6 +331,8 @@ function remove(id: number) {
   min-height: 44px; padding: 0 10px; border-radius: 10px; font: inherit; font-size: 14px;
   border: 1px solid var(--border-primary); background: var(--bg-secondary); color: var(--text-primary);
 }
+.pair { display: flex; gap: 6px; }
+.pair input { width: 50%; min-width: 0; }
 .check { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; color: var(--text-primary); }
 .check input { width: 18px; height: 18px; }
 .inline { display: contents; }
