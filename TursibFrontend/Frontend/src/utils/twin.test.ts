@@ -83,12 +83,14 @@ describe('reductionPercent', () => {
 })
 
 describe('bestStrategy', () => {
-  const summary = (strategy: TwinStrategySummary['strategy'], meanCv: number, hold = 0): TwinStrategySummary => ({
-    strategy, bunchedPercent: 0, meanCv, minRatio: 1, bunchingEpisodes: 0, holdSecondsPerBusHour: hold, averageSpeedKmh: 18, series: []
+  const summary = (strategy: TwinStrategySummary['strategy'], delay: number, headwayCv = 0.1): TwinStrategySummary => ({
+    strategy, bunchedPercent: 0, meanCv: 0, minRatio: 1, bunchingEpisodes: 0, holdSecondsPerBusHour: 0, averageSpeedKmh: 18, series: [],
+    meanWaitSeconds: delay, excessWaitSeconds: 0, headwayCv, totalDelayPerPassengerSeconds: delay, totalDelayStdSeconds: 0
   })
 
-  it('picks the lowest irregularity, preferring the cheaper one on ties', () => {
-    expect(bestStrategy([summary('none', 0.9), summary('headway', 0.1, 50), summary('equalize', 0.1, 40)])!.strategy).toBe('equalize')
+  it('picks the lowest total delay per passenger, then the most regular headway', () => {
+    expect(bestStrategy([summary('none', 387), summary('headway', 317), summary('equalize', 320)])!.strategy).toBe('headway')
+    expect(bestStrategy([summary('headway', 300, 0.2), summary('equalize', 300, 0.1)])!.strategy).toBe('equalize')
     expect(bestStrategy([])).toBeNull()
   })
 })

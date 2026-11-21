@@ -37,6 +37,13 @@ export interface TwinStrategySummary {
   holdSecondsPerBusHour: number
   averageSpeedKmh: number
   series: TwinSample[]
+  meanWaitSeconds: number
+  excessWaitSeconds: number
+  headwayCv: number
+  /** metrica principală: așteptare în stație + întârziere în autobuz din holding, pe pasager (s) */
+  totalDelayPerPassengerSeconds: number
+  /** abaterea standard între replicări (s) */
+  totalDelayStdSeconds: number
 }
 
 export interface TwinComparison {
@@ -72,6 +79,18 @@ export interface TwinRunResult {
   bunchingEpisodes: number
   series: TwinSample[]
   finalLoopPositions: number[]
+  strategy?: TwinStrategy
+  holdSecondsPerBusHour?: number
+  averageSpeedKmh?: number
+  /** așteptarea medie în stație pe pasager (s) */
+  meanWaitSeconds?: number
+  /** așteptarea în plus față de autobuze perfect regulate (s) */
+  excessWaitSeconds?: number
+  /** coeficientul de variație al headway-ului în timp */
+  headwayCv?: number
+  meanHeadwaySeconds?: number
+  /** așteptare + întârziere în autobuz din holding, pe pasager (s) */
+  totalDelayPerPassengerSeconds?: number
 }
 
 /** O rulare păstrată în istoricul panoului, ca să poată fi comparată cu altele. */

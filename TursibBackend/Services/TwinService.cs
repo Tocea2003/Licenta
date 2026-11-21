@@ -59,7 +59,16 @@ public record TwinRunResult(
     string Strategy = HoldPolicy.None,
     /// <summary>cât a reținut în total strategia de control, pe autobuz și pe oră simulată (costul pentru pasagerii din autobuz)</summary>
     double HoldSecondsPerBusHour = 0,
-    double AverageSpeedKmh = 0);
+    double AverageSpeedKmh = 0,
+    /// <summary>așteptarea medie în stație pe pasager (s)</summary>
+    double MeanWaitSeconds = 0,
+    /// <summary>așteptarea în plus față de autobuze perfect regulate, Var(H)/(2E[H]) (s)</summary>
+    double ExcessWaitSeconds = 0,
+    /// <summary>coeficientul de variație al headway-ului în timp, în stații</summary>
+    double HeadwayCv = 0,
+    double MeanHeadwaySeconds = 0,
+    /// <summary>așteptare în stație + întârziere în autobuz din holding, pe pasager (s): metrica principală de comparație</summary>
+    double TotalDelayPerPassengerSeconds = 0);
 
 public static class TwinRunner
 {
@@ -112,7 +121,9 @@ public static class TwinRunner
             engine.Buses.Select(b => Math.Round(engine.LoopPosition(b))).ToList(),
             strategy,
             Math.Round(engine.TotalControlHoldSeconds / engine.Buses.Count / (scenario.DurationSeconds / 3600.0), 1),
-            Math.Round(engine.DistanceTravelledMeters / engine.Buses.Count / scenario.DurationSeconds * 3.6, 1));
+            Math.Round(engine.DistanceTravelledMeters / engine.Buses.Count / scenario.DurationSeconds * 3.6, 1),
+            Math.Round(engine.MeanWaitSeconds, 1), Math.Round(engine.ExcessWaitSeconds, 1), Math.Round(engine.HeadwayCv, 3),
+            Math.Round(engine.MeanHeadwaySeconds, 1), Math.Round(engine.TotalDelayPerPassengerSeconds, 1));
     }
 
     private static double Cv(IReadOnlyList<double> values)
@@ -127,7 +138,10 @@ public static class TwinRunner
 /// <summary>Rezultatul unei strategii, mediat pe mai multe rulări cu seed-uri diferite.</summary>
 public record TwinStrategySummary(
     string Strategy, double BunchedPercent, double MeanCv, double MinRatio, double BunchingEpisodes,
-    double HoldSecondsPerBusHour, double AverageSpeedKmh, IReadOnlyList<TwinSample> Series);
+    double HoldSecondsPerBusHour, double AverageSpeedKmh, IReadOnlyList<TwinSample> Series,
+    double MeanWaitSeconds = 0, double ExcessWaitSeconds = 0, double HeadwayCv = 0, double TotalDelayPerPassengerSeconds = 0,
+    /// <summary>abaterea standard a întârzierii totale între replicări (cât de sigur e rezultatul)</summary>
+    double TotalDelayStdSeconds = 0);
 
 public record TwinComparison(
     int RouteId, string InitialisedFrom, int BusCount, int DurationSeconds, int Replications,
@@ -220,7 +234,17 @@ public class TwinService
             .ToList();
         return new TwinStrategySummary(strategy, Math.Round(runs.Average(r => r.BunchedPercent), 1), Avg(r => r.MeanCv),
             Avg(r => r.MinRatio), Math.Round(runs.Average(r => r.BunchingEpisodes), 1),
-            Math.Round(runs.Average(r => r.HoldSecondsPerBusHour), 1), Math.Round(runs.Average(r => r.AverageSpeedKmh), 1), series);
+            Math.Round(runs.Average(r => r.HoldSecondsPerBusHour), 1), Math.Round(runs.Average(r => r.AverageSpeedKmh), 1), series,
+            Math.Round(runs.Average(r => r.MeanWaitSeconds), 1), Math.Round(runs.Average(r => r.ExcessWaitSeconds), 1),
+            Avg(r => r.HeadwayCv), Math.Round(runs.Average(r => r.TotalDelayPerPassengerSeconds), 1),
+            Math.Round(Std(runs.Select(r => r.TotalDelayPerPassengerSeconds).ToList()), 1));
+    }
+
+    private static double Std(IReadOnlyList<double> values)
+    {
+        if (values.Count < 2) return 0;
+        var mean = values.Average();
+        return Math.Sqrt(values.Sum(v => (v - mean) * (v - mean)) / (values.Count - 1));
     }
 
     private async Task<Prepared?> PrepareAsync(TwinScenario scenario, CancellationToken ct)

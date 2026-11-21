@@ -284,9 +284,12 @@ const dictionary: Dictionary = {
   twinHoldCost: { ro: 'Holding (s / autobuz / oră)', en: 'Holding (s / bus / hour)' },
   twinAvgSpeed: { ro: 'Viteză medie', en: 'Average speed' },
   twinVerdict: {
-    ro: '{strategy}: neuniformitatea scade cu {drop}% față de fără control, la un cost de ≈ {hold} s de holding pe autobuz și oră.',
-    en: '{strategy}: irregularity drops by {drop}% versus no control, at a cost of ≈ {hold} s of holding per bus per hour.'
+    ro: '{strategy}: întârzierea pe pasager scade cu {drop}% față de fără control (CV headway {cvBefore} → {cvAfter}), cu ≈ {hold} s de holding pe autobuz și oră.',
+    en: '{strategy}: delay per passenger drops by {drop}% versus no control (headway CV {cvBefore} → {cvAfter}), with ≈ {hold} s of holding per bus per hour.'
   },
+  twinTotalDelay: { ro: 'Întârziere / pasager', en: 'Delay / passenger' },
+  twinMeanWait: { ro: 'Așteptare medie', en: 'Mean wait' },
+  twinHeadwayCv: { ro: 'CV headway', en: 'Headway CV' },
   twinComparisonNote: {
     ro: 'Medie pe {n} rulări cu seed-uri diferite; aceleași seed-uri pentru toate strategiile. Rezultate din model, nu măsurători reale.',
     en: 'Average of {n} runs with different seeds; the same seeds for every strategy. Model results, not field measurements.'
@@ -836,7 +839,10 @@ const germanOverrides: Record<string, string> = {
   twinStrategy_equalize: 'Equalize (vorn/hinten ausgleichen)',
   twinHoldCost: 'Halten (s / Bus / Stunde)',
   twinAvgSpeed: 'Durchschnittsgeschwindigkeit',
-  twinVerdict: '{strategy}: Die Ungleichmäßigkeit sinkt um {drop}% gegenüber keiner Regelung, bei ≈ {hold} s Halten pro Bus und Stunde.',
+  twinVerdict: '{strategy}: Die Verzögerung pro Fahrgast sinkt um {drop}% gegenüber keiner Regelung (Takt-VK {cvBefore} → {cvAfter}), bei ≈ {hold} s Halten pro Bus und Stunde.',
+  twinTotalDelay: 'Verzögerung / Fahrgast',
+  twinMeanWait: 'Mittlere Wartezeit',
+  twinHeadwayCv: 'Takt-VK',
   twinComparisonNote: 'Mittelwert aus {n} Läufen mit unterschiedlichen Seeds; dieselben Seeds für alle Strategien. Modellergebnisse, keine Messungen.',
   bunchingRecommend: 'Empfehlung: {bus} an der nächsten Haltestelle ≈ {seconds} s halten',
   bunchingTitle: 'Bus-Pulk (Bunching)',

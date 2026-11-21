@@ -51,7 +51,9 @@ describe('TwinPanel', () => {
   it('compares strategies and highlights the best one with a verdict', async () => {
     const summary = (strategy: string, meanCv: number, hold: number) => ({
       strategy, bunchedPercent: strategy === 'none' ? 80 : 0, meanCv, minRatio: 0.1, bunchingEpisodes: 0,
-      holdSecondsPerBusHour: hold, averageSpeedKmh: 18, series: result.series
+      holdSecondsPerBusHour: hold, averageSpeedKmh: 18, series: result.series,
+      meanWaitSeconds: meanCv * 400, excessWaitSeconds: 0, headwayCv: meanCv, totalDelayPerPassengerSeconds: meanCv * 400 + hold / 10,
+      totalDelayStdSeconds: 3
     })
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
@@ -76,7 +78,7 @@ describe('TwinPanel', () => {
     expect(rows).toHaveLength(3)
     expect(rows.filter(r => r.classes().includes('best')).map(r => r.text())).toHaveLength(1)
     expect(wrapper.find('.best').text()).toContain('Headway')
-    expect(wrapper.find('.verdict').text()).toContain('90%')   // (0,9 -> 0,09)
+    expect(wrapper.find('.verdict').text()).toContain('89%')   // 364 s -> 40 s pe pasager
     expect(wrapper.findAll('.comparison polyline')).toHaveLength(3)
   })
 

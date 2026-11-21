@@ -23,6 +23,8 @@ public class TwinConfig
     public double PassengerArrivalRate { get; set; } = 0.008;
     /// <summary>Distanța minimă pe care o păstrează un autobuz față de cel din față (nu se depășesc).</summary>
     public double MinGapMeters { get; set; } = 15;
+    /// <summary>Ce fracțiune din pasagerii din autobuz coboară la fiecare stație (1/8 = o călătorie medie de 8 stații).</summary>
+    public double AlightingFraction { get; set; } = 1.0 / 8;
 
     public double LoopLengthMeters => 2 * RouteLengthMeters;
 }
@@ -37,6 +39,8 @@ public class TwinBus
     /// <summary>Oprire forțată (avarie, trafic, holding) — nu se mișcă cât timp e &gt; 0.</summary>
     public double HoldRemaining { get; set; }
     public double Speed { get; set; }
+    /// <summary>Pasageri aflați acum în autobuz.</summary>
+    public double Load { get; set; }
 }
 
 /// <summary>O perturbare programată: autobuzul <see cref="BusIndex"/> stă pe loc <see cref="HoldSeconds"/> începând cu <see cref="AtSecond"/>.</summary>
@@ -77,6 +81,33 @@ public class TwinEngine
     public double TotalControlHoldSeconds { get; private set; }
     /// <summary>Distanța totală parcursă de toată flota de la începutul simulării.</summary>
     public double DistanceTravelledMeters => Buses.Select((b, i) => b.Position - _initialPositions[i]).Sum();
+
+    // --- Pasageri ---
+    // Pasagerii sosesc uniform (rata λ) la fiecare stație. Un autobuz care vine după un interval H de la plecarea
+    // precedentă găsește λH pasageri, care au așteptat în total λH²/2 secunde. Deci așteptarea medie pe pasager este
+    // E[H²] / (2 E[H]) = E[H]/2 + Var(H) / (2 E[H]): neregularitatea headway-ului se plătește direct în așteptare.
+
+    /// <summary>Pasageri preluați din stații.</summary>
+    public double PassengersServed { get; private set; }
+    /// <summary>Suma timpilor de așteptare în stație ai pasagerilor preluați (pasager·secundă).</summary>
+    public double PassengerWaitSeconds { get; private set; }
+    /// <summary>Întârzierea pasagerilor deja în autobuz cauzată de holding (pasager·secundă): costul controlului.</summary>
+    public double OnBoardHoldPassengerSeconds { get; private set; }
+    private double _headwaySum, _headwaySumSq;
+    private long _headwayCount;
+
+    /// <summary>Așteptarea medie în stație, pe pasager (secunde).</summary>
+    public double MeanWaitSeconds => PassengersServed > 0 ? PassengerWaitSeconds / PassengersServed : 0;
+    /// <summary>Headway-ul mediu în stații (timpul dintre plecarea unui autobuz și sosirea următorului), secunde.</summary>
+    public double MeanHeadwaySeconds => _headwayCount > 0 ? _headwaySum / _headwayCount : 0;
+    public double HeadwayVariance => _headwayCount > 1 ? Math.Max(0, _headwaySumSq / _headwayCount - MeanHeadwaySeconds * MeanHeadwaySeconds) : 0;
+    /// <summary>Coeficientul de variație al headway-ului în timp (0 = autobuze perfect regulate).</summary>
+    public double HeadwayCv => MeanHeadwaySeconds > 0 ? Math.Sqrt(HeadwayVariance) / MeanHeadwaySeconds : 0;
+    /// <summary>Așteptarea în plus față de autobuze perfect regulate cu același headway mediu: Var(H) / (2 E[H]).</summary>
+    public double ExcessWaitSeconds => MeanHeadwaySeconds > 0 ? HeadwayVariance / (2 * MeanHeadwaySeconds) : 0;
+    /// <summary>Întârzierea totală pe pasager: așteptarea în stație plus timpul pierdut în autobuz din cauza holding-ului.</summary>
+    public double TotalDelayPerPassengerSeconds =>
+        PassengersServed > 0 ? (PassengerWaitSeconds + OnBoardHoldPassengerSeconds) / PassengersServed : 0;
 
     /// <param name="initialLoopPositions">poziția inițială a fiecărui autobuz pe buclă (0..2L), în ordinea indicilor</param>
     public TwinEngine(TwinConfig config, IReadOnlyList<double> initialLoopPositions, int seed,
@@ -189,7 +220,15 @@ public class TwinEngine
     private void ArriveAtStop(TwinBus bus, int index, double gapAhead, double gapBehind)
     {
         var stop = StopIndex(bus.NextStopPosition);
-        var waiting = _config.PassengerArrivalRate * Math.Max(0, Time - _lastDeparture[stop]);
+        var headway = Math.Max(0, Time - _lastDeparture[stop]);
+        var waiting = _config.PassengerArrivalRate * headway;
+
+        _headwaySum += headway;
+        _headwaySumSq += headway * headway;
+        _headwayCount++;
+        PassengersServed += waiting;
+        PassengerWaitSeconds += _config.PassengerArrivalRate * headway * headway / 2;
+        bus.Load = bus.Load * (1 - _config.AlightingFraction) + waiting;
         var dwell = _config.BaseDwellSeconds + _config.BoardingSecondsPerPassenger * waiting;
         dwell *= 1 + (_random.NextDouble() * 2 - 1) * _config.DwellJitter;
         dwell = Math.Clamp(dwell, 0, _config.MaxDwellSeconds);
@@ -197,6 +236,7 @@ public class TwinEngine
         var extra = _control.ExtraHoldSeconds(new TwinStopContext(bus, index, gapAhead, gapBehind, IdealGapMeters, Time, _config));
         extra = Math.Max(0, extra);
         TotalControlHoldSeconds += extra;
+        OnBoardHoldPassengerSeconds += bus.Load * extra;
         bus.DwellRemaining = dwell + extra;
     }
 

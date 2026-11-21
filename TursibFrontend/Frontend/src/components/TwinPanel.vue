@@ -70,6 +70,7 @@
             <th scope="col">{{ t('twinScenario') }}</th>
             <th scope="col">{{ t('twinBunchedTime') }}</th>
             <th scope="col">{{ t('twinCv') }}</th>
+            <th scope="col">{{ t('twinMeanWait') }}</th>
             <th scope="col">{{ t('twinEpisodes') }}</th>
             <th scope="col"><span class="sr-only">{{ t('twinRemove') }}</span></th>
           </tr>
@@ -79,6 +80,7 @@
             <td><span class="swatch" :style="{ background: r.color }"></span>{{ r.label }}</td>
             <td>{{ r.result.bunchedPercent }}%</td>
             <td>{{ r.result.meanCv }}</td>
+            <td>{{ r.result.meanWaitSeconds != null ? formatDuration(r.result.meanWaitSeconds) : '–' }}</td>
             <td>{{ r.result.bunchingEpisodes }}</td>
             <td>
               <button type="button" class="icon-btn" :aria-label="t('twinRemove')" @click="remove(r.id)">
@@ -100,19 +102,21 @@
         <thead>
           <tr>
             <th scope="col">{{ t('twinStrategy') }}</th>
+            <th scope="col">{{ t('twinTotalDelay') }}</th>
+            <th scope="col">{{ t('twinMeanWait') }}</th>
+            <th scope="col">{{ t('twinHeadwayCv') }}</th>
             <th scope="col">{{ t('twinBunchedTime') }}</th>
-            <th scope="col">{{ t('twinCv') }}</th>
             <th scope="col">{{ t('twinHoldCost') }}</th>
-            <th scope="col">{{ t('twinAvgSpeed') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="r in comparison.results" :key="r.strategy" :class="{ best: r.strategy === best?.strategy }">
             <td><span class="swatch" :style="{ background: strategyColor(r.strategy) }"></span>{{ t(`twinStrategy_${r.strategy}`) }}</td>
+            <td><strong>{{ formatDuration(r.totalDelayPerPassengerSeconds) }}</strong> <span class="pm">± {{ Math.round(r.totalDelayStdSeconds) }} s</span></td>
+            <td>{{ formatDuration(r.meanWaitSeconds) }}</td>
+            <td>{{ r.headwayCv }}</td>
             <td>{{ r.bunchedPercent }}%</td>
-            <td>{{ r.meanCv }}</td>
             <td>{{ r.holdSecondsPerBusHour }} s</td>
-            <td>{{ r.averageSpeedKmh }} km/h</td>
           </tr>
         </tbody>
       </table>
@@ -126,6 +130,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { FlaskConical, Play, Scale, X } from 'lucide-vue-next'
 import TwinChart, { type ChartLine } from '@/components/TwinChart.vue'
 import { useLanguage } from '@/composables/useLanguage'
+import { formatDuration } from '@/utils/bunching'
 import { bestStrategy, buildCompareRequest, buildScenario, MAX_BUSES, MIN_BUSES, reductionPercent, runLabel, type TwinForm } from '@/utils/twin'
 import type { TwinComparison, TwinRunEntry, TwinRunResult, TwinStrategy } from '@/types/twin'
 
@@ -166,14 +171,16 @@ const comparisonLines = computed<ChartLine[]>(() =>
     id: r.strategy, color: strategyColor(r.strategy), series: r.series, durationSeconds: comparison.value!.durationSeconds
   })))
 const best = computed(() => bestStrategy(comparison.value?.results ?? []))
-/** Concluzia în cuvinte: cât scade neuniformitatea cu cea mai bună strategie față de fără control, și cu ce cost. */
+/** Concluzia în cuvinte: cât scade întârzierea pe pasager cu cea mai bună strategie față de fără control, și cu ce cost. */
 const verdict = computed(() => {
   const none = comparison.value?.results.find(r => r.strategy === 'none')
   const top = best.value
   if (!none || !top || top.strategy === 'none') return ''
   return t('twinVerdict', undefined, {
     strategy: t(`twinStrategy_${top.strategy}`),
-    drop: reductionPercent(none.meanCv, top.meanCv),
+    drop: reductionPercent(none.totalDelayPerPassengerSeconds, top.totalDelayPerPassengerSeconds),
+    cvBefore: none.headwayCv,
+    cvAfter: top.headwayCv,
     hold: Math.round(top.holdSecondsPerBusHour)
   })
 })
@@ -271,6 +278,7 @@ function remove(id: number) {
 .run:disabled { opacity: 0.5; cursor: not-allowed; }
 .run--secondary { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-primary); }
 .comparison h4 { margin: 0; font-size: 15px; color: var(--text-primary); }
+.pm { font-size: 11px; color: var(--text-secondary); }
 .verdict { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); }
 .runs tr.best td { background: var(--live-soft); }
 .error { margin: 12px 0 0; font-size: 13px; color: var(--color-danger); }

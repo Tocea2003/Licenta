@@ -92,8 +92,12 @@ export function reductionPercent(base: number, value: number): number {
   return Math.round(((base - value) / base) * 100)
 }
 
-/** Strategia cu cea mai mică neuniformitate medie (la egalitate, cea cu holding mai mic); null dacă lista e goală. */
+/**
+ * Strategia cu cea mai mică întârziere totală pe pasager (așteptare + timp pierdut în autobuz din holding);
+ * la egalitate, cea cu headway mai regulat. null dacă lista e goală.
+ */
 export function bestStrategy(results: TwinStrategySummary[]): TwinStrategySummary | null {
   if (results.length === 0) return null
-  return [...results].sort((a, b) => a.meanCv - b.meanCv || a.holdSecondsPerBusHour - b.holdSecondsPerBusHour)[0]!
+  return [...results].sort((a, b) =>
+    a.totalDelayPerPassengerSeconds - b.totalDelayPerPassengerSeconds || a.headwayCv - b.headwayCv)[0]!
 }
