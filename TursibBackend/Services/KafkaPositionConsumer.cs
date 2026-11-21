@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using Confluent.Kafka;
 using TursibMessaging;
@@ -73,11 +75,13 @@ public class KafkaPositionConsumer : BackgroundService
         _logger.LogInformation("Consum {Topic} de pe {Servers} (grup {Group})", _options.Topic, _options.BootstrapServers, _options.GroupId);
 
         var batch = new List<BusPosition>(_options.MaxBatchSize);
+        var links = new List<ActivityLink>();
         try
         {
             while (!ct.IsCancellationRequested)
             {
                 batch.Clear();
+                links.Clear();
                 var deadline = DateTime.UtcNow.AddMilliseconds(_options.MaxBatchWaitMs);
                 var any = false;
 
@@ -97,12 +101,22 @@ public class KafkaPositionConsumer : BackgroundService
 
                     any = true;
                     Interlocked.Exchange(ref _lastMessageUnix, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                    var parent = PipelineTelemetry.Extract(key =>
+                        result.Message.Headers?.TryGetLastBytes(key, out var bytes) == true ? Encoding.UTF8.GetString(bytes) : null);
+                    if (parent != default && links.Count < 64) links.Add(new ActivityLink(parent));
                     if (KafkaMessageParser.TryParse(result.Message.Value, out var position)) batch.Add(position!);
                     else _logger.LogDebug("Mesaj Kafka ignorat (JSON invalid) la {Offset}", result.TopicPartitionOffset);
                 }
 
                 if (!any) continue;
-                if (batch.Count > 0) _ingest.Ingest(batch);
+                // un lot are mai mulți „părinți” (câte unul per mesaj): urma lotului îi leagă prin link-uri
+                using (var activity = PipelineTelemetry.Source.StartActivity(
+                           "kafka consume " + _options.Topic, ActivityKind.Consumer, default(ActivityContext), links: links))
+                {
+                    activity?.SetTag("messaging.system", "kafka");
+                    activity?.SetTag("messaging.batch.message_count", batch.Count);
+                    if (batch.Count > 0) _ingest.Ingest(batch, "kafka");
+                }
                 try { consumer.Commit(); }
                 catch (KafkaException ex) { _logger.LogWarning("Commit eșuat: {Reason}", ex.Error.Reason); }
             }

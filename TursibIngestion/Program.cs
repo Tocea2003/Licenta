@@ -1,5 +1,8 @@
 using TursibIngestion;
 using TursibMessaging;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 // Serviciul de ingestie: MQTT (dispozitive din autobuze) -> validare -> Kafka, topicul vehicle-positions.
 // Configurare prin variabile de mediu (Mqtt__Host, Kafka__BootstrapServers, ...) sau appsettings.json.
@@ -23,6 +26,15 @@ builder.Services.AddHostedService(sp => new MqttSubscriber(
     sp.GetRequiredService<ILogger<MqttSubscriber>>(),
     "tursib-ingestion"));
 builder.Services.AddHostedService<MetricsLogger>();
+
+// OpenTelemetry: urme și metrici ale ingestiei, exportate prin OTLP doar cu OTEL_EXPORTER_OTLP_ENDPOINT setat.
+if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+{
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(r => r.AddService("tursib-ingestion"))
+        .WithTracing(t => t.AddSource(PipelineTelemetry.Name).AddOtlpExporter())
+        .WithMetrics(m => m.AddMeter(PipelineTelemetry.Name).AddRuntimeInstrumentation().AddOtlpExporter());
+}
 
 await builder.Build().RunAsync();
 

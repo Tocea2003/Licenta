@@ -39,6 +39,7 @@ public class EmbeddedMqttIngest : BackgroundService
         if (!PositionParser.TryParse(topic, payload, _time.GetUtcNow(), out var message, out var reason))
         {
             Interlocked.Increment(ref _rejected);
+            PipelineTelemetry.Rejected.Add(1, new("stage", "backend"), new("reason", reason.ToString()));
             _logger.LogDebug("Mesaj MQTT respins ({Reason}) pe {Topic}", reason, topic);
             return false;
         }
@@ -59,7 +60,13 @@ public class EmbeddedMqttIngest : BackgroundService
     {
         var batch = new List<BusPosition>();
         while (batch.Count < LiveBusState.MaxBatchSize && _pending.TryDequeue(out var p)) batch.Add(p);
-        if (batch.Count > 0) _ingest.Ingest(batch);
+        if (batch.Count > 0)
+        {
+            using var activity = PipelineTelemetry.Source.StartActivity("mqtt consume batch", System.Diagnostics.ActivityKind.Consumer);
+            activity?.SetTag("messaging.system", "mqtt");
+            activity?.SetTag("messaging.batch.message_count", batch.Count);
+            _ingest.Ingest(batch, "mqtt");
+        }
         return batch.Count;
     }
 

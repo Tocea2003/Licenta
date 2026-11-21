@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
 using TursibMessaging;
 
@@ -45,13 +46,22 @@ public class PositionIngestor
         _time = time ?? TimeProvider.System;
     }
 
+    private static readonly KeyValuePair<string, object?> Stage = new("stage", "ingestion");
+
     public async Task HandleAsync(string topic, ReadOnlyMemory<byte> payload, CancellationToken ct)
     {
         _metrics.OnReceived();
+        PipelineTelemetry.Received.Add(1, Stage, new("transport", "mqtt"));
+        using var activity = PipelineTelemetry.Source.StartActivity("mqtt receive position", ActivityKind.Consumer);
+        activity?.SetTag("messaging.system", "mqtt");
+        activity?.SetTag("messaging.destination.name", topic);
 
         if (!PositionParser.TryParse(topic, payload.Span, _time.GetUtcNow(), out var message, out var reason))
         {
             _metrics.OnRejected(reason);
+            PipelineTelemetry.Rejected.Add(1, Stage, new("reason", reason.ToString()));
+            activity?.SetTag("tursib.reject_reason", reason.ToString());
+            activity?.SetStatus(ActivityStatusCode.Error, reason.ToString());
             _logger.LogDebug("Mesaj respins ({Reason}) pe {Topic}", reason, topic);
             try { await _sink.PublishRejectedAsync(topic, payload, reason, ct); }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -59,14 +69,19 @@ public class PositionIngestor
             return;
         }
 
+        activity?.SetTag("tursib.vehicle_id", message!.Id);
+        activity?.SetTag("tursib.route_id", message.RouteId);
+        PipelineTelemetry.RecordAge(message.Timestamp, "ingestion", _time.GetUtcNow());
         try
         {
-            await _sink.PublishAsync(message!.Id, JsonSerializer.Serialize(message, VehiclePositionMessage.Json), ct);
+            await _sink.PublishAsync(message.Id, JsonSerializer.Serialize(message, VehiclePositionMessage.Json), ct);
             _metrics.OnPublished();
+            PipelineTelemetry.Accepted.Add(1, Stage);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _metrics.OnFailed();
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             _logger.LogWarning(ex, "Publicarea pe Kafka a eșuat pentru {Vehicle}", message!.Id);
         }
     }

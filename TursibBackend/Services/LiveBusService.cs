@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using TursibMessaging;
 using System.Threading.Channels;
 using Microsoft.AspNetCore.SignalR;
 using TursibBackend.Hubs;
@@ -94,17 +96,20 @@ public interface IBusPositionHandler
 }
 
 /// <summary>Coadă de evenimente: ingest-ul publică, <see cref="LiveEventDispatcher"/> livrează handler-elor.</summary>
+/// <summary>Un lot de poziții pe magistrală, cu contextul urmei care l-a produs (ca handler-ele să continue aceeași urmă).</summary>
+public record LiveEvent(IReadOnlyList<BusPosition> Positions, ActivityContext Context);
+
 public class LiveEventBus
 {
-    private readonly Channel<IReadOnlyList<BusPosition>> _channel = Channel.CreateBounded<IReadOnlyList<BusPosition>>(
+    private readonly Channel<LiveEvent> _channel = Channel.CreateBounded<LiveEvent>(
         new BoundedChannelOptions(256) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
 
     public void Publish(IReadOnlyList<BusPosition> positions)
     {
-        if (positions.Count > 0) _channel.Writer.TryWrite(positions);
+        if (positions.Count > 0) _channel.Writer.TryWrite(new LiveEvent(positions, Activity.Current?.Context ?? default));
     }
 
-    public ChannelReader<IReadOnlyList<BusPosition>> Reader => _channel.Reader;
+    public ChannelReader<LiveEvent> Reader => _channel.Reader;
 }
 
 /// <summary>Citește evenimentele din coadă și le trimite fiecărui handler; un handler care cade nu le oprește pe celelalte.</summary>
@@ -123,10 +128,14 @@ public class LiveEventDispatcher : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var batch in _bus.Reader.ReadAllAsync(stoppingToken))
+        await foreach (var live in _bus.Reader.ReadAllAsync(stoppingToken))
         {
+            var batch = live.Positions;
             foreach (var handler in _handlers)
             {
+                using var activity = PipelineTelemetry.Source.StartActivity(
+                    "handle " + handler.GetType().Name, ActivityKind.Internal, live.Context);
+                activity?.SetTag("tursib.positions", batch.Count);
                 try { await handler.HandleAsync(batch, stoppingToken); }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {

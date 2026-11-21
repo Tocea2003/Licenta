@@ -43,13 +43,47 @@ services:
       retries: 20
     restart: unless-stopped
 
+  # --- Observabilitate: OpenTelemetry Collector → Jaeger (urme, http://localhost:16686) și Prometheus (metrici, :9090) ---
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./infra/otel/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    depends_on:
+      - jaeger
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    volumes:
+      - ./infra/otel/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - otel-collector
+    restart: unless-stopped
+
   ingestion:
     build:
       context: .
       dockerfile: TursibIngestion/Dockerfile
     environment:
       - Mqtt__Host=mosquitto
+      # abonament partajat: mai multe instanțe (docker compose up --scale ingestion=2) își împart mesajele
+      - Mqtt__SharedGroup=ingestion
       - Kafka__BootstrapServers=redpanda:9092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       mosquitto:
         condition: service_started
@@ -76,6 +110,7 @@ services:
       # pozițiile vin din Kafka; istoricul pentru replay se salvează în PostgreSQL
       - Kafka__BootstrapServers=redpanda:9092
       - History__Enabled=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       db:
         condition: service_healthy

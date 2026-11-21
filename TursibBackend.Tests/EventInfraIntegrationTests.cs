@@ -52,6 +52,9 @@ public class MqttToKafkaIntegrationTests
         BootstrapServers = Kafka, GroupId = $"test-{Guid.NewGuid():N}", AutoOffsetReset = AutoOffsetReset.Earliest, EnableAutoCommit = false
     };
 
+    private static bool ActivityContextFrom(string traceparent) =>
+        System.Diagnostics.ActivityContext.TryParse(traceparent, null, out _);
+
     [EventInfraFact]
     public async Task ValidMqttMessages_ReachKafka_AndInvalidOnesTheDeadLetterTopic()
     {
@@ -84,6 +87,9 @@ public class MqttToKafkaIntegrationTests
 
             Assert.NotNull(got);
             Assert.Equal(vehicle, got!.Message.Key);
+            // contextul urmei OpenTelemetry trece la backend prin antetul traceparent
+            Assert.True(got.Message.Headers.TryGetLastBytes("traceparent", out var traceparent));
+            Assert.True(ActivityContextFrom(Encoding.UTF8.GetString(traceparent)));
             Assert.True(KafkaMessageParser.TryParse(got.Message.Value, out var position));
             Assert.Equal(77, position!.RouteId);
 

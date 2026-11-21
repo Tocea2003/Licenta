@@ -74,6 +74,11 @@ if (string.IsNullOrWhiteSpace(connectionString))
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure()));
 
+// Observabilitate (OpenTelemetry): urme și metrici pentru drumul pozițiilor, HTTP și runtime.
+// Exportul OTLP pornește doar cu OTEL_EXPORTER_OTLP_ENDPOINT setat (ex. http://otel-collector:4317), ca local și pe
+// planul gratuit să nu coste nimic.
+builder.Services.AddTursibTelemetry(builder.Configuration, "tursib-backend");
+
 // Register Services
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<RouteCalculatorService>();
@@ -129,6 +134,7 @@ builder.Services.AddSingleton<TripMatcher>();
 // Stage 3: digital twin (simulare accelerată a liniilor, independentă de fluxul live)
 builder.Services.AddSingleton<TwinService>();
 builder.Services.AddSingleton<IBusPositionHandler>(sp => sp.GetRequiredService<BunchingDetector>());
+builder.Services.AddSingleton<LiveTelemetry>();
 builder.Services.AddHostedService<LiveEventDispatcher>();
 builder.Services.AddHostedService<StaleBusCleaner>();
 
@@ -219,6 +225,7 @@ builder.Services.AddResponseCompression(options =>
 });
 
 var app = builder.Build();
+_ = app.Services.GetRequiredService<LiveTelemetry>();   // înregistrează gauge-urile
 
 // Apply pending migrations automatically
 using (var scope = app.Services.CreateScope())

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
@@ -58,8 +59,17 @@ public sealed class KafkaPositionSink : IPositionSink, IDisposable
         }
     }
 
-    public async Task PublishAsync(string vehicleId, string json, CancellationToken ct) =>
-        await _producer.ProduceAsync(_options.Topic, new Message<string, string> { Key = vehicleId, Value = json }, ct);
+    public async Task PublishAsync(string vehicleId, string json, CancellationToken ct)
+    {
+        using var activity = PipelineTelemetry.Source.StartActivity("kafka produce " + _options.Topic, ActivityKind.Producer);
+        activity?.SetTag("messaging.system", "kafka");
+        activity?.SetTag("messaging.destination.name", _options.Topic);
+        activity?.SetTag("messaging.kafka.message.key", vehicleId);
+        var message = new Message<string, string> { Key = vehicleId, Value = json, Headers = new Headers() };
+        // contextul urmei trece la backend prin antetul traceparent
+        PipelineTelemetry.Inject(activity, (k, v) => message.Headers.Add(k, Encoding.UTF8.GetBytes(v)));
+        await _producer.ProduceAsync(_options.Topic, message, ct);
+    }
 
     public async Task PublishRejectedAsync(string topic, ReadOnlyMemory<byte> payload, RejectReason reason, CancellationToken ct) =>
         await _dlqProducer.ProduceAsync(_options.DeadLetterTopic, new Message<string, byte[]>

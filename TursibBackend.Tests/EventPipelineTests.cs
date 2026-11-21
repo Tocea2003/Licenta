@@ -207,7 +207,7 @@ public class LiveIngestServiceTests
         Assert.Single(accepted);
         Assert.Single(state.Snapshot());
         Assert.True(bus.Reader.TryRead(out var published));
-        Assert.Single(published!);
+        Assert.Single(published!.Positions);
     }
 
     [Fact]
@@ -527,7 +527,7 @@ public class EmbeddedMqttIngestTests
         Assert.Equal(2, ingest.Flush());
         Assert.Equal(2, state.Snapshot().Count);
         Assert.True(bus.Reader.TryRead(out var batch));
-        Assert.Equal(2, batch!.Count);                       // un singur eveniment pentru tot lotul
+        Assert.Equal(2, batch!.Positions.Count);                       // un singur eveniment pentru tot lotul
         Assert.False(bus.Reader.TryRead(out _));
         Assert.Equal(0, ingest.Flush());
     }
